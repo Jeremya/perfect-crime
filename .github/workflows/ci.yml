@@ -21,17 +21,7 @@ jobs:
       - run: npm run validate
       - run: npm run build
 
-  # One preview URL per PR (story A1), deployed to Cloudflare Pages.
-  deploy-preview:
-    if: github.event_name == 'pull_request'
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Yap Corp nomenclature (docs/NAMING.md): the Pages project is
-          # yap-corp-perfect-crime. Create it once in the Cloudflare dashboard.
-          command: pages deploy dist --project-name=yap-corp-perfect-crime --branch=pr-${{ github.event.pull_request.number }}
+  # Preview URL per PR (story A1) is handled natively by Cloudflare Pages:
+  # the GitHub repo is connected to the Pages project `yap-corp-perfect-crime`
+  # (docs/NAMING.md), which builds every PR as a preview deployment and deploys
+  # `main` to production. No wrangler job (and no API secrets) needed here.
