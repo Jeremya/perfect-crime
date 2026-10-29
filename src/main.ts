@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 import { YAP_CORP } from './app/brand';
+import { yapInstallConsentGate, yapReadConsent } from './app/consent';
+import { yapStorage } from './app/storage';
+import { YapConsentScene } from './game/consent-scene';
 import { YapLevelScene } from './game/level-scene';
 import { YapViewerScene } from './game/viewer-scene';
 
@@ -14,12 +17,18 @@ class YapBootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Story G2: nothing leaves the device before OK — the consent gate wraps
+    // the shared analytics transport before any scene can emit an event.
+    yapInstallConsentGate({ storage: yapStorage });
     // Phaser 4 auto-starts only the first scene of the config array, so the
     // boot scene hands over explicitly: /dev/viewer opens the dev viewer
     // (F1), every other path opens the Level scene (C1).
     const target = window.location.pathname.startsWith(YAP_VIEWER_PATH)
       ? 'yap-viewer'
       : 'yap-level';
+    // First launch: the non-blocking consent banner overlays the bottom bar
+    // (YapConsentScene is last in the scene list, so it renders on top).
+    if (yapReadConsent(yapStorage) === null) this.scene.launch('yap-consent');
     this.scene.start(target);
   }
 }
@@ -37,6 +46,9 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 480,
     height: 853,
   },
-  scene: [YapBootScene, YapLevelScene, YapViewerScene],};
+  // YapConsentScene last: launched as an overlay, it must render on top of
+  // the level scene (scene render order follows the config array order).
+  scene: [YapBootScene, YapLevelScene, YapViewerScene, YapConsentScene],
+};
 
 new Phaser.Game(config);
