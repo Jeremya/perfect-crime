@@ -112,6 +112,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapAttempts = 0;
   /** Layer above the entities: red detector cone + fatal-cell marker. */
   private yapMarksLayer: Phaser.GameObjects.Graphics | null = null;
+  /** Unzoomed camera drawing the chrome while the Failure zoom is on. */
+  private yapUiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
 
   constructor() {
     super('yap-level');
@@ -144,6 +146,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
     this.yapRemoveTickTimer();
     this.yapRemoveFailureTimer();
+    this.yapResetCamera();
   };
 
   // -------------------------------------------------------------------------
@@ -868,7 +871,12 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapUpdateChrome();
   }
 
-  /** Zooms the camera on the midpoint between the thief and the detector. */
+  /**
+   * Zooms the board on the midpoint between the thief and the detector. Only
+   * the board zooms: the main camera is clipped to the area between the bars,
+   * and an unzoomed UI camera draws the chrome, so the written cause and the
+   * attempt number stay on screen.
+   */
   private yapApplyFailureZoom(): void {
     const replay = this.yapFailure;
     const layout = this.yapLayout;
@@ -877,13 +885,32 @@ export class YapLevelScene extends Phaser.Scene {
     const a = yapCellCenter(layout, { x: Math.floor(focus.x), y: Math.floor(focus.y) });
     const b = yapCellCenter(layout, { x: Math.ceil(focus.x), y: Math.ceil(focus.y) });
     const cam = this.cameras.main;
+    cam.setViewport(
+      0,
+      YAP_TOP_BAR_HEIGHT,
+      layout.viewWidth,
+      layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT,
+    );
+    // keep the zoomed view on the grid, never on the empty margins around it
+    cam.setBounds(layout.originX, layout.originY, layout.boardWidth, layout.boardHeight);
     cam.setZoom(replay.yapZoomFactor(layout));
     cam.centerOn((a.x + b.x) / 2, (a.y + b.y) / 2);
+    const ui = this.yapUiCamera ?? this.cameras.add(0, 0, layout.viewWidth, layout.viewHeight);
+    ui.setSize(layout.viewWidth, layout.viewHeight);
+    this.yapUiCamera = ui;
+    if (this.yapChrome !== null) cam.ignore(this.yapChrome);
+    if (this.yapBoard !== null) ui.ignore(this.yapBoard);
   }
 
-  /** Back to the full-board view (zoom 1, no scroll). */
+  /** Back to the full-board view (one camera, zoom 1, no scroll). */
   private yapResetCamera(): void {
+    if (this.yapUiCamera !== null) {
+      this.cameras.remove(this.yapUiCamera);
+      this.yapUiCamera = null;
+    }
     const cam = this.cameras.main;
+    cam.removeBounds();
+    cam.setViewport(0, 0, this.scale.width, this.scale.height);
     cam.setZoom(1);
     cam.centerOn(this.scale.width / 2, this.scale.height / 2);
   }
@@ -938,6 +965,13 @@ export class YapLevelScene extends Phaser.Scene {
     });
     const midY = YAP_TOP_BAR_HEIGHT / 2;
 
+    // the zoomed main camera only covers the board area, so the top bar
+    // paints its own page background
+    const topBar = this.add.graphics();
+    topBar
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-page']), 1)
+      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT);
+    chrome.add(topBar);
     chrome.add(this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5));
     chrome.add(
       this.add
