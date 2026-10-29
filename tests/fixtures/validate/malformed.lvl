@@ -1,0 +1,20 @@
+# Negative fixture (B4): the map's third row has 7 characters instead of 8.
+# The parser must reject it with the 1-based line of that row (line 9).
+name: Malformed
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 18
+map: |
+  ########
+  #S.....#
+  #.....#
+  #......#
+  #......#
+  ##.##.##
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L..E#
+  ########

@@ -1,0 +1,26 @@
+# Negative fixture (B4): the laser period is on 5 + off 2 = 7, which does not
+# divide 24. The parser must reject it at the "on:" line (line 22).
+name: Bad period
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 18
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  ##.##.##
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L..E#
+  ########
+lasers:
+  - id: l1
+    cells: [[1,9], [2,9]]
+    on: 5
+    off: 2
+    phase: 0

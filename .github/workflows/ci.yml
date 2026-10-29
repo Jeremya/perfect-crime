@@ -18,7 +18,12 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
+      # B4 gate: fails on an unsolvable level, a malformed level, or a period
+      # that does not divide 24; regenerates levels/levels.json.
       - run: npm run validate
+      # levels.json is generated, never hand-edited: it must be committed and
+      # identical to what the compiler produces from the .lvl files.
+      - run: git diff --exit-code -- levels/levels.json
       - run: npm run build
 
   # Preview URL per PR (story A1) is handled natively by Cloudflare Pages:
