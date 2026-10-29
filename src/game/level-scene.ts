@@ -37,7 +37,6 @@ import {
   yapDrawCone,
   yapDrawDiamond,
   yapDrawExit,
-  yapDrawGuard,
   yapDrawLaser,
   yapDrawPatrol,
   yapDrawStaticGrid,
@@ -95,6 +94,11 @@ export class YapLevelScene extends Phaser.Scene {
 
   constructor() {
     super('yap-level');
+  }
+
+  preload(): void {
+    this.load.image('yap-thief', '/assets/kenney/thief-hitman-stand.png');
+    this.load.image('yap-guard', '/assets/kenney/guard-man-brown-stand.png');
   }
 
   create(data: YapLevelSceneData): void {
@@ -304,9 +308,31 @@ export class YapLevelScene extends Phaser.Scene {
     if (!state.hasLoot) yapDrawDiamond(ent, layout, level.loot);
     yapDrawStart(ent, layout, level.start);
     for (const cam of state.cameras) yapDrawCamera(ent, layout, cam.at, cam.facing);
-    for (const guard of state.guards) yapDrawGuard(ent, layout, guard.pos, guard.facing);
     yapDrawThief(ent, layout, state.thief);
     ents.add(ent);
+
+    // Kenney Top-down Shooter stand poses: the warm character chips separate
+    // guards from the thief while preserving a clear silhouette on danger cells.
+    for (const guard of state.guards) {
+      const p = yapCellCenter(layout, guard.pos);
+      const marker = this.add.graphics();
+      const r = layout.cell * 0.43;
+      marker
+        .fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
+        .fillCircle(p.x, p.y, r)
+        .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
+        .strokeCircle(p.x, p.y, r);
+      const sprite = this.add
+        .image(p.x, p.y, 'yap-guard')
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9);
+      ents.add([marker, sprite]);
+    }
+    const thiefAt = yapCellCenter(layout, state.thief);
+    ents.add(
+      this.add
+        .image(thiefAt.x, thiefAt.y, 'yap-thief')
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9),
+    );
 
     // What is on screen right now (input of the dev assertion).
     this.yapDisplayed = {
@@ -383,34 +409,64 @@ export class YapLevelScene extends Phaser.Scene {
       fontSize: `${size}px`,
       color: YAP_PALETTE['text-primary'],
     });
-    const midY = YAP_TOP_BAR_HEIGHT / 2;
+    const header = this.add.graphics();
+    header
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
+    // A small accent gives the otherwise quiet HUD a clear game identity.
+    header.fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1).fillRect(0, 0, 4, 64);
+    chrome.add(header);
 
-    const name = this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5);
+    const name = this.add
+      .text(16, 18, level.name, {
+        ...textStyle(18),
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0.5);
     chrome.add(name);
 
-    // right-aligned stats: pauses left, par, plan ticks (14 px minimum)
+    // Compact second-line stats avoid collision with the level title on narrow
+    // phones while keeping the planning state visible at a glance.
     const input = this.yapPathInput;
     const pausesText = this.add
       .text(
-        layout.viewWidth - 16,
-        midY,
+        layout.viewWidth - 14,
+        47,
         yapI18n.t('planning.pausesLeft', { count: input?.yapPausesLeft() ?? level.maxPauses }),
-        textStyle(14),
+        { ...textStyle(14), fontStyle: 'bold' },
       )
       .setOrigin(1, 0.5);
     const parText = this.add
-      .text(0, midY, yapI18n.t('planning.par', { par: level.par }), textStyle(14))
+      .text(0, 47, yapI18n.t('planning.par', { par: level.par }), {
+        ...textStyle(14),
+        fontStyle: 'bold',
+      })
       .setOrigin(1, 0.5);
-    parText.x = pausesText.x - pausesText.width - 12;
+    parText.x = pausesText.x - pausesText.width - 16;
     const ticksText = this.add
       .text(
         0,
-        midY,
+        47,
         yapI18n.t('planning.planTicks', { ticks: input?.yapSteps() ?? 0 }),
-        textStyle(14),
+        { ...textStyle(14), fontStyle: 'bold' },
       )
       .setOrigin(1, 0.5);
-    ticksText.x = parText.x - parText.width - 12;
+    ticksText.x = parText.x - parText.width - 16;
+
+    // Quiet pill backgrounds group the numbers without competing with the map.
+    const stats = this.add.graphics();
+    const pill = (text: Phaser.GameObjects.Text): void => {
+      const w = text.width + 16;
+      stats
+        .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
+        .fillRoundedRect(text.x - w + 8, 36, w, 22, 11);
+    };
+    pill(ticksText);
+    pill(parText);
+    pill(pausesText);
+    chrome.add(stats);
     chrome.add([pausesText, parText, ticksText]);
     this.yapPausesText = pausesText;
     this.yapTicksText = ticksText;
@@ -435,14 +491,13 @@ export class YapLevelScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     chrome.add(this.yapInstruction);
 
-    // buttons row: 44 px tall touch targets, PLAY the largest primary action
-    const btnH = 44;
-    const btnY = barY + YAP_BOTTOM_BAR_HEIGHT - 6 - btnH / 2;
+    // Buttons have generous phone-sized targets; PLAY is the visual anchor.
+    const btnY = barY + 66;
     const clearBtn = this.yapMakeButton(
-      16 + 48,
+      16 + 50,
       btnY,
-      96,
-      btnH,
+      100,
+      48,
       yapI18n.t('planning.clear'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
@@ -456,10 +511,10 @@ export class YapLevelScene extends Phaser.Scene {
     );
     chrome.add(clearBtn.container);
     const playBtn = this.yapMakeButton(
-      layout.viewWidth - 16 - 75,
+      layout.viewWidth / 2 + 42,
       btnY,
-      150,
-      btnH,
+      168,
+      52,
       yapI18n.t('planning.play'),
       'action-secondary',
       YAP_PALETTE['text-secondary'],
@@ -520,9 +575,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-        .fillRoundedRect(-75, -22, 150, 44, 8)
+        .fillRoundedRect(-84, -26, 168, 52, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-75, -22, 150, 44, 8);
+        .strokeRoundedRect(-84, -26, 168, 52, 10);
       play.label.setColor(YAP_PALETTE['path-light']);
       if (this.yapPlayPulse === null) {
         this.yapPlayPulse = this.tweens.add({
@@ -538,9 +593,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
-        .fillRoundedRect(-75, -22, 150, 44, 8)
+        .fillRoundedRect(-84, -26, 168, 52, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-75, -22, 150, 44, 8);
+        .strokeRoundedRect(-84, -26, 168, 52, 10);
       play.label.setColor(YAP_PALETTE['text-secondary']);
       if (this.yapPlayPulse !== null) {
         this.yapPlayPulse.stop();

@@ -45,13 +45,15 @@ export function yapDrawStaticGrid(
       const ch = level.map[y]?.charAt(x) ?? '#';
       if (ch === '#') {
         g.fillStyle(color('wall'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
-        // wall furniture: a small desaturated detail block, wall cells only
-        const inset = Math.max(2, Math.floor(layout.cell * 0.18));
-        g.fillStyle(color('wall-detail'), 1).fillRect(
-          rect.x + inset,
-          rect.y + inset,
-          rect.w - inset * 2,
-          rect.h - inset * 2,
+        // A restrained inset seam makes walls read as architectural panels
+        // instead of a field of identical grey blocks. Floor remains untouched.
+        const inset = Math.max(2, Math.floor(layout.cell * 0.1));
+        g.lineStyle(1, color('wall-detail'), 0.62).strokeRoundedRect(
+          rect.x + inset + 0.5,
+          rect.y + inset + 0.5,
+          rect.w - inset * 2 - 1,
+          rect.h - inset * 2 - 1,
+          Math.max(2, Math.floor(layout.cell * 0.08)),
         );
       } else {
         g.fillStyle(color('floor'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -207,7 +209,7 @@ export function yapDrawLaser(
 // Entities — code-drawn stand-ins (no weapon, no illustration at Gate 1)
 // ---------------------------------------------------------------------------
 
-/** Thief: dark disc with a light edge, visible over danger cells. */
+/** Thief: light-edged disc under the Kenney silhouette for cone contrast. */
 export function yapDrawThief(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
@@ -215,8 +217,8 @@ export function yapDrawThief(
 ): void {
   const p = yapCellCenter(layout, at);
   const r = layout.cell * 0.3;
-  g.fillStyle(color('text-primary'), 1).fillCircle(p.x, p.y, r);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-light'), 1).strokeCircle(p.x, p.y, r);
+  g.fillStyle(color('path-light'), 1).fillCircle(p.x, p.y, r);
+  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('text-primary'), 1).strokeCircle(p.x, p.y, r);
 }
 
 /** Guard: amber square (shape differs from the thief) with a facing wedge. */
