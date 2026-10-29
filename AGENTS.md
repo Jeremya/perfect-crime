@@ -39,6 +39,12 @@ Before coding, read your task file `tasks/<ID>.md`. It lists:
 - the acceptance criteria from the spec;
 - the definition of done.
 
+For any screen, rendering, interaction, sharing-preview, or level-content
+visual work, also read `docs/UI-DESIGN.md`. It is the source of truth for the
+Gate 1 visual direction, readability rules, layout constraints, asset limits,
+and visual review checklist. The Gate 1 PDF remains the source of truth for
+game rules, screen behavior, and product scope.
+
 ## 4. Guardrails (from the spec — never without approval)
 
 - Game rules live only in `resolveTick` / `visibleCells` (`src/core/`). A rule
@@ -51,6 +57,9 @@ Before coding, read your task file `tasks/<ID>.md`. It lists:
 - All analytics events go through `track()`; no personal data; no URL with its
   fragment.
 - All displayed text lives in the FR/EN dictionaries (`src/app/i18n/`).
+- UI must follow `docs/UI-DESIGN.md`: exact-cell visibility overlays, neutral
+  environment, non-color-only danger cues, mobile portrait layout, and the
+  3 MB initial-download budget.
 - Out of scope at Gate 1: editor, ads, purchases, accounts, leaderboards,
   notifications, native apps, doors/switches, application server.
 
