@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { YAP_CORP } from './app/brand';
+import { YapLevelScene } from './game/level-scene';
 
-// Boot scene: the only screen that exists until Epic C lands.
-// A1 acceptance: an empty scene runs smoothly on a mid-range Android.
+// Boot scene: an empty scene that runs smoothly on a mid-range Android (A1).
 // Nomenclature: every class carries the Yap prefix (docs/NAMING.md).
 class YapBootScene extends Phaser.Scene {
   constructor() {
@@ -10,7 +10,9 @@ class YapBootScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Intentionally empty: first playable screen arrives with the Level scene.
+    // Phaser 4 auto-starts only the first scene of the config array, so the
+    // boot scene hands over to the Level scene (C1) explicitly.
+    this.scene.start('yap-level');
   }
 }
 
@@ -27,7 +29,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 480,
     height: 853,
   },
-  scene: [YapBootScene],
+  scene: [YapBootScene, YapLevelScene],
 };
 
 new Phaser.Game(config);
