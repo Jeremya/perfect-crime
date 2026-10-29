@@ -283,13 +283,21 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
   function uiLikeLiterals(source: string): string[] {
     const found: string[] = [];
     const literal = /'([^'\\\n]|\\.)*'|"([^"\\\n]|\\.)*"|`([^`\\]|\\.)*`/g;
-    for (const match of stripComments(source).matchAll(literal)) {
-      const raw = match[0];
-      const text = raw.slice(1, -1);
-      if (!/[A-Za-z]/.test(text)) continue;
-      const looksLikeCopy =
-        /[A-Za-z]\s+[A-Za-z]/.test(text) || /^[A-Z][a-z]+$/.test(text) || /^[A-Z]{3,}$/.test(text);
-      if (looksLikeCopy) found.push(`${raw} (${text})`);
+    // Line-based scan: developer-facing diagnostics (throw new XxxError('...'))
+    // are not UI copy — the player never sees them; the UI maps causes to
+    // i18n dictionary keys. Skip any line that throws or constructs an Error.
+    for (const line of stripComments(source).split('\n')) {
+      if (/\bthrow\b|\bError\s*\(/.test(line)) continue;
+      for (const match of line.matchAll(literal)) {
+        const raw = match[0];
+        const text = raw.slice(1, -1);
+        if (!/[A-Za-z]/.test(text)) continue;
+        const looksLikeCopy =
+          /[A-Za-z]\s+[A-Za-z]/.test(text) ||
+          /^[A-Z][a-z]+$/.test(text) ||
+          /^[A-Z]{3,}$/.test(text);
+        if (looksLikeCopy) found.push(`${raw} (${text})`);
+      }
     }
     return found;
   }
