@@ -111,4 +111,8 @@ export const fr: YapDictionary = {
     unsolved: 'Pas terminable en {max} ticks',
     noBundled: 'Aucun fichier .lvl embarqué',
   },
+  // Story C3 — écran d'exécution (rejeu du plan).
+  executionPlayback: {
+    tick: 'Tick {tick}/{max}',
+  },
 };
