@@ -639,6 +639,11 @@ export class YapLevelScene extends Phaser.Scene {
     const exec = new YapExecution(level, plan);
     this.yapExecution = exec;
     exec.yapStart();
+    // the PLAY pulse targets the planning chrome destroyed below
+    if (this.yapPlayPulse !== null) {
+      this.yapPlayPulse.stop();
+      this.yapPlayPulse = null;
+    }
     this.yapChrome?.destroy();
     this.yapChrome = null;
     this.yapBuildExecutionChrome(level, layout);
