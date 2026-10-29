@@ -8,6 +8,10 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0b0e14" />
+    <!-- Story E3: this file is the shell of every page. At build time
+         tools/og.ts (wired in vite.config.ts) generates /c/1 … /c/7 from it,
+         each with its own og:title / og:description / og:image (daily title +
+         map preview in public/icons/), and injects the root OG tags below. -->
     <title>Perfect Crime</title>
     <style>
       html,
