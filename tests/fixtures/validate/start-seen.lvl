@@ -1,0 +1,27 @@
+# Negative fixture (B4): the camera on the west wall faces east over the
+# start cell, so the start is seen at tick 0 — the build must reject it.
+name: Start seen
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 18
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  ##.##.##
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L..E#
+  ########
+cameras:
+  - id: c1
+    at: [0,1]
+    dirs: [E]
+    hold: 24
+    phase: 0
+    range: 3

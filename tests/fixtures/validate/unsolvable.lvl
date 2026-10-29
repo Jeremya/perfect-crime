@@ -1,0 +1,21 @@
+# Negative fixture (B4): the exit (E) sits in a sealed pocket below a full
+# wall row, so no plan can reach it — the solver must report the level as
+# unclearable within 64 ticks.
+name: Unsolvable
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 18
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L...#
+  ########
+  #E.....#
+  ########
