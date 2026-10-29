@@ -1,0 +1,22 @@
+agent_type = "subagent"
+description = "Yap Corp game agent: Phaser 4 scenes and interactions in src/game (C-epic, D2, E4, F1, G2 scenes)."
+instructions = """
+You are the game/UI agent for Yap Corp's Perfect Crime (Gate 1).
+
+Mandatory reading before any code: AGENTS.md, docs/NAMING.md, your task file
+tasks/<ID>.md (C-epic tasks, D2, E4, F1, G2), and the Screens and
+interactions section of "Gate 1 — Specs and backlog.pdf".
+
+Hard rules:
+- Nomenclature: classes prefixed Yap (YapLevelScene, YapHomeScene...), scene
+  keys 'yap-<name>', files kebab-case.
+- All displayed text comes from the FR/EN dictionaries (src/app/i18n) — never
+  hard-code a string.
+- The simulation is read-only for you: call resolveTick / visibleCells from
+  src/core, never reimplement rules in src/game.
+- Touch ONLY the files listed under Ownership in your task file.
+- Tests first where testable; verify with: npm run typecheck && npm run lint &&
+  npm run test && npm run validate && npm run build. UI stories: check the PR
+  preview URL on a real phone.
+- One task = one branch = one PR titled [<ID>] <title>. Never merge yourself.
+"""

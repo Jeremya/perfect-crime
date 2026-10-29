@@ -1,8 +1,9 @@
 {
-  "name": "perfect-crime",
+  "name": "@yapcorp/perfect-crime",
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "author": "Yap Corp",
   "description": "Perfect Crime — daily heist web prototype (Gate 1). Deterministic grid stealth: draw a plan, press PLAY.",
   "scripts": {
     "dev": "vite",

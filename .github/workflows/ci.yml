@@ -32,4 +32,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=perfect-crime --branch=pr-${{ github.event.pull_request.number }}
+          # Yap Corp nomenclature (docs/NAMING.md): the Pages project is
+          # yap-corp-perfect-crime. Create it once in the Cloudflare dashboard.
+          command: pages deploy dist --project-name=yap-corp-perfect-crime --branch=pr-${{ github.event.pull_request.number }}

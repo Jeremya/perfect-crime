@@ -1,0 +1,83 @@
+# Tasks — Gate 1 backlog, cut for parallel agents
+
+One file per story of `Gate 1 — Specs and backlog.pdf` (34 stories + 2
+optional). Each file is **self-contained**: an agent can pick it up with only
+`AGENTS.md` + the task file. Every task declares its **ownership** (the only
+files it may touch) so parallel agents never collide.
+
+Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
+first. Full local check green before pushing:
+`npm run typecheck && npm run lint && npm run test && npm run validate && npm run build`.
+
+## Index
+
+| ID | Story | Epic | Role | h | Depends on | File |
+|---|---|---|---|---|---|---|
+| A1 | Repository and tooling | A | Dev | 1.5 | — (scaffolded) | `tasks/A1.md` |
+| A2 | Config, safe storage, anon IDs, flags | A | Dev | 0.75 | A1 | `tasks/A2.md` |
+| A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | `tasks/A3.md` |
+| B1 | Level format, parser, validator | B | Dev | 1.5 | A1 | `tasks/B1.md` |
+| B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | `tasks/B2.md` |
+| B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | `tasks/B3.md` |
+| B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | `tasks/B4.md` |
+| C1 | Rendering | C | Dev | 3 | B2 | `tasks/C1.md` |
+| C2 | Path drawing | C | Dev | 3 | C1 | `tasks/C2.md` |
+| C3 | Execution playback | C | Dev | 1.5 | C2 | `tasks/C3.md` |
+| C4 | Failure replay | C | Dev | 1.5 | C3 | `tasks/C4.md` |
+| C5 | Win screen | C | Dev | 1 | C3 | `tasks/C5.md` |
+| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | `tasks/C6.md` |
+| C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | `tasks/C7.md` |
+| C8 | Sounds + vibration | C | Dev | 0.5 | C3 | `tasks/C8.md` |
+| D1 | Daily logic, streak | D | Dev | 1.5 | A2 | `tasks/D1.md` |
+| D2 | Home and flow | D | Dev | 1.25 | D1, C5 | `tasks/D2.md` |
+| E1 | Payload v1 | E | Dev | 1 | B2 | `tasks/E1.md` |
+| E2 | Share button | E | Dev | 1.25 | E1, C5 | `tasks/E2.md` |
+| E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | `tasks/E3.md` |
+| E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | `tasks/E4.md` |
+| E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | `tasks/E5.md` |
+| F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | `tasks/F1.md` |
+| F2 | 5 tutorial levels | F | Design | 1.5 | F1 | `tasks/F2.md` |
+| F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | `tasks/F3.md` |
+| G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | `tasks/G1.md` |
+| G2 | Consent and privacy | G | Dev | 0.5 | G1 | `tasks/G2.md` |
+| G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | `tasks/G3.md` |
+| H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | `tasks/H1.md` |
+| H2 | Feel fixes | H | Dev | 2 | H1 | `tasks/H2.md` |
+| H3 | Feel session #2 (ghost on/off) | H | PM+Dev | 1.5 | H2 | `tasks/H3.md` |
+| H4 | Recruitment 20–30 testers | H | PM | 1.5 | — (parallel from day 1) | `tasks/H4.md` |
+| H5 | Test week, no reminders | H | PM | 1 | H4, G3 | `tasks/H5.md` |
+| H6 | Gate 1 decision | H | PM | 1 | H5 | `tasks/H6.md` |
+| O1 | Optional: playable archive | O | Dev | 0.75 | D2 | `tasks/O1.md` |
+| O2 | Optional: draft generator | O | Dev | 1 | B3 | `tasks/O2.md` |
+
+## Parallel waves (dependency order)
+
+Run every task of a wave concurrently — they own disjoint files. Start the
+next wave when the wave's PRs are merged.
+
+| Wave | Tasks | Why |
+|---|---|---|
+| 0 | A1 (verify only), **H4** | no dependencies; H4 runs alongside all dev |
+| 1 | A2, A3 | both depend only on A1; disjoint files (`src/app/config|storage` vs `src/app/i18n`) |
+| 2 | B1, G1 | B1 needs A1; G1 needs A2 — disjoint (`src/core` vs `src/app/analytics`) |
+| 3 | B2 | needs B1 |
+| 4 | B3, C1, E1 | all need only B2; disjoint (`src/core/solver` vs `src/game` vs `src/app/payload`) |
+| 5 | B4, C2, C6, C7, D1 | B4←B3; C2/C6/C7←C1/C2/B3; D1←A2 |
+| 6 | C3, E3 | C3←C2; E3←B4 |
+| 7 | C4, C5, F1 | C4/C5←C3; F1←B3+C1 |
+| 8 | C8, D2, E2 | C8←C3; D2←D1+C5; E2←E1+C5 |
+| 9 | E4, E5, F2, F3, O1, O2 | E4←E1+D2; E5←E2+E3; F2/F3←F1; O1←D2; O2←B3 |
+| 10 | G2, G3, H1 | G2←G1; G3←G1; H1←C1–C5+F2+F3 |
+| 11 | H2 | ←H1 |
+| 12 | H3, H5 | H3←H2; H5←H4+G3 |
+| 13 | H6 | ←H5 |
+
+Cut order if time slips (spec): O2, O1, C8, second hint of C7. Never cut C2,
+C4, E2, F3, H1–H3.
+
+## Claiming a task
+
+1. Check the wave table: all "Depends on" PRs merged into `main`.
+2. Set **Status** in the task file to `In progress` (in your branch).
+3. Create the worktree + branch (see `docs/PARALLEL.md`), implement, open the PR.
+4. On merge, set **Status** to `Done` in `tasks/<ID>.md` on `main`.

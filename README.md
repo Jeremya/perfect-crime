@@ -14,6 +14,24 @@ Source documents (in this folder):
 - `Gate 1 — Specs and backlog.pdf` — the build spec: game rules, screens,
   technical architecture, 52 h backlog in 34 stories / 8 epics, test protocol.
 
+## Nomenclature — Yap Corp
+
+The studio is **Yap Corp**; the game stays "Perfect Crime". Full rules in
+`docs/NAMING.md`: every TS class is `Yap`-prefixed (`YapBootScene`…), brand
+constants live in `src/app/brand.ts` (`YAP_CORP`), localStorage keys use the
+`yapcorp:` prefix, the npm package is `@yapcorp/perfect-crime`, the Pages
+project is `yap-corp-perfect-crime`. The old folder name `unix` is retired.
+
+## Working with agents (tasks + parallelism)
+
+- `AGENTS.md` — rules loaded automatically by every agent in this repo.
+- `tasks/` — the Gate 1 backlog cut into 36 atomic task files (34 stories +
+  2 optional), each with its own file ownership, dependencies and acceptance
+  criteria. Index + dependency waves in `tasks/README.md`.
+- `docs/PARALLEL.md` — how to run several agents at once: one worktree +
+  branch per task, role subagents in `.vibe/agents/` (`yap-core`, `yap-game`,
+  `yap-app`, `yap-content`), spawn examples.
+
 ## Stack
 
 TypeScript (strict) + Phaser 4 (pinned) + Vite, Vitest, ESLint, Prettier.
