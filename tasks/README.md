@@ -9,8 +9,8 @@ Status snapshot: **2026-10-29**. `Done` means merged with repository
 acceptance evidenced. `In progress` includes merged work with an outstanding
 acceptance check, local uncommitted work, or an open PR; each task file says which.
 External setup (such as live PostHog dashboards or real-phone checks) is not
-complete without evidence. Current count: **12 Done, 3 In progress, 1
-Scaffolded, 18 To do** across the 34 required stories. Optional O1 is To do;
+complete without evidence. Current count: **12 Done, 6 In progress, 1
+Scaffolded, 15 To do** across the 34 required stories. Optional O1 is To do;
 O2 is Done (PR #19).
 
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
@@ -34,9 +34,9 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | C1 | Rendering | C | Dev | 3 | B2 | In progress | `tasks/C1.md` |
 | C2 | Path drawing | C | Dev | 3 | C1 | Done | `tasks/C2.md` |
 | C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
-| C4 | Failure replay | C | Dev | 1.5 | C3 | To do | `tasks/C4.md` |
+| C4 | Failure replay | C | Dev | 1.5 | C3 | In progress | `tasks/C4.md` |
 | C5 | Win screen | C | Dev | 1 | C3 | To do | `tasks/C5.md` |
-| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | To do | `tasks/C6.md` |
+| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | In progress | `tasks/C6.md` |
 | C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | To do | `tasks/C7.md` |
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | To do | `tasks/C8.md` |
 | D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
@@ -50,7 +50,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | To do | `tasks/F2.md` |
 | F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | To do | `tasks/F3.md` |
 | G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | In progress | `tasks/G1.md` |
-| G2 | Consent and privacy | G | Dev | 0.5 | G1 | To do | `tasks/G2.md` |
+| G2 | Consent and privacy | G | Dev | 0.5 | G1 | In progress | `tasks/G2.md` |
 | G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress | `tasks/G3.md` |
 | H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | To do | `tasks/H1.md` |
 | H2 | Feel fixes | H | Dev | 2 | H1 | To do | `tasks/H2.md` |
