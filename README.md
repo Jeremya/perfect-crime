@@ -13,6 +13,9 @@ Source documents (in this folder):
   Reflect, budget ≤ $1,000 and ~60 h to Gate 2, three gates, kill criteria).
 - `Gate 1 — Specs and backlog.pdf` — the build spec: game rules, screens,
   technical architecture, 52 h backlog in 34 stories / 8 epics, test protocol.
+- `docs/UI-DESIGN.md` — the visual companion spec: readability principles,
+  visual tokens, mobile layouts, asset guidance, screen checklist, and design
+  handoff deliverables. The PDF remains authoritative for rules and scope.
 
 ## Nomenclature — Yap Corp
 
@@ -25,6 +28,8 @@ project is `yap-corp-perfect-crime`. The old folder name `unix` is retired.
 ## Working with agents (tasks + parallelism)
 
 - `AGENTS.md` — rules loaded automatically by every agent in this repo.
+- `docs/UI-DESIGN.md` — required reading for UI, rendering, sharing-preview,
+  and visual content tasks.
 - `tasks/` — the Gate 1 backlog cut into 36 atomic task files (34 stories +
   2 optional), each with its own file ownership, dependencies and acceptance
   criteria. Index + dependency waves in `tasks/README.md`.
