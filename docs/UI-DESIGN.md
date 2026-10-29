@@ -6,6 +6,14 @@ product scope. This document defines how Gate 1 should look and feel. If a
 visual choice appears to change a rule or add a feature, follow the PDF and
 ask the product owner before expanding scope.
 
+The visual brief that produced this document is the explicit design direction
+for this project. It makes a narrow visual exception to the PDF's “simple
+vector shapes: no illustrations at gate 1” line: use the specified Kenney
+stand sprites for the thief and guards, and the Kenney UI Pack for controls.
+This exception affects only those character and control assets; keep the board,
+cones, lasers, routes, emitters, and other marks as crisp code-drawn shapes.
+The PDF remains authoritative for rules, screen behavior, copy, and scope.
+
 ## Product and device
 
 - Game: **Perfect Crime** by Yap Corp; daily heist stealth puzzle.
@@ -55,7 +63,8 @@ shape, outline, and icon.
 | `text-secondary` | `#56616B` | Supporting text |
 | `action-primary` | `#176B78` | PLAY and primary Share action |
 | `action-secondary` | `#E6E8E6` | Secondary controls |
-| `danger-guard` | `#D99B32` | Guard cone tint and outline |
+| `danger-guard` | `#D99B32` | Guard cone tint only, at about 30% opacity |
+| `danger-guard-outline` | `#8A5600` | Guard cone cell outline |
 | `danger-camera` | `#8260A8` | Camera cone tint and outline |
 | `danger-laser` | `#C74747` | Active laser and caught state |
 | `laser-off` | `#69727B` | Inactive dashed laser |
@@ -68,7 +77,9 @@ Use the type scale `12 / 14 / 16 / 20 / 24 / 32 px`; body and control labels
 must be at least 14 px. Use an 8 px spacing scale (`4 px` is permitted only
 for fine alignment), rounded control corners around 8 px and card corners
 around 12 px. Use a 1 px default outline and a 2 px outline for focus, danger,
-and critical selection. Primary touch targets are at least 44 × 44 px.
+and critical selection. Text follows WCAG AA contrast (4.5:1 for regular text,
+3:1 for large text); meaningful non-text outlines and icons should reach 3:1
+against their adjacent surface. Primary touch targets are at least 44 × 44 px.
 
 ## Board and world rendering
 
@@ -78,7 +89,8 @@ and critical selection. Primary touch targets are at least 44 × 44 px.
   weapon, dark enough to remain visible over danger cells, with a light edge.
 - Guards: a different **stand** character from the same pack, no weapon;
   tint all guards consistently. Make facing readable.
-- Guard cone: amber cells at about 30% fill opacity plus a crisp amber outline.
+- Guard cone: amber cells at about 30% fill opacity plus a crisp dark amber
+  outline (`danger-guard-outline`) that stays visible against the floor.
 - Camera cone: violet cells at about 30% fill opacity plus a crisp violet
   outline. Include a camera icon/marker so it remains distinct from guards.
 - Laser: red solid line/cell treatment while active; gray dashed treatment
@@ -152,9 +164,12 @@ Allowed reference packs are CC0 and may be used commercially (credit optional):
   color family for primary actions (PLAY and primary Share) and a neutral
   family for secondary actions.
 
-Before implementation, map each selected sprite to its role in a small
-component/sprite sheet. Elements without a suitable sprite should be explicitly
-marked **drawn in code** (grid, cells, cones, routes, lasers, path, markers,
+Use the Kenney Top-down Shooter stand poses for the thief and guards, with no
+weapons; do not replace these two characters with geometric placeholders in a
+Gate 1 implementation. Map each selected sprite to its role in a small
+component/sprite sheet. Use Kenney UI Pack sprites for primary and secondary
+controls. Elements without a suitable sprite should be explicitly marked
+**drawn in code** (grid, cells, cones, routes, lasers, path, markers, and
 camera/laser emitters). Do not add a dependency or asset bundle that breaks
 the 3 MB initial-download budget.
 
@@ -172,6 +187,11 @@ The visual handoff for Gate 1 consists of:
    furniture, and camera/laser emitter treatments.
 5. A one-page readability check showing one heist with two guards, one camera,
    and one laser: tick-0 cones and the ghost preview at tick 8.
+
+Store source files and exports for these handoff artifacts under
+`docs/design/`, and link them from the implementing PR. This written spec is
+the visual reference; its token table does not count as the mockups, component
+sheet, sprite map, or readability-check artifact.
 
 For each UI story, check its relevant screen at both reference sizes and on a
 real phone preview. Verify that a player can identify walkable cells, the
