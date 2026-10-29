@@ -51,7 +51,7 @@ export function parseYapDate(iso: string): { year: number; month: number; day: n
   const month = groups?.month;
   const day = groups?.day;
   if (year === undefined || month === undefined || day === undefined) {
-    throw new Error(`YapDaily: invalid ISO date "${iso}" (expected yyyy-mm-dd)`);
+    throw new Error(`YapDaily: invalid_iso_date:${iso}:expected_yyyy_mm_dd`);
   }
   const y = Number(year);
   const m = Number(month);
@@ -64,7 +64,7 @@ export function parseYapDate(iso: string): { year: number; month: number; day: n
     rolled.getUTCMonth() !== m - 1 ||
     rolled.getUTCDate() !== d
   ) {
-    throw new Error(`YapDaily: invalid ISO date "${iso}"`);
+    throw new Error(`YapDaily: invalid_iso_date:${iso}`);
   }
   return { year: y, month: m, day: d };
 }
