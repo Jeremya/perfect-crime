@@ -120,4 +120,9 @@ export const fr: YapDictionary = {
     spottedByCamera: 'Repéré par la caméra',
     spottedByLaser: 'Pris dans le faisceau laser',
   },
+  // Story C6 — aperçu fantôme pendant le tracé (derrière ?flag=ghost:) :
+  // badge de tick compact affiché sur la cellule sous le doigt.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
 };

@@ -119,6 +119,11 @@ export const en = {
     spottedByCamera: 'Spotted by the camera',
     spottedByLaser: 'Caught in the laser beam',
   },
+  // Story C6 — Ghost preview while drawing (behind the ?flag=ghost: switch):
+  // compact tick badge shown at the cell under the finger.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
