@@ -8,6 +8,9 @@ files it may touch) so parallel agents never collide.
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
 `npm run typecheck && npm run lint && npm run test && npm run validate && npm run build`.
+For UI, game rendering, screen flow, sharing previews, and visual level
+content, read `docs/UI-DESIGN.md` alongside the task file. It supplements the
+Gate 1 PDF's behavior and scope with visual direction and review criteria.
 
 ## Index
 

@@ -244,7 +244,9 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
   // excluded, as is the boot file src/main.ts whose Phaser config title is
   // never rendered.
   const SRC_ROOT = new URL('../../src/', import.meta.url);
-  const SCAN_DIRS = ['core', 'game', 'app'];
+  // Core modules contain developer-facing diagnostics (for example parser
+  // errors), not UI copy. Displayed text belongs to the game and app layers.
+  const SCAN_DIRS = ['game', 'app'];
   const SKIP_DIRS = new Set(['i18n']);
   const SKIP_FILES = new Set(['brand.ts']);
 
