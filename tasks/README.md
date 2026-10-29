@@ -5,6 +5,14 @@ optional). Each file is **self-contained**: an agent can pick it up with only
 `AGENTS.md` + the task file. Every task declares its **ownership** (the only
 files it may touch) so parallel agents never collide.
 
+Status snapshot: **2026-10-29**. `Done` means merged with repository
+acceptance evidenced. `In progress` includes merged work with an outstanding
+acceptance check, local uncommitted work, or an open PR; each task file says which.
+External setup (such as live PostHog dashboards or real-phone checks) is not
+complete without evidence. Current count: **12 Done, 3 In progress, 1
+Scaffolded, 18 To do** across the 34 required stories. Optional O1 is To do;
+O2 is Done (PR #19).
+
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
 `npm run typecheck && npm run lint && npm run test && npm run validate && npm run build`.
@@ -14,49 +22,50 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 
 ## Index
 
-| ID | Story | Epic | Role | h | Depends on | File |
-|---|---|---|---|---|---|---|
-| A1 | Repository and tooling | A | Dev | 1.5 | — (scaffolded) | `tasks/A1.md` |
-| A2 | Config, safe storage, anon IDs, flags | A | Dev | 0.75 | A1 | `tasks/A2.md` |
-| A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | `tasks/A3.md` |
-| B1 | Level format, parser, validator | B | Dev | 1.5 | A1 | `tasks/B1.md` |
-| B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | `tasks/B2.md` |
-| B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | `tasks/B3.md` |
-| B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | `tasks/B4.md` |
-| C1 | Rendering | C | Dev | 3 | B2 | `tasks/C1.md` |
-| C2 | Path drawing | C | Dev | 3 | C1 | `tasks/C2.md` |
-| C3 | Execution playback | C | Dev | 1.5 | C2 | `tasks/C3.md` |
-| C4 | Failure replay | C | Dev | 1.5 | C3 | `tasks/C4.md` |
-| C5 | Win screen | C | Dev | 1 | C3 | `tasks/C5.md` |
-| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | `tasks/C6.md` |
-| C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | `tasks/C7.md` |
-| C8 | Sounds + vibration | C | Dev | 0.5 | C3 | `tasks/C8.md` |
-| D1 | Daily logic, streak | D | Dev | 1.5 | A2 | `tasks/D1.md` |
-| D2 | Home and flow | D | Dev | 1.25 | D1, C5 | `tasks/D2.md` |
-| E1 | Payload v1 | E | Dev | 1 | B2 | `tasks/E1.md` |
-| E2 | Share button | E | Dev | 1.25 | E1, C5 | `tasks/E2.md` |
-| E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | `tasks/E3.md` |
-| E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | `tasks/E4.md` |
-| E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | `tasks/E5.md` |
-| F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | `tasks/F1.md` |
-| F2 | 5 tutorial levels | F | Design | 1.5 | F1 | `tasks/F2.md` |
-| F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | `tasks/F3.md` |
-| G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | `tasks/G1.md` |
-| G2 | Consent and privacy | G | Dev | 0.5 | G1 | `tasks/G2.md` |
-| G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | `tasks/G3.md` |
-| H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | `tasks/H1.md` |
-| H2 | Feel fixes | H | Dev | 2 | H1 | `tasks/H2.md` |
-| H3 | Feel session #2 (ghost on/off) | H | PM+Dev | 1.5 | H2 | `tasks/H3.md` |
-| H4 | Recruitment 20–30 testers | H | PM | 1.5 | — (parallel from day 1) | `tasks/H4.md` |
-| H5 | Test week, no reminders | H | PM | 1 | H4, G3 | `tasks/H5.md` |
-| H6 | Gate 1 decision | H | PM | 1 | H5 | `tasks/H6.md` |
-| O1 | Optional: playable archive | O | Dev | 0.75 | D2 | `tasks/O1.md` |
-| O2 | Optional: draft generator | O | Dev | 1 | B3 | `tasks/O2.md` |
+| ID | Story | Epic | Role | h | Depends on | Status | File |
+|---|---|---|---|---|---|---|---|
+| A1 | Repository and tooling | A | Dev | 1.5 | — (scaffolded) | Scaffolded | `tasks/A1.md` |
+| A2 | Config, safe storage, anon IDs, flags | A | Dev | 0.75 | A1 | Done | `tasks/A2.md` |
+| A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | Done | `tasks/A3.md` |
+| B1 | Level format, parser, validator | B | Dev | 1.5 | A1 | Done | `tasks/B1.md` |
+| B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | Done | `tasks/B2.md` |
+| B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | Done | `tasks/B3.md` |
+| B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | Done | `tasks/B4.md` |
+| C1 | Rendering | C | Dev | 3 | B2 | In progress | `tasks/C1.md` |
+| C2 | Path drawing | C | Dev | 3 | C1 | Done | `tasks/C2.md` |
+| C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
+| C4 | Failure replay | C | Dev | 1.5 | C3 | To do | `tasks/C4.md` |
+| C5 | Win screen | C | Dev | 1 | C3 | To do | `tasks/C5.md` |
+| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | To do | `tasks/C6.md` |
+| C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | To do | `tasks/C7.md` |
+| C8 | Sounds + vibration | C | Dev | 0.5 | C3 | To do | `tasks/C8.md` |
+| D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
+| D2 | Home and flow | D | Dev | 1.25 | D1, C5 | To do | `tasks/D2.md` |
+| E1 | Payload v1 | E | Dev | 1 | B2 | Done | `tasks/E1.md` |
+| E2 | Share button | E | Dev | 1.25 | E1, C5 | To do | `tasks/E2.md` |
+| E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | Done | `tasks/E3.md` |
+| E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | To do | `tasks/E4.md` |
+| E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | To do | `tasks/E5.md` |
+| F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | Done | `tasks/F1.md` |
+| F2 | 5 tutorial levels | F | Design | 1.5 | F1 | To do | `tasks/F2.md` |
+| F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | To do | `tasks/F3.md` |
+| G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | In progress | `tasks/G1.md` |
+| G2 | Consent and privacy | G | Dev | 0.5 | G1 | To do | `tasks/G2.md` |
+| G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress | `tasks/G3.md` |
+| H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | To do | `tasks/H1.md` |
+| H2 | Feel fixes | H | Dev | 2 | H1 | To do | `tasks/H2.md` |
+| H3 | Feel session #2 (ghost on/off) | H | PM+Dev | 1.5 | H2 | To do | `tasks/H3.md` |
+| H4 | Recruitment 20–30 testers | H | PM | 1.5 | — (parallel from day 1) | To do | `tasks/H4.md` |
+| H5 | Test week, no reminders | H | PM | 1 | H4, G3 | To do | `tasks/H5.md` |
+| H6 | Gate 1 decision | H | PM | 1 | H5 | To do | `tasks/H6.md` |
+| O1 | Optional: playable archive | O | Dev | 0.75 | D2 | To do | `tasks/O1.md` |
+| O2 | Optional: draft generator | O | Dev | 1 | B3 | Done | `tasks/O2.md` |
 
 ## Parallel waves (dependency order)
 
-Run every task of a wave concurrently — they own disjoint files. Start the
-next wave when the wave's PRs are merged.
+This is the original dependency graph. Use the Status column to skip completed
+work and avoid restarting an active story; tasks in a wave can run in parallel
+only when their dependencies are merged and their ownership stays disjoint.
 
 | Wave | Tasks | Why |
 |---|---|---|
