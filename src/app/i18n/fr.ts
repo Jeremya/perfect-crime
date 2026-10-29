@@ -115,4 +115,9 @@ export const fr: YapDictionary = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
+  // Story C6 — aperçu fantôme pendant le tracé (derrière ?flag=ghost:) :
+  // badge de tick compact affiché sur la cellule sous le doigt.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
 };
