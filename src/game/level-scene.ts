@@ -7,7 +7,12 @@
 // back, cut, pauses on tap, 64-step limit and auto-finish at the exit, drawn
 // as an outlined route with pause badges. PLAY hands the plan to YapExecution
 // (./execution.ts), which runs it through resolveTick at 4 ticks/s (×2, Stop)
-// and whose frames are the only thing drawn during playback.
+// and whose frames are the only thing drawn during playback. On detection
+// (C4), YapFailureReplay (./failure.ts) drives the Failure screen: slow-
+// motion replay of the last 4 ticks at quarter speed with a zoom on the
+// thief and whatever saw it, the detector cone in red, the written cause
+// with a marker on the fatal cell, and one tap back to the intact plan
+// (path and pauses kept, red fatal-cell marker retained).
 // Layout adapts to the viewport (readable on a 360 x 640 screen) and rebuilds
 // on resize, preserving the drawn path.
 //
@@ -15,12 +20,13 @@
 // (src/core/sim.ts) via the helpers of ./board.ts; drawing lives in ./render.ts
 // and the path overlay below; the input rules live in ./path-input.ts.
 import Phaser from 'phaser';
-import { parseLevel, type YapLevel } from '../core/level';
+import { parseLevel, type YapCell, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
+  YAP_DANGER_LINE_WIDTH,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
@@ -32,6 +38,7 @@ import {
 } from './board';
 import { YapPathInput } from './path-input';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
+import { YapFailureReplay } from './failure';
 import {
   yapDrawCamera,
   yapDrawCone,
@@ -92,6 +99,19 @@ export class YapLevelScene extends Phaser.Scene {
   private yapTickTimer: Phaser.Time.TimerEvent | null = null;
   private yapExecTickText: Phaser.GameObjects.Text | null = null;
   private yapSpeedButton: YapChromeButton | null = null;
+  // --- Failure (C4) ---
+  /** Failure replay controller while the Failure screen is up (null = not). */
+  private yapFailure: YapFailureReplay | null = null;
+  /** The slow-motion replay timer (one replayed tick every yapTickMs). */
+  private yapFailureTimer: Phaser.Time.TimerEvent | null = null;
+  /** Index in the replay frames of the frame currently on screen. */
+  private yapFailureFrameIndex = 0;
+  /** Red fatal-cell marker kept on the plan after a failure (null = none). */
+  private yapFatalMarker: YapCell | null = null;
+  /** Number of PLAY presses (every press counts as an attempt, spec). */
+  private yapAttempts = 0;
+  /** Layer above the entities: red detector cone + fatal-cell marker. */
+  private yapMarksLayer: Phaser.GameObjects.Graphics | null = null;
 
   constructor() {
     super('yap-level');
@@ -123,6 +143,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
     this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
     this.yapRemoveTickTimer();
+    this.yapRemoveFailureTimer();
   };
 
   // -------------------------------------------------------------------------
@@ -139,6 +160,11 @@ export class YapLevelScene extends Phaser.Scene {
   }
 
   private readonly yapOnPointerDown = (pointer: Phaser.Input.Pointer): void => {
+    if (this.yapFailure !== null) {
+      // Failure screen: one tap anywhere goes back to the intact plan.
+      this.yapExitFailure();
+      return;
+    }
     if (this.yapPointerId !== null) return; // a single finger draws
     if (this.yapExecution !== null) return; // no drawing during playback
     const layout = this.yapLayout;
@@ -209,6 +235,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBadgeLayer = null;
     this.yapDynamic = null;
     this.yapEntities = null;
+    this.yapMarksLayer = null;
 
     const layout = yapComputeLayout(
       this.scale.width,
@@ -259,18 +286,33 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapEntities = this.add.container(0, 0);
     board.add(this.yapEntities);
 
+    // Marks layer, above the entities: the red detector cone and the fatal
+    // cell marker during the Failure replay, the fatal-cell marker on the
+    // plan after returning from a failure.
+    this.yapMarksLayer = this.add.graphics();
+    board.add(this.yapMarksLayer);
+
     this.yapRedrawPath();
-    // Chrome and displayed state of the current mode (planning or execution).
+    // Chrome and displayed state of the current mode (planning, execution
+    // or failure).
     const exec = this.yapExecution;
+    const failure = this.yapFailure;
     if (exec !== null) {
       this.yapBuildExecutionChrome(level, layout);
       this.yapDrawState(exec.yapFrame());
       this.yapUpdateExecutionChrome();
+    } else if (failure !== null) {
+      this.yapBuildFailureChrome(level, layout);
+      const frames = failure.yapReplayFrames(this.yapReducedMotion());
+      const frame = frames[this.yapFailureFrameIndex] ?? frames[frames.length - 1];
+      if (frame !== undefined) this.yapDrawState(frame);
+      this.yapApplyFailureZoom();
     } else {
       this.yapBuildChrome(level, layout);
       this.yapDrawState(state);
       this.yapUpdateChrome();
     }
+    this.yapRedrawMarks();
   }
 
   /**
@@ -636,6 +678,8 @@ export class YapLevelScene extends Phaser.Scene {
     const level = this.yapLevel;
     const layout = this.yapLayout;
     if (level === null || layout === null) return;
+    this.yapAttempts += 1; // every press of PLAY counts as an attempt (spec)
+    this.yapFatalMarker = null; // a new attempt clears the old fatal marker
     const exec = new YapExecution(level, plan);
     this.yapExecution = exec;
     exec.yapStart();
@@ -648,6 +692,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapChrome = null;
     this.yapBuildExecutionChrome(level, layout);
     this.yapDrawState(exec.yapFrame());
+    this.yapRedrawMarks();
     this.yapUpdateExecutionChrome();
     this.yapScheduleTick();
   }
@@ -667,12 +712,18 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapUpdateExecutionChrome();
   };
 
-  /** The plan is fully played: stop the timer, keep the final frame shown. */
+  /** The plan is fully played: stop the timer, then failure or end event. */
   private yapEndExecution(): void {
     this.yapRemoveTickTimer();
     const exec = this.yapExecution;
     if (exec === null) return;
-    this.events.emit(YAP_EXECUTION_END_EVENT, exec.yapOutcome());
+    const outcome = exec.yapOutcome();
+    this.events.emit(YAP_EXECUTION_END_EVENT, outcome);
+    if (outcome.kind === 'detected') {
+      // C4: slow-motion replay of the last ticks, zoom, written cause.
+      this.yapStartFailure(exec);
+      return;
+    }
     this.yapUpdateExecutionChrome();
   }
 
@@ -721,5 +772,236 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapTickTimer.remove();
       this.yapTickTimer = null;
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Failure (C4): slow-motion replay of the last 4 ticks, zoom, written
+  // cause with a marker on the fatal cell, then one tap back to the intact
+  // plan (path and pauses kept).
+  // -------------------------------------------------------------------------
+
+  /** prefers-reduced-motion: the replay is shortened (Gate 1 spec). */
+  private yapReducedMotion(): boolean {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Detection: enter the Failure screen and start the slow-motion replay. */
+  private yapStartFailure(exec: YapExecution): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    if (level === null || layout === null) return;
+    const replay = new YapFailureReplay(exec.yapFrames(), exec.yapOutcome());
+    this.yapFailure = replay;
+    this.yapExecution = null; // the playback is over; the failure drives now
+    this.yapFatalMarker = replay.yapFatalCell();
+    this.yapChrome?.destroy();
+    this.yapChrome = null;
+    this.yapBuildFailureChrome(level, layout);
+    // zoom on the thief and whatever saw it
+    this.yapApplyFailureZoom();
+    // replay the last ticks at quarter speed
+    const frames = replay.yapReplayFrames(this.yapReducedMotion());
+    this.yapFailureFrameIndex = 0;
+    const first = frames[0];
+    if (first !== undefined) this.yapDrawState(first);
+    this.yapRedrawMarks();
+    this.yapScheduleFailureTick();
+  }
+
+  /** One replayed tick: draw the next of the last frames, cone in red. */
+  private readonly yapOnFailureTick = (): void => {
+    const replay = this.yapFailure;
+    if (replay === null) return;
+    const frames = replay.yapReplayFrames(this.yapReducedMotion());
+    this.yapFailureFrameIndex += 1;
+    if (this.yapFailureFrameIndex >= frames.length) {
+      // the replay is over: the fatal frame, cause and marker stay on
+      // screen until the tap that returns to the plan
+      this.yapFailureFrameIndex = frames.length - 1;
+      this.yapRemoveFailureTimer();
+    }
+    const frame = frames[this.yapFailureFrameIndex];
+    if (frame === undefined) return;
+    this.yapDrawState(frame);
+    this.yapRedrawMarks();
+  };
+
+  /** (Re)starts the slow-motion replay timer (quarter speed). */
+  private yapScheduleFailureTick(): void {
+    const replay = this.yapFailure;
+    if (replay === null) return;
+    this.yapRemoveFailureTimer();
+    this.yapFailureTimer = this.time.addEvent({
+      delay: replay.yapTickMs(this.yapReducedMotion()),
+      loop: true,
+      callback: this.yapOnFailureTick,
+    });
+  }
+
+  private yapRemoveFailureTimer(): void {
+    if (this.yapFailureTimer !== null) {
+      this.yapFailureTimer.remove();
+      this.yapFailureTimer = null;
+    }
+  }
+
+  /** One tap on the Failure screen: back to the intact plan (kept). */
+  private yapExitFailure(): void {
+    this.yapRemoveFailureTimer();
+    this.yapFailure = null;
+    this.yapResetCamera();
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const state = this.yapState;
+    if (level !== null && layout !== null) {
+      this.yapChrome?.destroy();
+      this.yapChrome = null;
+      this.yapBuildChrome(level, layout);
+    }
+    if (state !== null) this.yapDrawState(state); // tick 0, planning view
+    this.yapRedrawPath(); // the drawn path and its pauses are untouched
+    this.yapRedrawMarks(); // the red fatal-cell marker stays on the plan
+    this.yapUpdateChrome();
+  }
+
+  /** Zooms the camera on the midpoint between the thief and the detector. */
+  private yapApplyFailureZoom(): void {
+    const replay = this.yapFailure;
+    const layout = this.yapLayout;
+    if (replay === null || layout === null) return;
+    const focus = replay.yapZoomFocus();
+    const a = yapCellCenter(layout, { x: Math.floor(focus.x), y: Math.floor(focus.y) });
+    const b = yapCellCenter(layout, { x: Math.ceil(focus.x), y: Math.ceil(focus.y) });
+    const cam = this.cameras.main;
+    cam.setZoom(replay.yapZoomFactor(layout));
+    cam.centerOn((a.x + b.x) / 2, (a.y + b.y) / 2);
+  }
+
+  /** Back to the full-board view (zoom 1, no scroll). */
+  private yapResetCamera(): void {
+    const cam = this.cameras.main;
+    cam.setZoom(1);
+    cam.centerOn(this.scale.width / 2, this.scale.height / 2);
+  }
+
+  /**
+   * Redraws the marks layer: during the Failure replay, the cone of whatever
+   * saw the thief in red plus the fatal-cell marker; back on the plan, the
+   * red fatal-cell marker alone (docs/UI-DESIGN.md, Failure screen).
+   */
+  private yapRedrawMarks(): void {
+    const g = this.yapMarksLayer;
+    const layout = this.yapLayout;
+    if (g === null || layout === null) return;
+    g.clear();
+    const failure = this.yapFailure;
+    if (failure !== null) {
+      yapDrawCone(g, layout, failure.yapDetectorSeen(), 'danger-laser');
+      this.yapDrawFatalMarker(g, layout, failure.yapFatalCell());
+    } else if (this.yapFatalMarker !== null) {
+      this.yapDrawFatalMarker(g, layout, this.yapFatalMarker);
+    }
+  }
+
+  /** The fatal-cell marker: a red ring with a bold X (icon + shape, not color). */
+  private yapDrawFatalMarker(
+    g: Phaser.GameObjects.Graphics,
+    layout: YapBoardLayout,
+    cell: YapCell,
+  ): void {
+    const p = yapCellCenter(layout, cell);
+    const r = layout.cell * 0.42;
+    const red = yapHexToInt(YAP_PALETTE['danger-laser']);
+    g.lineStyle(YAP_DANGER_LINE_WIDTH, red, 1).strokeCircle(p.x, p.y, r);
+    const s = r * 0.62;
+    g.lineStyle(Math.max(3, layout.cell * 0.09), red, 1)
+      .lineBetween(p.x - s, p.y - s, p.x + s, p.y + s)
+      .lineBetween(p.x - s, p.y + s, p.x + s, p.y - s);
+  }
+
+  /**
+   * Failure chrome: top bar with the level name and the attempt number,
+   * bottom bar with the written cause (i18n key of the cause) and the
+   * tap-to-return hint. No button: one tap anywhere returns to the plan.
+   */
+  private yapBuildFailureChrome(level: YapLevel, layout: YapBoardLayout): void {
+    const chrome = this.add.container(0, 0);
+    this.yapChrome = chrome;
+    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
+      fontFamily: 'sans-serif',
+      fontSize: `${size}px`,
+      color: YAP_PALETTE['text-primary'],
+    });
+    const midY = YAP_TOP_BAR_HEIGHT / 2;
+
+    chrome.add(this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5));
+    chrome.add(
+      this.add
+        .text(
+          layout.viewWidth - 16,
+          midY,
+          yapI18n.t('failure.attempt', { n: this.yapAttempts }),
+          textStyle(14),
+        )
+        .setOrigin(1, 0.5),
+    );
+
+    // bottom action bar: 96 px strip with the written cause and the hint
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    const bar = this.add.graphics();
+    bar
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, barY, layout.viewWidth, YAP_BOTTOM_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
+    chrome.add(bar);
+
+    const failure = this.yapFailure;
+    const causeText =
+      failure !== null ? yapI18n.t(failure.yapCauseKey()) : yapI18n.t('failure.spottedByGuard');
+    const cause = this.add
+      .text(layout.viewWidth / 2, barY + 12, causeText, textStyle(16))
+      .setOrigin(0.5, 0);
+    chrome.add(cause);
+    // warning icon next to the cause: triangle + "!" (icon, not color alone)
+    const iconX = cause.x - cause.width / 2 - 20;
+    const iconY = cause.y + cause.height / 2;
+    const s = 9;
+    const warn = this.add.graphics();
+    warn
+      .fillStyle(yapHexToInt(YAP_PALETTE['danger-laser']), 1)
+      .fillTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['path-outline']), 1)
+      .strokeTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8);
+    chrome.add(warn);
+    chrome.add(
+      this.add
+        .text(iconX, iconY - 1, '!', {
+          fontFamily: 'sans-serif',
+          fontSize: '12px',
+          color: YAP_PALETTE['path-light'],
+        })
+        .setOrigin(0.5, 0.5),
+    );
+    chrome.add(
+      this.add
+        .text(layout.viewWidth / 2, barY + 46, yapI18n.t('failure.tapToReturn'), {
+          fontFamily: 'sans-serif',
+          fontSize: '14px',
+          color: YAP_PALETTE['text-secondary'],
+        })
+        .setOrigin(0.5, 0),
+    );
+    // the planning/execution chrome refs do not exist in this mode
+    this.yapTicksText = null;
+    this.yapPausesText = null;
+    this.yapInstruction = null;
+    this.yapPlayButton = null;
+    this.yapExecTickText = null;
+    this.yapSpeedButton = null;
   }
 }

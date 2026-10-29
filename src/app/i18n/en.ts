@@ -114,6 +114,11 @@ export const en = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
+  // Story C4 — Failure screen (slow-motion replay, written cause, retry).
+  failureReplay: {
+    spottedByCamera: 'Spotted by the camera',
+    spottedByLaser: 'Caught in the laser beam',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */

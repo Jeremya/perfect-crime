@@ -115,4 +115,9 @@ export const fr: YapDictionary = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
+  // Story C4 — écran d'échec (rejeu au ralenti, cause écrite, réessayer).
+  failureReplay: {
+    spottedByCamera: 'Repéré par la caméra',
+    spottedByLaser: 'Pris dans le faisceau laser',
+  },
 };
