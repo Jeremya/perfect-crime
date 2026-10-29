@@ -234,15 +234,15 @@ describe('YapI18n store', () => {
 
 describe('no hard-coded UI strings outside the dictionaries', () => {
   // Displayed text may only live in src/app/i18n/. This guard scans the
-  // UI-bearing source — the pure core (src/core), the Phaser scenes
-  // (src/game) and the app modules (src/app) — for string literals that look
+  // Phaser scenes (src/game) and app modules (src/app) for literals that look
   // like player-facing copy: multi-word phrases, Capitalized words ("Share")
-  // or ALL-CAPS words ("PLAY"). Technical literals — scene keys ('yap-boot'),
-  // colours ('#0b0e14'), event names ('yap.win'), storage prefixes — are
-  // lowercase/kebab/hex and never match. src/app/i18n (the dictionaries) and
-  // src/app/brand.ts (brand constants, not UI copy — docs/NAMING.md) are
-  // excluded, as is the boot file src/main.ts whose Phaser config title is
-  // never rendered.
+  // or ALL-CAPS words ("PLAY"). The pure core is excluded because its strings
+  // are developer-facing diagnostics. Typed Yap* diagnostics in app modules
+  // are excluded below for the same reason. Technical literals — scene keys
+  // ('yap-boot'), colours ('#0b0e14'), event names ('yap.win'), storage
+  // prefixes — are lowercase/kebab/hex and never match. src/app/i18n and
+  // src/app/brand.ts are excluded, as is src/main.ts whose Phaser config title
+  // is never rendered.
   const SRC_ROOT = new URL('../../src/', import.meta.url);
   // Core modules contain developer-facing diagnostics (for example parser
   // errors), not UI copy. Displayed text belongs to the game and app layers.
@@ -286,6 +286,7 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
     for (const match of stripComments(source).matchAll(literal)) {
       const raw = match[0];
       const text = raw.slice(1, -1);
+      if (/^Yap[A-Z][A-Za-z0-9]*:/.test(text)) continue;
       if (!/[A-Za-z]/.test(text)) continue;
       const looksLikeCopy =
         /[A-Za-z]\s+[A-Za-z]/.test(text) || /^[A-Z][a-z]+$/.test(text) || /^[A-Z]{3,}$/.test(text);
@@ -312,6 +313,7 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
     expect(found.some((f) => f.includes('Grab the diamond'))).toBe(true);
     expect(found.some((f) => f.includes('PLAY'))).toBe(true);
     expect(found.some((f) => f.includes('Copied'))).toBe(true);
+    expect(uiLikeLiterals("throw new Error('YapDaily: invalid ISO date');")).toEqual([]);
     expect(found.some((f) => f.includes('yap-boot'))).toBe(false);
     expect(found.some((f) => f.includes('#0b0e14'))).toBe(false);
     expect(found.some((f) => f.includes('Share'))).toBe(false); // comment stripped
