@@ -1,10 +1,13 @@
-// YapLevelScene — the Planning screen (stories C1 + C2): polished rendering of
-// a level plus the path drawing. Grid baked once into a texture, then per
-// tick-0 state: vision cones as the exact cells of visibleCells, dotted
-// patrols, lasers, thief, guards, cameras, diamond and exit. On top of that,
-// YapPathInput (./path-input.ts) turns pointer events into the player's plan:
-// central zone, erase by going back, cut, pauses on tap, 64-step limit and
-// auto-finish at the exit, drawn as an outlined route with pause badges.
+// YapLevelScene — the Planning screen (stories C1 + C2) and the Execution
+// screen (C3): polished rendering of a level plus the path drawing. Grid
+// baked once into a texture, then per displayed tick: vision cones as the
+// exact cells of visibleCells, dotted patrols, lasers, thief, guards,
+// cameras, diamond and exit. On top of that, YapPathInput (./path-input.ts)
+// turns pointer events into the player's plan: central zone, erase by going
+// back, cut, pauses on tap, 64-step limit and auto-finish at the exit, drawn
+// as an outlined route with pause badges. PLAY hands the plan to YapExecution
+// (./execution.ts), which runs it through resolveTick at 4 ticks/s (×2, Stop)
+// and whose frames are the only thing drawn during playback.
 // Layout adapts to the viewport (readable on a 360 x 640 screen) and rebuilds
 // on resize, preserving the drawn path.
 //
@@ -13,7 +16,7 @@
 // and the path overlay below; the input rules live in ./path-input.ts.
 import Phaser from 'phaser';
 import { parseLevel, type YapLevel } from '../core/level';
-import { createInitialState, type YapSimState } from '../core/sim';
+import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
@@ -28,6 +31,7 @@ import {
   type YapBoardLayout,
 } from './board';
 import { YapPathInput } from './path-input';
+import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import {
   yapDrawCamera,
   yapDrawCone,
@@ -43,8 +47,10 @@ import {
 
 /** Texture key of the baked static grid. */
 const YAP_GRID_TEXTURE_KEY = 'yap-board-grid';
-/** Scene event emitted with the plan when PLAY is pressed (execution is C3). */
+/** Scene event emitted with the plan when PLAY is pressed. */
 const YAP_PLAY_EVENT = 'yap-play';
+/** Scene event emitted with the outcome when the playback reaches its end. */
+const YAP_EXECUTION_END_EVENT = 'yap-execution-end';
 
 export interface YapLevelSceneData {
   /** .lvl source to render; defaults to the tutorial heist. */
@@ -74,6 +80,18 @@ export class YapLevelScene extends Phaser.Scene {
   private yapPlayPulse: Phaser.Tweens.Tween | null = null;
   /** Id of the single finger currently drawing (null = none). */
   private yapPointerId: number | null = null;
+  /** Playback controller while PLAY runs (null = planning mode). */
+  private yapExecution: YapExecution | null = null;
+  /** Dynamic layer under the path: cones and lasers of the displayed tick. */
+  private yapDynamic: Phaser.GameObjects.Container | null = null;
+  /** Entity layer on top of the path: thief, guards, cameras, objectives. */
+  private yapEntities: Phaser.GameObjects.Container | null = null;
+  /** What is on screen right now (input of the dev assertion). */
+  private yapDisplayed: YapDisplayedSnapshot | null = null;
+  /** The playback timer (one tick every yapTickMs). */
+  private yapTickTimer: Phaser.Time.TimerEvent | null = null;
+  private yapExecTickText: Phaser.GameObjects.Text | null = null;
+  private yapSpeedButton: YapChromeButton | null = null;
 
   constructor() {
     super('yap-level');
@@ -104,6 +122,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_MOVE, this.yapOnPointerMove, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
     this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
+    this.yapRemoveTickTimer();
   };
 
   // -------------------------------------------------------------------------
@@ -121,6 +140,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnPointerDown = (pointer: Phaser.Input.Pointer): void => {
     if (this.yapPointerId !== null) return; // a single finger draws
+    if (this.yapExecution !== null) return; // no drawing during playback
     const layout = this.yapLayout;
     const input = this.yapPathInput;
     if (layout === null || input === null) return;
@@ -133,6 +153,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnPointerMove = (pointer: Phaser.Input.Pointer): void => {
     if (pointer.id !== this.yapPointerId) return;
+    if (this.yapExecution !== null) return; // no drawing during playback
     const input = this.yapPathInput;
     if (input === null) return;
     const before = input.yapPath().length;
@@ -142,6 +163,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnPointerUp = (pointer: Phaser.Input.Pointer): void => {
     if (pointer.id !== this.yapPointerId) return;
+    if (this.yapExecution !== null) return; // no drawing during playback
     this.yapPointerId = null;
     const input = this.yapPathInput;
     if (input === null) return;
@@ -185,6 +207,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapChrome = null;
     this.yapPathLayer = null;
     this.yapBadgeLayer = null;
+    this.yapDynamic = null;
+    this.yapEntities = null;
 
     const layout = yapComputeLayout(
       this.scale.width,
@@ -215,24 +239,15 @@ export class YapLevelScene extends Phaser.Scene {
     grid.destroy();
     board.add(this.add.image(layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY).setOrigin(0, 0));
 
-    // Vision cones: exactly the cells of visibleCells, tinted + outlined.
-    const cones = yapConeCells(level, state);
-    const coneG = this.add.graphics();
-    for (const cells of cones.guards) yapDrawCone(coneG, layout, cells, 'danger-guard');
-    for (const cells of cones.cameras) yapDrawCone(coneG, layout, cells, 'danger-camera');
-    board.add(coneG);
-
-    // Lasers: solid red while on, gray dashed while off.
-    const laserG = this.add.graphics();
-    for (const laser of yapLaserCells(state)) {
-      yapDrawLaser(laserG, layout, laser.cells, laser.active);
-    }
-    board.add(laserG);
-
     // Patrols: thin dotted lines with direction arrows, kept secondary.
     const patrolG = this.add.graphics();
     for (const guard of level.guards) yapDrawPatrol(patrolG, layout, guard);
     board.add(patrolG);
+
+    // Dynamic layers, redrawn per displayed tick by yapDrawState: cones and
+    // lasers under the plan, entities on top of it.
+    this.yapDynamic = this.add.container(0, 0);
+    board.add(this.yapDynamic);
 
     // The player's plan: thick rounded near-white route with a dark outline,
     // plus compact pause badges (docs/UI-DESIGN.md, Planned path).
@@ -241,19 +256,66 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBadgeLayer = this.add.container(0, 0);
     board.add(this.yapBadgeLayer);
 
-    // Entities: exit, diamond, cameras, guards, thief (on top).
-    const entG = this.add.graphics();
-    yapDrawExit(entG, layout, level.exit);
-    yapDrawDiamond(entG, layout, level.loot);
-    yapDrawStart(entG, layout, level.start);
-    for (const cam of state.cameras) yapDrawCamera(entG, layout, cam.at, cam.facing);
-    for (const guard of state.guards) yapDrawGuard(entG, layout, guard.pos, guard.facing);
-    yapDrawThief(entG, layout, state.thief);
-    board.add(entG);
+    this.yapEntities = this.add.container(0, 0);
+    board.add(this.yapEntities);
 
-    this.yapBuildChrome(level, layout);
     this.yapRedrawPath();
-    this.yapUpdateChrome();
+    // Chrome and displayed state of the current mode (planning or execution).
+    const exec = this.yapExecution;
+    if (exec !== null) {
+      this.yapBuildExecutionChrome(level, layout);
+      this.yapDrawState(exec.yapFrame());
+      this.yapUpdateExecutionChrome();
+    } else {
+      this.yapBuildChrome(level, layout);
+      this.yapDrawState(state);
+      this.yapUpdateChrome();
+    }
+  }
+
+  /**
+   * Redraws the dynamic layers for `state` (cones, lasers, entities) and
+   * records what is on screen, so the playback can assert in dev that the
+   * displayed positions equal the simulated ones at every tick.
+   */
+  private yapDrawState(state: YapSimState): void {
+    const dyn = this.yapDynamic;
+    const ents = this.yapEntities;
+    const layout = this.yapLayout;
+    const level = this.yapLevel;
+    if (dyn === null || ents === null || layout === null || level === null) return;
+    dyn.removeAll(true);
+    ents.removeAll(true);
+
+    // Vision cones: exactly the cells of visibleCells for this tick.
+    const cones = yapConeCells(level, state);
+    const g = this.add.graphics();
+    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
+    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
+    // Lasers: solid red while on, gray dashed while off.
+    for (const laser of yapLaserCells(state)) {
+      yapDrawLaser(g, layout, laser.cells, laser.active);
+    }
+    dyn.add(g);
+
+    // Entities: exit, diamond (until picked up), cameras, guards, thief on top.
+    const ent = this.add.graphics();
+    yapDrawExit(ent, layout, level.exit);
+    if (!state.hasLoot) yapDrawDiamond(ent, layout, level.loot);
+    yapDrawStart(ent, layout, level.start);
+    for (const cam of state.cameras) yapDrawCamera(ent, layout, cam.at, cam.facing);
+    for (const guard of state.guards) yapDrawGuard(ent, layout, guard.pos, guard.facing);
+    yapDrawThief(ent, layout, state.thief);
+    ents.add(ent);
+
+    // What is on screen right now (input of the dev assertion).
+    this.yapDisplayed = {
+      tick: state.tick,
+      thief: state.thief,
+      guards: state.guards.map((gr) => ({ pos: gr.pos, facing: gr.facing })),
+      cameras: state.cameras.map((c) => ({ at: c.at, facing: c.facing })),
+      lasers: state.lasers.map((l) => ({ cells: l.cells, active: l.active })),
+    };
   }
 
   /** Redraws the route line and the pause badges from the path-input state. */
@@ -404,7 +466,9 @@ export class YapLevelScene extends Phaser.Scene {
       () => {
         const pathInput = this.yapPathInput;
         if (pathInput === null || !pathInput.yapCanPlay()) return;
-        this.events.emit(YAP_PLAY_EVENT, pathInput.yapPlan());
+        const plan: YapPlan = pathInput.yapPlan();
+        this.events.emit(YAP_PLAY_EVENT, plan);
+        this.yapStartExecution(plan);
       },
     );
     chrome.add(playBtn.container);
@@ -483,6 +547,174 @@ export class YapLevelScene extends Phaser.Scene {
         this.yapPlayPulse = null;
         play.container.setScale(1);
       }
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Execution (C3): PLAY runs the plan through resolveTick at 4 ticks/s
+  // -------------------------------------------------------------------------
+
+  /** Top bar (level name, tick counter, par) and bottom bar (×2, Stop). */
+  private yapBuildExecutionChrome(level: YapLevel, layout: YapBoardLayout): void {
+    const chrome = this.add.container(0, 0);
+    this.yapChrome = chrome;
+    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
+      fontFamily: 'sans-serif',
+      fontSize: `${size}px`,
+      color: YAP_PALETTE['text-primary'],
+    });
+    const midY = YAP_TOP_BAR_HEIGHT / 2;
+
+    chrome.add(this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5));
+    const parText = this.add
+      .text(
+        layout.viewWidth - 16,
+        midY,
+        yapI18n.t('planning.par', { par: level.par }),
+        textStyle(14),
+      )
+      .setOrigin(1, 0.5);
+    const tickText = this.add.text(0, midY, '', textStyle(14)).setOrigin(1, 0.5);
+    tickText.x = parText.x - parText.width - 12;
+    chrome.add([parText, tickText]);
+    this.yapExecTickText = tickText;
+    // the planning-only chrome refs do not exist in this mode
+    this.yapTicksText = null;
+    this.yapPausesText = null;
+    this.yapInstruction = null;
+    this.yapPlayButton = null;
+
+    // bottom action bar: 96 px strip with ×2 on the left, Stop on the right
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    const bar = this.add.graphics();
+    bar
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, barY, layout.viewWidth, YAP_BOTTOM_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
+    chrome.add(bar);
+
+    const btnH = 44;
+    const btnY = barY + YAP_BOTTOM_BAR_HEIGHT - 6 - btnH / 2;
+    const speedBtn = this.yapMakeButton(
+      16 + 48,
+      btnY,
+      96,
+      btnH,
+      yapI18n.t('execution.speed', { speed: 1 }),
+      'action-secondary',
+      YAP_PALETTE['text-primary'],
+      () => this.yapToggleExecutionSpeed(),
+    );
+    chrome.add(speedBtn.container);
+    this.yapSpeedButton = speedBtn;
+    const stopBtn = this.yapMakeButton(
+      layout.viewWidth - 16 - 60,
+      btnY,
+      120,
+      btnH,
+      yapI18n.t('execution.stop'),
+      'action-primary',
+      YAP_PALETTE['path-light'],
+      () => this.yapStopExecution(),
+    );
+    chrome.add(stopBtn.container);
+  }
+
+  /** Refreshes the execution chrome: tick counter and ×2 label. */
+  private yapUpdateExecutionChrome(): void {
+    const exec = this.yapExecution;
+    if (exec === null) return;
+    this.yapExecTickText?.setText(
+      yapI18n.t('executionPlayback.tick', { tick: exec.yapTick(), max: exec.yapMaxTick() }),
+    );
+    this.yapSpeedButton?.label.setText(yapI18n.t('execution.speed', { speed: exec.yapSpeed() }));
+  }
+
+  /** PLAY: starts the playback of the drawn plan. */
+  private yapStartExecution(plan: YapPlan): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    if (level === null || layout === null) return;
+    const exec = new YapExecution(level, plan);
+    this.yapExecution = exec;
+    exec.yapStart();
+    this.yapChrome?.destroy();
+    this.yapChrome = null;
+    this.yapBuildExecutionChrome(level, layout);
+    this.yapDrawState(exec.yapFrame());
+    this.yapUpdateExecutionChrome();
+    this.yapScheduleTick();
+  }
+
+  /** One playback tick: advance, redraw, assert displayed == simulated. */
+  private readonly yapOnExecutionTick = (): void => {
+    const exec = this.yapExecution;
+    if (exec === null) return;
+    const frame = exec.yapAdvance();
+    if (frame === null) {
+      this.yapEndExecution();
+      return;
+    }
+    this.yapDrawState(frame);
+    // Dev assertion: what is on screen is exactly the simulated frame.
+    if (this.yapDisplayed !== null) exec.yapAssertDisplayedMatchesSim(this.yapDisplayed);
+    this.yapUpdateExecutionChrome();
+  };
+
+  /** The plan is fully played: stop the timer, keep the final frame shown. */
+  private yapEndExecution(): void {
+    this.yapRemoveTickTimer();
+    const exec = this.yapExecution;
+    if (exec === null) return;
+    this.events.emit(YAP_EXECUTION_END_EVENT, exec.yapOutcome());
+    this.yapUpdateExecutionChrome();
+  }
+
+  /** Stop: back to the plan (tick 0, planning chrome, path kept). */
+  private yapStopExecution(): void {
+    this.yapRemoveTickTimer();
+    const exec = this.yapExecution;
+    if (exec !== null) exec.yapStop();
+    this.yapExecution = null;
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const state = this.yapState;
+    if (level !== null && layout !== null) {
+      this.yapChrome?.destroy();
+      this.yapChrome = null;
+      this.yapBuildChrome(level, layout);
+    }
+    if (state !== null) this.yapDrawState(state);
+    this.yapRedrawPath();
+    this.yapUpdateChrome();
+  }
+
+  /** ×2 toggle: the playback timer restarts at the new rate. */
+  private yapToggleExecutionSpeed(): void {
+    const exec = this.yapExecution;
+    if (exec === null) return;
+    exec.yapToggleSpeed();
+    this.yapUpdateExecutionChrome();
+    this.yapScheduleTick();
+  }
+
+  /** (Re)starts the playback timer: one tick every yapTickMs (4 ticks/s, ×2). */
+  private yapScheduleTick(): void {
+    const exec = this.yapExecution;
+    if (exec === null) return;
+    this.yapRemoveTickTimer();
+    this.yapTickTimer = this.time.addEvent({
+      delay: exec.yapTickMs(),
+      loop: true,
+      callback: this.yapOnExecutionTick,
+    });
+  }
+
+  private yapRemoveTickTimer(): void {
+    if (this.yapTickTimer !== null) {
+      this.yapTickTimer.remove();
+      this.yapTickTimer = null;
     }
   }
 }

@@ -110,6 +110,10 @@ export const en = {
     unsolved: 'Not clearable within {max} ticks',
     noBundled: 'No .lvl file bundled',
   },
+  // Story C3 — Execution screen (playback of the plan).
+  executionPlayback: {
+    tick: 'Tick {tick}/{max}',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
