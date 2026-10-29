@@ -95,6 +95,21 @@ export const en = {
     privacy: 'Privacy',
     version: 'Version {version}',
   },
+  viewer: {
+    title: 'Dev viewer',
+    tick: 'Tick {tick}/{max}',
+    ticks: 'Ticks: {count}',
+    tension: 'Tension: {count}',
+    minPauses: 'Min pauses: {count}',
+    plans: 'Optimal plans: {count}',
+    pause: 'Pause',
+    prevTick: '◀',
+    nextTick: '▶',
+    openFile: 'Open .lvl…',
+    error: 'Cannot open this level: {message}',
+    unsolved: 'Not clearable within {max} ticks',
+    noBundled: 'No .lvl file bundled',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
