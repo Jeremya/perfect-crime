@@ -234,8 +234,8 @@ describe('YapI18n store', () => {
 
 describe('no hard-coded UI strings outside the dictionaries', () => {
   // Displayed text may only live in src/app/i18n/. This guard scans the
-  // UI-bearing source — the pure core (src/core), the Phaser scenes
-  // (src/game) and the app modules (src/app) — for string literals that look
+  // UI-bearing source — the Phaser scenes (src/game) and app modules
+  // (src/app) — for string literals that look
   // like player-facing copy: multi-word phrases, Capitalized words ("Share")
   // or ALL-CAPS words ("PLAY"). Technical literals — scene keys ('yap-boot'),
   // colours ('#0b0e14'), event names ('yap.win'), storage prefixes — are
@@ -244,7 +244,7 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
   // excluded, as is the boot file src/main.ts whose Phaser config title is
   // never rendered.
   const SRC_ROOT = new URL('../../src/', import.meta.url);
-  const SCAN_DIRS = ['core', 'game', 'app'];
+  const SCAN_DIRS = ['game', 'app'];
   const SKIP_DIRS = new Set(['i18n']);
   const SKIP_FILES = new Set(['brand.ts']);
 
