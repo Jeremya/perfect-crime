@@ -1,5 +1,17 @@
 # Share matrix — story E5
 
+> **Status: expected behaviour, not measured on devices yet.**
+> Story E5 asks for the share matrix *on real phones*. The tables below are
+> what the Web Share API and each target are documented/known to do; they are
+> the checklist to run, **not** a record of runs. Until a row has a dated
+> device entry, treat it as unverified. Record each run in
+> [Runs](#runs) (device, OS, app version, link format, what arrived).
+>
+> The automated part (`tests/e2e/share.spec.ts`) drives the built app in
+> Chromium with a stubbed `navigator.share`: it proves what the app *hands*
+> to the share sheet, not what a target app does with it. It is not wired into
+> CI (`npx playwright test tests/e2e/share.spec.ts` after `npm run build`).
+
 What the share sheet and the recipient's preview show for each **E2 variant**
 (`src/app/share.ts`) on **iOS** and **Android**, across WhatsApp, Messages,
 Discord, Messenger and Instagram, and which variant is the default.
@@ -86,3 +98,17 @@ further comparisons.
   deployments during the E5 review and are attached to the PR; the preview
   image each messaging app renders is the generated
   `public/icons/og-c-<day>.png` (1200 × 630, deterministic bytes).
+
+## Runs
+
+One row per real-device check. Leave the date empty until the run happened;
+a row without one is an untested expectation.
+
+| Date | Device | OS | Target app | Variant | What arrived | Notes |
+|---|---|---|---|---|---|---|
+| — | — | — | WhatsApp | `text` | — | — |
+| — | — | — | Messages | `text` | — | — |
+| — | — | — | Discord | `text` | — | — |
+| — | — | — | WhatsApp | `fields` | — | — |
+| — | — | — | WhatsApp | `image` | — | — |
+| — | — | — | Instagram | `image` | — | — |

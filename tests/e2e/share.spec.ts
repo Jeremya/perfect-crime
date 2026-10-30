@@ -184,7 +184,13 @@ function yapToPage(view: YapView, point: YapPoint): { x: number; y: number } {
 async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapView> {
   await page.goto(`${baseUrl}${path}`);
   await page.locator('canvas').first().waitFor({ state: 'attached' });
-  await page.waitForTimeout(500); // boot scene -> level scene build
+  // deterministic instead of a sleep: the level scene exposes its phase
+  // (`__yapPhase`) once the board is built and input is wired
+  await page.waitForFunction(
+    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'planning',
+    undefined,
+    { timeout: 15_000 },
+  );
   const view = await yapView(page);
   const cells = yapPlanCells(T1, T1_SOLUTION.plan);
   const points = cells.map((cell) => yapCellCenter(view.layout, cell));
@@ -215,6 +221,13 @@ async function yapTapShareUntil(
   done: () => Promise<boolean>,
   timeoutMs = 30_000,
 ): Promise<void> {
+  // wait for the Win screen itself before tapping: the Share button only
+  // exists there, and a tap during the playback does nothing
+  await page.waitForFunction(
+    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'win',
+    undefined,
+    { timeout: timeoutMs },
+  );
   const share = yapToPage(view, { x: view.viewWidth / 2, y: view.viewHeight - 28 });
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -342,18 +355,22 @@ test.describe('share flow on a phone (mobile UA + touch)', () => {
     page,
   }) => {
     // The Win screen fetches the OG preview (og-default.png for a tutorial
-    // win) as soon as it opens; wait for that request before tapping Share.
-    const imageRequested = page.waitForRequest(
-      (req) => req.url().includes('/icons/og-default.png'),
+    // win) as soon as it opens. Waiting for the request is not enough: the
+    // response still has to become a File, and an early tap legitimately
+    // degrades to the text variant (yapPreparedShareImage() === null). So wait
+    // for the response, then tap until a share call actually carries the file.
+    const imageResponse = page.waitForResponse(
+      (res) => res.url().includes('/icons/og-default.png'),
       { timeout: 20_000 },
     );
     const view = await yapWinTutorialT1(page, '/?share=image');
-    await imageRequested;
-    await yapTapShareUntil(page, view, async () => (await yapShareCalls(page)).length > 0);
+    await imageResponse;
+    await yapTapShareUntil(page, view, async () =>
+      (await yapShareCalls(page)).some((call) => call.files.length > 0),
+    );
     const calls = await yapShareCalls(page);
-    expect(calls).toHaveLength(1);
-    const data = calls[0];
-    if (data === undefined) throw new Error('no share call');
+    const data = calls.find((call) => call.files.length > 0);
+    if (data === undefined) throw new Error('no share call with the map file');
     expect(data.files).toEqual([{ name: 'perfect-crime-0.png', type: 'image/png' }]);
     expect(data.text).toContain('Your turn: https://yap-corp-perfect-crime.pages.dev/');
   });
