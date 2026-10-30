@@ -11,7 +11,7 @@ outstanding acceptance check (real-phone preview, playtest, live dashboards)
 or an open PR; each task file says which. External setup (such as live PostHog
 dashboards or real-phone checks) is not complete without evidence.
 
-Current count across the **34 required stories: 24 Done, 5 In progress, 5 To
+Current count across the **34 required stories: 23 Done, 6 In progress, 5 To
 do**. Both optional stories are Done (O1 #32+#44, O2 #19). Every line of code
 for Gate 1 is merged; nothing is blocked on a developer.
 
