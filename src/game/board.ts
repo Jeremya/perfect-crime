@@ -17,16 +17,22 @@ export const YAP_PALETTE = {
   floor: '#D9D8D2',
   wall: '#47515B',
   'wall-detail': '#77818A',
-  'grid-line': '#B7B8B3',
+  // 3.2:1 against the floor: cell boundaries are gameplay (cones are exact
+  // cells), so they must stay legible in daylight, not just decorative.
+  'grid-line': '#6F767B',
   'text-primary': '#202A33',
   'text-secondary': '#56616B',
   'action-primary': '#176B78',
   'action-secondary': '#E6E8E6',
+  /** Disabled primary action: keeps the brand hue instead of a dead grey. */
+  'action-primary-soft': '#D7E6E8',
   'danger-guard': '#D99B32',
   'danger-camera': '#8260A8',
   'danger-laser': '#C74747',
   'laser-off': '#69727B',
-  'objective-diamond': '#00AFC2',
+  // 3.3:1 against the floor (the old #00AFC2 was 1.9:1: the objective read as
+  // a pale smudge next to the exit).
+  'objective-diamond': '#007F8D',
   'objective-exit': '#32865A',
   'path-light': '#FFFFFF',
   'path-outline': '#26313B',
@@ -52,6 +58,12 @@ export const YAP_DANGER_LINE_WIDTH = 2;
 export const YAP_TOP_BAR_HEIGHT = 64;
 /** Bottom action bar height in px (Clear, PLAY, Hint) — docs/UI-DESIGN.md. */
 export const YAP_BOTTOM_BAR_HEIGHT = 96;
+/**
+ * Gap between the board and the page edge, in px. It holds the board frame and
+ * its soft shadow, so the grid reads as one object instead of tiles glued to
+ * the screen (docs/UI-DESIGN.md, Board and world rendering).
+ */
+export const YAP_BOARD_INSET = 6;
 
 export interface YapBoardLayout {
   readonly viewWidth: number;
@@ -78,9 +90,10 @@ export function yapComputeLayout(
   gridHeight: number,
   topBar: number = YAP_TOP_BAR_HEIGHT,
   bottomBar: number = YAP_BOTTOM_BAR_HEIGHT,
+  inset: number = YAP_BOARD_INSET,
 ): YapBoardLayout {
-  const availW = Math.max(1, viewWidth);
-  const availH = Math.max(1, viewHeight - topBar - bottomBar);
+  const availW = Math.max(1, viewWidth - inset * 2);
+  const availH = Math.max(1, viewHeight - topBar - bottomBar - inset * 2);
   const cell = Math.max(1, Math.floor(Math.min(availW / gridWidth, availH / gridHeight)));
   const boardWidth = cell * gridWidth;
   const boardHeight = cell * gridHeight;
@@ -88,8 +101,8 @@ export function yapComputeLayout(
     viewWidth,
     viewHeight,
     cell,
-    originX: Math.floor((viewWidth - boardWidth) / 2),
-    originY: topBar + Math.floor((availH - boardHeight) / 2),
+    originX: Math.max(inset, Math.floor((viewWidth - boardWidth) / 2)),
+    originY: topBar + inset + Math.max(0, Math.floor((availH - boardHeight) / 2)),
     boardWidth,
     boardHeight,
   };

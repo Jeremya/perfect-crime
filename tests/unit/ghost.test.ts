@@ -78,7 +78,7 @@ const lvlDetected = lvl('[[1,1], [2,1]]');
 /** The guard stays far from the start: waiting is safe for many ticks. */
 const lvlSafe = lvl('[[4,2], [5,2], [6,2]]');
 
-// 360 x 640 viewport: 40 px cells.
+// 360 x 640 viewport: 39 px cells.
 const layout: YapBoardLayout = yapComputeLayout(360, 640, 8, 12);
 
 const S: YapCell = { x: 1, y: 1 };
