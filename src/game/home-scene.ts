@@ -54,6 +54,7 @@ import { yapFitCamera, yapViewSize } from './hidpi';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
+import { yapText, yapTextStyle } from './text';
 import { YapAttemptLog, YapWinScreen, yapEmojiLineFor } from './win';
 import {
   yapBuildShareContent,
@@ -282,13 +283,11 @@ export class YapHomeScene extends Phaser.Scene {
       color: string,
       bold = false,
       wrap = 0,
-    ): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color,
-      ...(bold ? { fontStyle: 'bold' } : {}),
-      ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
-    });
+    ): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, color, {
+        ...(bold ? { fontStyle: 'bold' } : {}),
+        ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
+      });
 
     // top bar: the game name, with the same accent strip as the level HUD
     const header = this.add.graphics();
@@ -299,14 +298,13 @@ export class YapHomeScene extends Phaser.Scene {
       .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, width, YAP_TOP_BAR_HEIGHT - 0.5);
     root.add(header);
     root.add(
-      this.add
-        .text(
-          16,
-          YAP_TOP_BAR_HEIGHT / 2,
-          yapI18n.t('app.title'),
-          textStyle(20, YAP_PALETTE['text-primary'], true),
-        )
-        .setOrigin(0, 0.5),
+      yapText(
+        this,
+        16,
+        YAP_TOP_BAR_HEIGHT / 2,
+        yapI18n.t('app.title'),
+        textStyle(20, YAP_PALETTE['text-primary'], true),
+      ).setOrigin(0, 0.5),
     );
 
     // Actions live in the bottom third; their top edge is needed by the
@@ -336,9 +334,10 @@ export class YapHomeScene extends Phaser.Scene {
       bold: boolean,
       gapAfter: number,
     ): Phaser.GameObjects.Text => {
-      const t = this.add
-        .text(innerX, y, text, textStyle(size, color, bold, innerW))
-        .setOrigin(0, 0);
+      const t = yapText(this, innerX, y, text, textStyle(size, color, bold, innerW)).setOrigin(
+        0,
+        0,
+      );
       root.add(t);
       y += t.height + gapAfter;
       return t;
@@ -608,14 +607,16 @@ export class YapHomeScene extends Phaser.Scene {
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
     const view = yapViewSize(this);
-    const toast = this.add
-      .text(view.width / 2, view.height - 96, message, {
-        fontFamily: 'sans-serif',
-        fontSize: '16px',
-        color: YAP_PALETTE['path-light'],
+    const toast = yapText(
+      this,
+      view.width / 2,
+      view.height - 96,
+      message,
+      yapTextStyle(16, YAP_PALETTE['path-light'], {
         backgroundColor: YAP_PALETTE['text-primary'],
         padding: { x: 12, y: 8 },
-      })
+      }),
+    )
       .setOrigin(0.5, 1)
       .setAlpha(0);
     this.yapRoot?.add(toast);
@@ -646,14 +647,17 @@ export class YapHomeScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
-        fontFamily: 'sans-serif',
-        fontSize: primary ? '20px' : '16px',
-        color: primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
-        ...(primary ? { fontStyle: 'bold' } : {}),
-      })
-      .setOrigin(0.5);
+    const label = yapText(
+      this,
+      0,
+      0,
+      labelText,
+      yapTextStyle(
+        primary ? 20 : 16,
+        primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
+        { ...(primary ? { fontStyle: 'bold' } : {}) },
+      ),
+    ).setOrigin(0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, label]);
     return container;
@@ -682,28 +686,27 @@ export class YapHomeScene extends Phaser.Scene {
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
     // two-line row that also survives the compact height of a small phone
     const tight = h < 56;
-    const titleText = this.add
-      .text(-w / 2 + 16, -h / 2 + (tight ? 6 : 10), title, {
-        fontFamily: 'sans-serif',
-        fontSize: tight ? '15px' : '16px',
-        color: YAP_PALETTE['text-primary'],
-        fontStyle: 'bold',
-      })
-      .setOrigin(0, 0);
-    const statusText = this.add
-      .text(-w / 2 + 16, -h / 2 + (tight ? 23 : 34), status, {
-        fontFamily: 'sans-serif',
-        fontSize: tight ? '13px' : '14px',
-        color: YAP_PALETTE['text-secondary'],
-      })
-      .setOrigin(0, 0);
-    const playText = this.add
-      .text(w / 2 - 16, 0, yapI18n.t('home.play'), {
-        fontFamily: 'sans-serif',
-        fontSize: '16px',
-        color: YAP_PALETTE['text-primary'],
-      })
-      .setOrigin(1, 0.5);
+    const titleText = yapText(
+      this,
+      -w / 2 + 16,
+      -h / 2 + (tight ? 6 : 10),
+      title,
+      yapTextStyle(tight ? 15 : 16, YAP_PALETTE['text-primary'], { fontStyle: 'bold' }),
+    ).setOrigin(0, 0);
+    const statusText = yapText(
+      this,
+      -w / 2 + 16,
+      -h / 2 + (tight ? 23 : 34),
+      status,
+      yapTextStyle(tight ? 13 : 14, YAP_PALETTE['text-secondary']),
+    ).setOrigin(0, 0);
+    const playText = yapText(
+      this,
+      w / 2 - 16,
+      0,
+      yapI18n.t('home.play'),
+      yapTextStyle(16, YAP_PALETTE['text-primary']),
+    ).setOrigin(1, 0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, titleText, statusText, playText]);
     return container;

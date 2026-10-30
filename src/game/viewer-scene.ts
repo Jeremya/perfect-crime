@@ -41,6 +41,7 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
+import { yapText, yapTextStyle } from './text';
 
 /** Scene key (docs/NAMING.md: yap-<name>). */
 export const YAP_VIEWER_SCENE_KEY = 'yap-viewer';
@@ -237,18 +238,23 @@ export class YapViewerScene extends Phaser.Scene {
   private yapBuildChrome(): void {
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
-    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color: YAP_PALETTE['text-primary'],
-    });
-    this.yapNameText = this.add
-      .text(16, YAP_TOP_BAR_HEIGHT / 2, this.yapModel?.level.name ?? yapI18n.t('viewer.title'), textStyle(20))
-      .setOrigin(0, 0.5);
+    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, YAP_PALETTE['text-primary']);
+    this.yapNameText = yapText(
+      this,
+      16,
+      YAP_TOP_BAR_HEIGHT / 2,
+      this.yapModel?.level.name ?? yapI18n.t('viewer.title'),
+      textStyle(20),
+    ).setOrigin(0, 0.5);
     const view = yapViewSize(this);
-    this.yapTickText = this.add
-      .text(view.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
-      .setOrigin(1, 0.5);
+    this.yapTickText = yapText(
+      this,
+      view.width - 16,
+      YAP_TOP_BAR_HEIGHT / 2,
+      '',
+      textStyle(16),
+    ).setOrigin(1, 0.5);
     chrome.add([this.yapNameText, this.yapTickText]);
 
     const barY = view.height - YAP_VIEWER_BOTTOM_BAR;
@@ -332,13 +338,13 @@ export class YapViewerScene extends Phaser.Scene {
           .strokeCircle(bx, by, r);
         dyn.add(badge);
         dyn.add(
-          this.add
-            .text(bx, by, String(pauses), {
-              fontFamily: 'sans-serif',
-              fontSize: `${Math.max(10, Math.floor(layout.cell * 0.28))}px`,
-              color: YAP_PALETTE['path-light'],
-            })
-            .setOrigin(0.5),
+          yapText(
+            this,
+            bx,
+            by,
+            String(pauses),
+            yapTextStyle(Math.max(10, Math.floor(layout.cell * 0.28)), YAP_PALETTE['path-light']),
+          ).setOrigin(0.5),
         );
       });
     }

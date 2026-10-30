@@ -56,6 +56,7 @@ import {
 import { yapFitCamera, yapViewSize } from './hidpi';
 import { yapFlow } from './home-scene';
 import { yapDrawDiamond, yapDrawExit, yapDrawStart, yapDrawStaticGrid } from './render';
+import { yapText, yapTextStyle } from './text';
 
 /** Scene key of the challenge card. */
 export const YAP_CHALLENGE_SCENE_KEY = 'yap-challenge';
@@ -187,13 +188,11 @@ export class YapChallengeScene extends Phaser.Scene {
       color: string,
       bold = false,
       wrap = 0,
-    ): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color,
-      ...(bold ? { fontStyle: 'bold' } : {}),
-      ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
-    });
+    ): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, color, {
+        ...(bold ? { fontStyle: 'bold' } : {}),
+        ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
+      });
     const primary = YAP_PALETTE['text-primary'];
 
     // top bar: screen title, same accent strip as Home and the level HUD
@@ -208,14 +207,13 @@ export class YapChallengeScene extends Phaser.Scene {
       .fillRect(0, 0, 4, YAP_TOP_BAR_HEIGHT);
     root.add(header);
     root.add(
-      this.add
-        .text(
-          16,
-          YAP_TOP_BAR_HEIGHT / 2,
-          yapI18n.t('comparison.title'),
-          textStyle(20, primary, true),
-        )
-        .setOrigin(0, 0.5),
+      yapText(
+        this,
+        16,
+        YAP_TOP_BAR_HEIGHT / 2,
+        yapI18n.t('comparison.title'),
+        textStyle(20, primary, true),
+      ).setOrigin(0, 0.5),
     );
 
     // card panel between the bars
@@ -298,7 +296,7 @@ export class YapChallengeScene extends Phaser.Scene {
       gapAfter: number,
       wrap = 0,
     ): Phaser.GameObjects.Text => {
-      const t = this.add.text(x, cursor, text, textStyle(size, color, bold, wrap)).setOrigin(0, 0);
+      const t = yapText(this, x, cursor, text, textStyle(size, color, bold, wrap)).setOrigin(0, 0);
       root.add(t);
       cursor += t.height + gapAfter;
       return t;
@@ -329,12 +327,20 @@ export class YapChallengeScene extends Phaser.Scene {
     const comparison = yapCompareWithSender(entry, record);
     const youX = x + w - 96;
     const friendX = x + w;
-    const header = this.add
-      .text(youX, cursor, yapI18n.t('challengeFlow.you'), textStyle(14, secondary, true))
-      .setOrigin(1, 0);
-    const friendHeader = this.add
-      .text(friendX, cursor, yapI18n.t('challengeFlow.friend'), textStyle(14, secondary, true))
-      .setOrigin(1, 0);
+    const header = yapText(
+      this,
+      youX,
+      cursor,
+      yapI18n.t('challengeFlow.you'),
+      textStyle(14, secondary, true),
+    ).setOrigin(1, 0);
+    const friendHeader = yapText(
+      this,
+      friendX,
+      cursor,
+      yapI18n.t('challengeFlow.friend'),
+      textStyle(14, secondary, true),
+    ).setOrigin(1, 0);
     root.add([header, friendHeader]);
     cursor += Math.max(header.height, friendHeader.height) + 6;
 
@@ -362,9 +368,9 @@ export class YapChallengeScene extends Phaser.Scene {
       ],
     ];
     for (const [label, you, friend] of rows) {
-      root.add(this.add.text(x, cursor, label, textStyle(16, secondary)).setOrigin(0, 0));
-      root.add(this.add.text(youX, cursor, you, textStyle(16, primary)).setOrigin(1, 0));
-      root.add(this.add.text(friendX, cursor, friend, textStyle(16, primary)).setOrigin(1, 0));
+      root.add(yapText(this, x, cursor, label, textStyle(16, secondary)).setOrigin(0, 0));
+      root.add(yapText(this, youX, cursor, you, textStyle(16, primary)).setOrigin(1, 0));
+      root.add(yapText(this, friendX, cursor, friend, textStyle(16, primary)).setOrigin(1, 0));
       cursor += 26;
     }
     cursor += 6;
@@ -410,14 +416,13 @@ export class YapChallengeScene extends Phaser.Scene {
     const level = yapLevelById(`daily/d${this.yapDay}`);
     if (entry === null || level === null) return;
     const primary = YAP_PALETTE['text-primary'];
-    const title = this.add
-      .text(x, y, yapI18n.t('challengeFlow.planTitle'), {
-        fontFamily: 'sans-serif',
-        fontSize: '20px',
-        color: primary,
-        fontStyle: 'bold',
-      })
-      .setOrigin(0, 0);
+    const title = yapText(
+      this,
+      x,
+      y,
+      yapI18n.t('challengeFlow.planTitle'),
+      yapTextStyle(20, primary, { fontStyle: 'bold' }),
+    ).setOrigin(0, 0);
     root.add(title);
     root.add(
       this.yapMakeButton(x + w - 40, y + 22, 80, 44, yapI18n.t('common.back'), false, () => {
@@ -474,14 +479,17 @@ export class YapChallengeScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
-        fontFamily: 'sans-serif',
-        fontSize: primary ? '20px' : '16px',
-        color: primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
-        ...(primary ? { fontStyle: 'bold' } : {}),
-      })
-      .setOrigin(0.5);
+    const label = yapText(
+      this,
+      0,
+      0,
+      labelText,
+      yapTextStyle(
+        primary ? 20 : 16,
+        primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
+        { ...(primary ? { fontStyle: 'bold' } : {}) },
+      ),
+    ).setOrigin(0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, label]);
     return container;

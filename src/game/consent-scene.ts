@@ -21,6 +21,7 @@ import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
 import { yapFitCamera, yapViewSize } from './hidpi';
+import { yapText, yapTextStyle } from './text';
 
 /** Minimum height of the banner strip: exactly the top bar zone. */
 const YAP_BANNER_MIN_HEIGHT = YAP_TOP_BAR_HEIGHT;
@@ -30,7 +31,7 @@ const YAP_BANNER_GAP = 8;
 const YAP_ACCEPT_WIDTH = 56;
 const YAP_DECLINE_WIDTH = 88;
 /** docs/UI-DESIGN.md: body text and control labels are at least 14 px. */
-const YAP_BANNER_FONT_SIZE = '14px';
+const YAP_BANNER_FONT_SIZE = 14;
 
 export class YapConsentScene extends Phaser.Scene {
   private yapBanner: Phaser.GameObjects.Container | null = null;
@@ -77,12 +78,15 @@ export class YapConsentScene extends Phaser.Scene {
     const copy = this.yapShowDetail
       ? yapI18n.t('consentBanner.detail')
       : `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
-    const text = this.add.text(textLeft, 0, copy, {
-      fontFamily: 'sans-serif',
-      fontSize: YAP_BANNER_FONT_SIZE,
-      color: YAP_PALETTE['text-primary'],
-      wordWrap: { width: textWidth },
-    });
+    const text = yapText(
+      this,
+      textLeft,
+      0,
+      copy,
+      yapTextStyle(YAP_BANNER_FONT_SIZE, YAP_PALETTE['text-primary'], {
+        wordWrap: { width: textWidth },
+      }),
+    );
     const height = Math.max(YAP_BANNER_MIN_HEIGHT, Math.ceil(text.height) + 2 * YAP_BANNER_GAP);
     text.setOrigin(0, 0.5).setY(height / 2);
 
@@ -154,13 +158,13 @@ export class YapConsentScene extends Phaser.Scene {
     const zone = this.add
       .zone(0, 0, w, YAP_BANNER_BUTTON_HEIGHT)
       .setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
-        fontFamily: 'sans-serif',
-        fontSize: YAP_BANNER_FONT_SIZE,
-        color: textColor,
-      })
-      .setOrigin(0.5);
+    const label = yapText(
+      this,
+      0,
+      0,
+      labelText,
+      yapTextStyle(YAP_BANNER_FONT_SIZE, textColor),
+    ).setOrigin(0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, label]);
     return { container };

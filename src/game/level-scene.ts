@@ -98,6 +98,7 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
+import { yapText, yapTextStyle } from './text';
 
 /** Texture key of the baked static grid. */
 const YAP_GRID_TEXTURE_KEY = 'yap-board-grid';
@@ -699,17 +700,13 @@ export class YapLevelScene extends Phaser.Scene {
     // pause badges: compact "⏸ n" on the cells that hold pauses
     badges.removeAll(true);
     const pauses = input.yapPauseCounts();
-    const badgeStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'sans-serif',
-      fontSize: '14px',
-      color: YAP_PALETTE['text-primary'],
-    };
+    const badgeStyle = yapTextStyle(14, YAP_PALETTE['text-primary']);
     for (let i = 0; i < cells.length; i += 1) {
       const n = pauses[i] ?? 0;
       const c = cells[i];
       if (n <= 0 || c === undefined) continue;
       const p = yapCellCenter(layout, c);
-      const label = this.add.text(p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
+      const label = yapText(this, p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
       const bg = this.add
         .rectangle(
           p.x,
@@ -766,13 +763,13 @@ export class YapLevelScene extends Phaser.Scene {
     const last = cells[cells.length - 1];
     if (plan !== null && last !== undefined && badge !== null) {
       const p = yapCellCenter(layout, last);
-      const label = this.add
-        .text(0, 0, yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }), {
-          fontFamily: 'sans-serif',
-          fontSize: '14px',
-          color: YAP_PALETTE['path-light'],
-        })
-        .setOrigin(0.5);
+      const label = yapText(
+        this,
+        0,
+        0,
+        yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }),
+        yapTextStyle(14, YAP_PALETTE['path-light']),
+      ).setOrigin(0.5);
       const bg = this.add
         .rectangle(
           0,
@@ -850,13 +847,13 @@ export class YapLevelScene extends Phaser.Scene {
     chrome.add(bar);
 
     // short instruction while the plan does not reach the exit with the diamond
-    this.yapInstruction = this.add
-      .text(layout.viewWidth / 2, barY + 12, yapI18n.t('planning.grabDiamond'), {
-        fontFamily: 'sans-serif',
-        fontSize: '14px',
-        color: YAP_PALETTE['text-secondary'],
-      })
-      .setOrigin(0.5, 0);
+    this.yapInstruction = yapText(
+      this,
+      layout.viewWidth / 2,
+      barY + 12,
+      yapI18n.t('planning.grabDiamond'),
+      yapTextStyle(14, YAP_PALETTE['text-secondary']),
+    ).setOrigin(0.5, 0);
     chrome.add(this.yapInstruction);
 
     // One 56 px row: Clear, the Hint slot (C7, only when available) and PLAY.
@@ -939,21 +936,20 @@ export class YapLevelScene extends Phaser.Scene {
       .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
     chrome.add(header);
 
-    const name = this.add
-      .text(16, 24, title, {
-        fontFamily: 'sans-serif',
-        fontSize: '20px',
-        fontStyle: 'bold',
-        color: YAP_PALETTE['text-primary'],
-      })
-      .setOrigin(0, 0.5);
-    const statsText = this.add
-      .text(16, 47, stats, {
-        fontFamily: 'sans-serif',
-        fontSize: '14px',
-        color: YAP_PALETTE['text-secondary'],
-      })
-      .setOrigin(0, 0.5);
+    const name = yapText(
+      this,
+      16,
+      24,
+      title,
+      yapTextStyle(20, YAP_PALETTE['text-primary'], { fontStyle: 'bold' }),
+    ).setOrigin(0, 0.5);
+    const statsText = yapText(
+      this,
+      16,
+      47,
+      stats,
+      yapTextStyle(14, YAP_PALETTE['text-secondary']),
+    ).setOrigin(0, 0.5);
     chrome.add([name, statsText]);
     return statsText;
   }
@@ -985,13 +981,7 @@ export class YapLevelScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
-        fontFamily: 'sans-serif',
-        fontSize: '16px',
-        color: textColor,
-      })
-      .setOrigin(0.5);
+    const label = yapText(this, 0, 0, labelText, yapTextStyle(16, textColor)).setOrigin(0.5);
     zone.on('pointerdown', onPress);
     zone.on('pointerdown', () => this.events.emit(YAP_UI_TAP_EVENT));
     container.add([bg, zone, label]);
@@ -1434,11 +1424,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapSetPhase('failure');
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
-    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color: YAP_PALETTE['text-primary'],
-    });
+    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, YAP_PALETTE['text-primary']);
     // the zoomed main camera only covers the board area; this top bar is
     // drawn on the UI camera, in the same style as the other modes
     this.yapBuildTopBar(
@@ -1461,9 +1448,13 @@ export class YapLevelScene extends Phaser.Scene {
     const failure = this.yapFailure;
     const causeText =
       failure !== null ? yapI18n.t(failure.yapCauseKey()) : yapI18n.t('failure.spottedByGuard');
-    const cause = this.add
-      .text(layout.viewWidth / 2, barY + 12, causeText, textStyle(16))
-      .setOrigin(0.5, 0);
+    const cause = yapText(
+      this,
+      layout.viewWidth / 2,
+      barY + 12,
+      causeText,
+      textStyle(16),
+    ).setOrigin(0.5, 0);
     chrome.add(cause);
     // warning icon next to the cause: triangle + "!" (icon, not color alone)
     const iconX = cause.x - cause.width / 2 - 20;
@@ -1477,22 +1468,19 @@ export class YapLevelScene extends Phaser.Scene {
       .strokeTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8);
     chrome.add(warn);
     chrome.add(
-      this.add
-        .text(iconX, iconY - 1, '!', {
-          fontFamily: 'sans-serif',
-          fontSize: '12px',
-          color: YAP_PALETTE['path-light'],
-        })
-        .setOrigin(0.5, 0.5),
+      yapText(this, iconX, iconY - 1, '!', yapTextStyle(12, YAP_PALETTE['path-light'])).setOrigin(
+        0.5,
+        0.5,
+      ),
     );
     chrome.add(
-      this.add
-        .text(layout.viewWidth / 2, barY + 46, yapI18n.t('failure.tapToReturn'), {
-          fontFamily: 'sans-serif',
-          fontSize: '14px',
-          color: YAP_PALETTE['text-secondary'],
-        })
-        .setOrigin(0.5, 0),
+      yapText(
+        this,
+        layout.viewWidth / 2,
+        barY + 46,
+        yapI18n.t('failure.tapToReturn'),
+        yapTextStyle(14, YAP_PALETTE['text-secondary']),
+      ).setOrigin(0.5, 0),
     );
     // the planning/execution chrome refs do not exist in this mode
     this.yapStatsText = null;
@@ -1544,11 +1532,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapChrome = chrome;
     const win = this.yapWin;
     if (win === null) return;
-    const textStyle = (size: number, color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color,
-    });
+    const textStyle = (size: number, color: string): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, color);
     // same top bar as the planning screen: one visual language across modes
     this.yapBuildTopBar(chrome, layout, level.name, '');
 
@@ -1599,23 +1584,26 @@ export class YapLevelScene extends Phaser.Scene {
     body.add(panel);
 
     body.add(
-      this.add
-        .text(cx, y, titleText, textStyle(24, YAP_PALETTE['text-primary']))
-        .setOrigin(0.5, 0),
+      yapText(this, cx, y, titleText, textStyle(24, YAP_PALETTE['text-primary'])).setOrigin(0.5, 0),
     );
     y += titleH + 14;
 
     // stats rows: label left, value right (14 px minimum body text)
     for (const [label, value] of rows) {
       body.add(
-        this.add
-          .text(innerX, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
-          .setOrigin(0, 0),
+        yapText(this, innerX, y, label, textStyle(16, YAP_PALETTE['text-secondary'])).setOrigin(
+          0,
+          0,
+        ),
       );
       body.add(
-        this.add
-          .text(innerX + innerW, y, value, textStyle(16, YAP_PALETTE['text-primary']))
-          .setOrigin(1, 0),
+        yapText(
+          this,
+          innerX + innerW,
+          y,
+          value,
+          textStyle(16, YAP_PALETTE['text-primary']),
+        ).setOrigin(1, 0),
       );
       y += rowGap;
     }
@@ -1623,12 +1611,21 @@ export class YapLevelScene extends Phaser.Scene {
 
     // the emoji line that will go into the share, as a preview
     body.add(
-      this.add
-        .text(cx, y, previewLabel, textStyle(14, YAP_PALETTE['text-secondary']))
-        .setOrigin(0.5, 0),
+      yapText(this, cx, y, previewLabel, textStyle(14, YAP_PALETTE['text-secondary'])).setOrigin(
+        0.5,
+        0,
+      ),
     );
     y += 20;
-    body.add(this.add.text(cx, y, win.yapEmojiLine(), textStyle(22, YAP_PALETTE['text-primary'])).setOrigin(0.5, 0));
+    body.add(
+      yapText(
+        this,
+        cx,
+        y,
+        win.yapEmojiLine(),
+        textStyle(22, YAP_PALETTE['text-primary']),
+      ).setOrigin(0.5, 0),
+    );
 
     // Improve my score + Home, side by side, above the dominant Share action
     const halfW = (innerW - gap) / 2;
@@ -1745,15 +1742,16 @@ export class YapLevelScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
-    const toast = this.add
-      .text(layout.viewWidth / 2, layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT - 12, message, {
-        fontFamily: 'sans-serif',
-        fontSize: '16px',
-        color: YAP_PALETTE['path-light'],
+    const toast = yapText(
+      this,
+      layout.viewWidth / 2,
+      layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT - 12,
+      message,
+      yapTextStyle(16, YAP_PALETTE['path-light'], {
         backgroundColor: YAP_PALETTE['text-primary'],
         padding: { x: 12, y: 8 },
-      })
-      .setOrigin(0.5, 1);
+      }),
+    ).setOrigin(0.5, 1);
     chrome.add(toast);
     this.time.delayedCall(1600, () => toast.destroy());
   }
