@@ -124,6 +124,11 @@ export const en = {
   ghost: {
     tickBadge: 't{tick}',
   },
+  // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
+  // preview that will go into the share.
+  winScreen: {
+    sharePreview: 'Share preview',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
