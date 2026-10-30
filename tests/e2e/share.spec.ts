@@ -143,9 +143,11 @@ async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapView> {
 }
 
 /**
- * Tap the Win-screen Share button (centred at (viewWidth/2, viewHeight - 28))
- * until `done` reports the share ended. Before the Win screen the same point
- * is harmless (empty bottom bar, or PLAY while planning).
+ * Tap the Win-screen Share button until `done` reports the share ended. The
+ * 56 px button closes the result card, 16 px above its bottom edge (itself
+ * 16 px above the page bottom): centred at (viewWidth/2, viewHeight - 60).
+ * Before the Win screen the same point is harmless (empty bottom bar, or PLAY
+ * while planning).
  */
 async function yapTapShareUntil(
   page: Page,
@@ -160,7 +162,7 @@ async function yapTapShareUntil(
     undefined,
     { timeout: timeoutMs },
   );
-  const share = yapToPage(view, { x: view.viewWidth / 2, y: view.viewHeight - 28 });
+  const share = yapToPage(view, { x: view.viewWidth / 2, y: view.viewHeight - 60 });
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await done()) return;

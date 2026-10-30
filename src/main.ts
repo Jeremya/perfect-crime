@@ -117,7 +117,11 @@ const config: Phaser.Types.Core.GameConfig = {
     // yapInstallResize, below, follows the frame instead. The frame above caps
     // desktop width and height while staying centered.
     mode: Phaser.Scale.NONE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // No Phaser centring: #game is already centred by the body flex and has
+    // the canvas size. CENTER_BOTH floors a negative half-pixel gap to -1 px
+    // when the backing store rounds up at a fractional ratio (2.625, 2.75),
+    // cropping one CSS px row or column of the game.
+    autoCenter: Phaser.Scale.NO_CENTER,
     ...yapDeviceSize(yapGameFrame?.clientWidth ?? 480, yapGameFrame?.clientHeight ?? 853, YAP_DPR),
     zoom: 1 / YAP_DPR,
   },
