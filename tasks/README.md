@@ -10,7 +10,7 @@ merged with repository acceptance evidenced. `In progress` includes merged work
 with an outstanding acceptance check (real-phone preview, playtest, live
 dashboards) or an open PR; each task file says which. External setup (such as
 live PostHog dashboards or real-phone checks) is not complete without evidence.
-Current count: **19 Done, 11 In progress, 6 To do** across the 34 required
+Current count: **20 Done, 10 In progress, 6 To do** across the 34 required
 stories + 2 optional (O1 In progress, O2 Done). All dev stories are merged; the
 remaining work is PM-side: H1–H6 (feel sessions, recruitment, test week, Gate 1
 decision) plus the outstanding real-device / playtest / dashboard checks noted
@@ -47,7 +47,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | E1 | Payload v1 | E | Dev | 1 | B2 | Done | `tasks/E1.md` |
 | E2 | Share button | E | Dev | 1.25 | E1, C5 | In progress (#29 merged; real-device matrix E5 pending) | `tasks/E2.md` |
 | E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | Done | `tasks/E3.md` |
-| E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | In progress (#36/#37 merged; two-device check pending) | `tasks/E4.md` |
+| E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | Done (#36/#37; two-device check) | `tasks/E4.md` |
 | E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | In progress (#34 merged, Android rows recorded; iOS + per-target rows pending) | `tasks/E5.md` |
 | F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | Done | `tasks/F1.md` |
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | In progress (#25 merged; 3-person playtest pending) | `tasks/F2.md` |
@@ -61,7 +61,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | H4 | Recruitment 20–30 testers | H | PM | 1.5 | — (parallel from day 1) | To do | `tasks/H4.md` |
 | H5 | Test week, no reminders | H | PM | 1 | H4, G3 | To do | `tasks/H5.md` |
 | H6 | Gate 1 decision | H | PM | 1 | H5 | To do | `tasks/H6.md` |
-| O1 | Optional: playable archive | O | Dev | 0.75 | D2 | In progress (#32 merged; phone check pending) | `tasks/O1.md` |
+| O1 | Optional: playable archive | O | Dev | 0.75 | D2 | In progress (#32 merged; archive overflows at 400 × 797 — fix pending) | `tasks/O1.md` |
 | O2 | Optional: draft generator | O | Dev | 1 | B3 | Done | `tasks/O2.md` |
 
 ## Parallel waves (dependency order)
