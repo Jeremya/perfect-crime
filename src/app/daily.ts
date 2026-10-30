@@ -122,6 +122,23 @@ export function yapMsUntilNextHeist(now: Date, startDate: string = YAP_TEST_STAR
   return Math.max(0, next.getTime() - now.getTime());
 }
 
+// ---------------------------------------------------------------------------
+// Archive (story O1): past days of the test week stay playable
+// ---------------------------------------------------------------------------
+
+/**
+ * Past days of the test week, oldest first: during the week, the days before
+ * the local day of `now` (today is not a past day — it has its Play button);
+ * after day 7, the whole week; before the start, none. Replaying one of them
+ * (level mode 'archive') never touches the streak: only a win on the heist of
+ * the local day of `now` feeds it (see recordYapWin).
+ */
+export function yapArchiveDays(now: Date, startDate: string = YAP_TEST_START_DATE): number[] {
+  const last = Math.min(yapRawDay(now, startDate) - 1, YAP_WEEK_DAYS);
+  if (last < 1) return [];
+  return Array.from({ length: last }, (_, index) => index + 1);
+}
+
 /** Today's heist: phase, clamped day and countdown to the next one. */
 export function yapDailyInfo(now: Date, startDate: string = YAP_TEST_START_DATE): YapDailyInfo {
   const rawDay = yapRawDay(now, startDate);
@@ -225,5 +242,13 @@ export class YapDaily {
   /** Record a win on today's daily heist and persist the streak. */
   recordWin(now: Date): YapStreak {
     return recordYapWin(this.storage, now, this.startDate);
+  }
+
+  /**
+   * Past days of the test week, playable from the archive (story O1) without
+   * touching the streak.
+   */
+  archive(now: Date): number[] {
+    return yapArchiveDays(now, this.startDate);
   }
 }

@@ -15,6 +15,7 @@ import {
   YAP_WEEK_DAYS,
   loadYapStreak,
   recordYapWin,
+  yapArchiveDays,
   yapDailyInfo,
   yapMsUntilNextHeist,
   yapRawDay,
@@ -328,5 +329,66 @@ describe('YapDaily class and input validation', () => {
     expect(() => yapDailyInfo(now, '2025-02-30')).toThrow();
     expect(() => yapDailyInfo(now, '2025-11-3')).toThrow();
     expect(yapDailyInfo(now, '2025-11-03').day).toBe(1);
+  });
+});
+
+describe('archive (story O1) — past days stay playable', () => {
+  it('is empty before the test week and on day 1 (today is not a past day)', () => {
+    useTz('Europe/Paris');
+    expect(yapArchiveDays(at(2025, 11, 2, 12))).toEqual([]);
+    expect(yapArchiveDays(at(2025, 11, 3, 0, 0, 0, 0))).toEqual([]);
+    expect(yapArchiveDays(at(2025, 11, 3, 23, 59, 59, 999))).toEqual([]);
+  });
+
+  it('lists the past days of the week, oldest first, during the week', () => {
+    useTz('Europe/Paris');
+    expect(yapArchiveDays(at(2025, 11, 4, 0, 0, 0, 0))).toEqual([1]);
+    expect(yapArchiveDays(at(2025, 11, 6, 8))).toEqual([1, 2, 3]);
+    // Day 7: today is still not in the archive.
+    expect(yapArchiveDays(at(2025, 11, 9, 23, 59, 59, 999))).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it('lists the whole week after day 7, however long ago', () => {
+    useTz('Europe/Paris');
+    expect(yapArchiveDays(at(2025, 11, 10, 0, 0, 0, 0))).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(yapArchiveDays(at(2025, 12, 25, 12))).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('respects a custom start date and stays correct across a 25 h DST day', () => {
+    useTz('Europe/Paris');
+    // Week starting 2025-10-20: 2025-10-26 is day 7, a 25 h day.
+    expect(yapArchiveDays(at(2025, 10, 26, 12), '2025-10-20')).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(yapArchiveDays(at(2025, 10, 27, 0), '2025-10-20')).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(yapArchiveDays(at(2025, 10, 23, 12), '2025-10-20')).toEqual([1, 2, 3]);
+  });
+
+  it('the YapDaily class exposes the archive with its own start date', () => {
+    useTz('Europe/Paris');
+    const daily = new YapDaily(new YapStorage(new FakeBackend()), '2025-10-20');
+    expect(daily.archive(at(2025, 10, 23, 12))).toEqual([1, 2, 3]);
+    expect(daily.archive(at(2025, 10, 27, 12))).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(daily.archive(at(2025, 10, 19, 12))).toEqual([]);
+  });
+
+  it('replaying archived days never touches the stored streak', () => {
+    useTz('Europe/Paris');
+    const backend = new FakeBackend();
+    const storage = new YapStorage(backend);
+    const daily = new YapDaily(storage);
+    daily.recordWin(at(2025, 11, 3, 10)); // day 1 -> streak 1
+    daily.recordWin(at(2025, 11, 4, 10)); // day 2 -> streak 2
+    const stored = backend.entries.get(`${YAP_CORP.storagePrefix}streak`);
+    expect(stored).not.toBeUndefined();
+    // After the week the archive offers days 1..7; "winning" any of them (a
+    // recordYapWin outside the test week) leaves the persisted streak alone.
+    const archive = daily.archive(at(2025, 11, 10, 8));
+    expect(archive).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    for (const day of archive) {
+      expect(day).toBeGreaterThanOrEqual(1);
+      expect(day).toBeLessThanOrEqual(YAP_WEEK_DAYS);
+    }
+    daily.recordWin(at(2025, 11, 10, 8));
+    expect(backend.entries.get(`${YAP_CORP.storagePrefix}streak`)).toBe(stored);
+    expect(daily.streak(at(2025, 11, 10, 8))).toEqual({ current: 0, best: 2, lastDayWon: 2 });
   });
 });

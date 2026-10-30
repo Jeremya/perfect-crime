@@ -46,6 +46,12 @@ export const en = {
     pausesLeft: 'Pauses left: {count}',
     clear: 'Clear',
     play: 'PLAY',
+    // C1 visual pass: one compact stats line under the level name.
+    statsTicks: '{ticks} ticks',
+    statsPar: 'par {par}',
+    statsPauses: '{count} pauses',
+    statsSeparator: ' · ',
+    drawRoute: 'Draw your route',
     hint: 'Hint',
     grabDiamond: 'Grab the diamond, then get out',
   },
@@ -168,6 +174,22 @@ export const en = {
   hints: {
     button: '💡 Hint',
     badge: '💡 {shown}/{total}',
+  },
+  // Story E4 — link arrival (src/app/inbox.ts, src/game/challenge-scene.ts,
+  // src/app/router.ts): the challenge card of a received link, its score
+  // comparison and the friend's plan, hidden until the recipient has won or
+  // taken the second hint. The card line and the actions reuse challenge.*
+  // and comparison.* above.
+  challengeFlow: {
+    expressNote: 'New here? A quick 3-level tutorial comes first.',
+    you: 'You',
+    friend: 'Friend',
+    hints: 'Hints',
+    verdictBetter: 'You beat your friend!',
+    verdictWorse: 'Your friend is ahead — rematch?',
+    verdictTied: 'Dead heat!',
+    planLocked: 'Their plan stays hidden until you clear this heist — or take the second hint.',
+    planTitle: 'Their plan',
   },
 } as const;
 

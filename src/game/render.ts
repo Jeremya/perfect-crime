@@ -60,10 +60,12 @@ export function yapDrawStaticGrid(
       }
     }
   }
-  // crisp 1 px cell boundaries
+  // crisp 1 px cell boundaries, floors only: on the dark walls a light line
+  // would read as a seam and compete with the architecture
   g.lineStyle(1, color('grid-line'), 1);
   for (let y = 0; y < level.height; y += 1) {
     for (let x = 0; x < level.width; x += 1) {
+      if ((level.map[y]?.charAt(x) ?? '#') === '#') continue;
       const rect = yapCellRect(layout, { x, y });
       g.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     }
@@ -217,8 +219,15 @@ export function yapDrawThief(
 ): void {
   const p = yapCellCenter(layout, at);
   const r = layout.cell * 0.3;
+  // ground shadow: the character reads as standing on the floor, not pasted on
+  g.fillStyle(color('path-outline'), 0.16).fillEllipse(
+    p.x,
+    p.y + layout.cell * 0.24,
+    r * 2.1,
+    r * 0.8,
+  );
   g.fillStyle(color('path-light'), 1).fillCircle(p.x, p.y, r);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('text-primary'), 1).strokeCircle(p.x, p.y, r);
+  g.lineStyle(2, color('text-primary'), 1).strokeCircle(p.x, p.y, r);
 }
 
 /** Guard: amber square (shape differs from the thief) with a facing wedge. */
@@ -253,7 +262,7 @@ export function yapDrawGuard(
   );
 }
 
-/** Camera: violet box on its wall cell with a lens dot and a facing tick. */
+/** Camera: violet body mounted on its wall cell, with a lens ring and a facing nub. */
 export function yapDrawCamera(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
@@ -261,63 +270,107 @@ export function yapDrawCamera(
   facing: YapDir,
 ): void {
   const p = yapCellCenter(layout, at);
-  const s = layout.cell * 0.62;
-  g.fillStyle(color('danger-camera'), 1).fillRect(p.x - s / 2, p.y - s / 2, s, s);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('text-primary'), 1).strokeRect(
+  const s = layout.cell * 0.54;
+  const d = yapDirVector(facing);
+  // wall foot, on the side the camera looks away from
+  g.fillStyle(color('text-primary'), 1).fillCircle(
+    p.x - d.x * s * 0.62,
+    p.y - d.y * s * 0.62,
+    Math.max(1.5, s * 0.1),
+  );
+  g.fillStyle(color('danger-camera'), 1).fillRoundedRect(
     p.x - s / 2,
     p.y - s / 2,
     s,
     s,
+    Math.max(2, s * 0.24),
   );
-  g.fillStyle(color('path-light'), 1).fillCircle(p.x, p.y, Math.max(2, layout.cell * 0.1));
-  const d = yapDirVector(facing);
-  g.lineStyle(Math.max(2, layout.cell * 0.08), color('path-light'), 1).lineBetween(
-    p.x,
-    p.y,
-    p.x + d.x * s * 0.75,
-    p.y + d.y * s * 0.75,
+  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokeRoundedRect(
+    p.x - s / 2,
+    p.y - s / 2,
+    s,
+    s,
+    Math.max(2, s * 0.24),
   );
+  // lens ring on the facing edge: the camera visibly points somewhere
+  const lx = p.x + d.x * s * 0.3;
+  const ly = p.y + d.y * s * 0.3;
+  g.fillStyle(color('path-light'), 1).fillCircle(lx, ly, s * 0.27);
+  g.fillStyle(color('path-outline'), 1).fillCircle(lx, ly, Math.max(1.5, s * 0.13));
 }
 
-/** Diamond: cyan lozenge, visibly distinct from the floor. */
+/** Diamond: cyan lozenge with a lit facet, clearly apart from the floor. */
 export function yapDrawDiamond(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   at: YapCell,
 ): void {
   const p = yapCellCenter(layout, at);
-  const r = layout.cell * 0.26;
+  const r = layout.cell * 0.27;
   const pts = [
     new Phaser.Math.Vector2(p.x, p.y - r),
     new Phaser.Math.Vector2(p.x + r, p.y),
     new Phaser.Math.Vector2(p.x, p.y + r),
     new Phaser.Math.Vector2(p.x - r, p.y),
   ];
+  // a soft ground shadow lifts the gem off the floor
+  g.fillStyle(color('path-outline'), 0.14).fillEllipse(
+    p.x,
+    p.y + r * 0.85,
+    r * 1.7,
+    r * 0.6,
+  );
   g.fillStyle(color('objective-diamond'), 1).fillPoints(pts, true);
+  // one lit facet: the jewel reads as cut, not as a flat lozenge
+  g.fillStyle(color('path-light'), 0.55).fillTriangle(
+    p.x,
+    p.y - r,
+    p.x,
+    p.y,
+    p.x - r * 0.62,
+    p.y,
+  );
   g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokePoints(pts, true);
 }
 
-/** Exit: green door icon. */
+/** Exit: a green door with a frame, a lit panel and a handle. */
 export function yapDrawExit(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   at: YapCell,
 ): void {
   const rect = yapCellRect(layout, at);
-  const inset = Math.floor(layout.cell * 0.18);
+  const inset = Math.max(2, Math.floor(layout.cell * 0.15));
   const x = rect.x + inset;
   const y = rect.y + inset;
   const w = rect.w - inset * 2;
   const h = rect.h - inset * 2;
-  g.fillStyle(color('objective-exit'), 1).fillRect(x, y, w, h);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokeRect(x, y, w, h);
-  // door seam
-  g.lineStyle(Math.max(1, Math.floor(layout.cell * 0.05)), color('path-light'), 1).lineBetween(
-    x + w / 2,
-    y + 2,
-    x + w / 2,
-    y + h - 2,
+  const radius = Math.max(2, Math.floor(layout.cell * 0.1));
+  // frame + panel
+  g.fillStyle(color('objective-exit'), 1).fillRoundedRect(x, y, w, h, radius);
+  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokeRoundedRect(
+    x,
+    y,
+    w,
+    h,
+    radius,
   );
+  const pi = Math.max(2, Math.floor(layout.cell * 0.08));
+  g.fillStyle(color('path-light'), 0.16).fillRoundedRect(
+    x + pi,
+    y + pi,
+    w - pi * 2,
+    h - pi * 2,
+    Math.max(1, radius - 1),
+  );
+  // handle on the opening side
+  g.fillStyle(color('path-light'), 1).fillCircle(
+    x + w * 0.72,
+    y + h * 0.55,
+    Math.max(1.5, layout.cell * 0.045),
+  );
+  // threshold: the door sits in the floor, not on it
+  g.fillStyle(color('path-outline'), 0.45).fillRect(x + w * 0.18, y + h - 2, w * 0.64, 2);
 }
 
 /** Start cell marker (under the thief): a small neutral ring. */
@@ -331,5 +384,64 @@ export function yapDrawStart(
     p.x,
     p.y,
     layout.cell * 0.42,
+  );
+}
+
+/**
+ * Spoiler-free thumbnail of a heist (Home, story D2 pass 2): the walls, the
+ * start, the diamond and the exit — never a route, a guard cone or a threat.
+ * `x`/`y` are the top-left corner and `cell` the size of one grid cell.
+ */
+export function yapDrawMiniMap(
+  g: Phaser.GameObjects.Graphics,
+  level: YapLevel,
+  x: number,
+  y: number,
+  cell: number,
+): void {
+  for (let cy = 0; cy < level.height; cy += 1) {
+    for (let cx = 0; cx < level.width; cx += 1) {
+      const ch = level.map[cy]?.charAt(cx) ?? '#';
+      g.fillStyle(color(ch === '#' ? 'wall' : 'floor'), 1).fillRect(
+        x + cx * cell,
+        y + cy * cell,
+        cell,
+        cell,
+      );
+    }
+  }
+  const at = (c: YapCell): { x: number; y: number } => ({
+    x: x + c.x * cell + cell / 2,
+    y: y + c.y * cell + cell / 2,
+  });
+  const start = at(level.start);
+  g.lineStyle(1, color('path-light'), 0.9).strokeCircle(start.x, start.y, cell * 0.34);
+  const loot = at(level.loot);
+  g.fillStyle(color('objective-diamond'), 1)
+    .fillPoints(
+      [
+        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
+        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
+        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
+        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
+      ],
+      true,
+    )
+    .lineStyle(1, color('path-outline'), 1)
+    .strokePoints(
+      [
+        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
+        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
+        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
+        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
+      ],
+      true,
+    );
+  const exit = at(level.exit);
+  g.fillStyle(color('objective-exit'), 1).fillRect(
+    exit.x - cell * 0.3,
+    exit.y - cell * 0.3,
+    cell * 0.6,
+    cell * 0.6,
   );
 }
