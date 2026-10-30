@@ -125,4 +125,10 @@ export const fr: YapDictionary = {
   ghost: {
     tickBadge: 't{tick}',
   },
+  // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
+  consentBanner: {
+    learnMore: 'En savoir plus',
+    detail:
+      'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
+  },
 };
