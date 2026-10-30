@@ -7,7 +7,7 @@
 // Home actions (Share is a stub emitting an event until E2 wires it).
 import { describe, expect, it } from 'vitest';
 import { parseLevel, type YapLevel } from '../../src/core/level';
-import { run, type YapPlan, type YapSimOutcome } from '../../src/core/sim';
+import { run, type YapCause, type YapPlan, type YapSimOutcome } from '../../src/core/sim';
 import { YapI18n } from '../../src/app/i18n';
 import {
   YapAttemptLog,
@@ -16,6 +16,7 @@ import {
   YAP_MAX_EMOJI_ATTEMPTS,
   YAP_STAR_THRESHOLD,
   yapAttemptEmoji,
+  yapEmojiLineFor,
 } from '../../src/game/win';
 
 // ---------------------------------------------------------------------------
@@ -285,5 +286,32 @@ describe('YapWinScreen — contract and i18n', () => {
         expect(i18n.t(key).trim().length, `${locale}:${key}`).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+describe('yapEmojiLineFor — the share line from a stored record (E2 Home share)', () => {
+  it('maps the failures, then the success emoji', () => {
+    expect(yapEmojiLineFor(['guard', 'camera'], 3, 0)).toBe('👁️📷✅');
+  });
+
+  it('adds one bulb per hint', () => {
+    expect(yapEmojiLineFor(['laser'], 2, 2)).toBe('🔴✅💡💡');
+  });
+
+  it('collapses a long run to the first five, "…", and the total', () => {
+    const causes: YapCause[] = ['guard', 'guard', 'guard', 'guard', 'guard', 'guard', 'guard'];
+    expect(yapEmojiLineFor(causes, 8, 1)).toBe('👁️👁️👁️👁️👁️…✅ 8💡');
+  });
+
+  it('matches the live Win screen line for the same attempts', () => {
+    const log = new YapAttemptLog();
+    log.yapPressPlay();
+    log.yapRegisterFailure('guard');
+    log.yapPressPlay();
+    log.yapRegisterFailure('camera');
+    log.yapPressPlay();
+    log.yapRegisterWin();
+    const screen = new YapWinScreen(lvl(12), { kind: 'won', tick: 12 }, log);
+    expect(yapEmojiLineFor(['guard', 'camera'], 3, 0)).toBe(screen.yapEmojiLine());
   });
 });

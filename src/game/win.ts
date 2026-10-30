@@ -104,6 +104,26 @@ export interface YapWinSharePayload {
 }
 
 /**
+ * The share emoji line, from a stored record (E2 Home share) or a live win:
+ * one emoji per failed attempt, the success emoji, then one 💡 per hint.
+ * Beyond six attempts the line keeps the first five, "…", the success emoji
+ * and the total (Gate 1 spec).
+ */
+export function yapEmojiLineFor(
+  causes: readonly YapCause[],
+  attempts: number,
+  hints: number,
+): string {
+  const hintText = '💡'.repeat(Math.max(0, Math.min(3, hints)));
+  const failures = causes.slice(0, Math.max(0, attempts - 1));
+  if (attempts <= YAP_MAX_EMOJI_ATTEMPTS) {
+    return failures.map(yapAttemptEmoji).join('') + '✅' + hintText;
+  }
+  const first = failures.slice(0, 5).map(yapAttemptEmoji).join('');
+  return `${first}…✅ ${attempts}${hintText}`;
+}
+
+/**
  * What the Win screen shows for one win: attempts, ticks vs par, stars, the
  * emoji line that will go into the share, and the share payload. Built from
  * the level (par), the sim outcome (winning tick) and the attempt log —
@@ -161,13 +181,10 @@ export class YapWinScreen {
    * the success emoji and the total; one 💡 per hint used (Gate 1 spec).
    */
   yapEmojiLine(): string {
-    const entries = this.yapLog.yapAttemptEntries();
-    const hints = '💡'.repeat(this.yapHintsUsed);
-    if (entries.length <= YAP_MAX_EMOJI_ATTEMPTS) {
-      return entries.map(yapAttemptEmoji).join('') + hints;
-    }
-    const first = entries.slice(0, 5).map(yapAttemptEmoji).join('');
-    return `${first}…✅ ${this.yapLog.yapAttempts()}${hints}`;
+    const causes = this.yapLog
+      .yapAttemptEntries()
+      .filter((entry): entry is YapCause => entry !== 'won');
+    return yapEmojiLineFor(causes, this.yapLog.yapAttempts(), this.yapHintsUsed);
   }
 
   /** The share summary: attempts, ticks, par, stars and the emoji line (E2). */

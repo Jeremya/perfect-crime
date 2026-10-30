@@ -45,7 +45,15 @@ function memory(): YapStorage {
   return new YapStorage(null);
 }
 
-const WIN: YapDailyWin = { attempts: 3, ticks: 20, stars: 2, hints: 0, causes: ['guard', 'laser'] };
+const WIN: YapDailyWin = {
+  attempts: 3,
+  ticks: 20,
+  stars: 2,
+  hints: 0,
+  causes: ['guard', 'laser'],
+  par: 20,
+  plan: ['E', 'E', 'S'],
+};
 
 describe('level catalog (levels/levels.json)', () => {
   it('holds the 5 tutorial levels and the 7 daily heists', () => {
@@ -167,8 +175,36 @@ describe('daily progress', () => {
       stars: 2,
       hints: 0,
       causes: ['guard', 'laser'],
+      par: 20,
+      plan: ['E', 'E', 'S'],
     });
     expect(loadYapDays(storage).get(3)).toEqual(result.record);
+  });
+
+  it('keeps the winning plan and its par in the day record (E2 Home share)', () => {
+    const storage = memory();
+    recordYapDailyWin(storage, 3, WIN, weekDay(3), START);
+    const first = loadYapDays(storage).get(3);
+    expect(first?.plan).toEqual(['E', 'E', 'S']);
+    expect(first?.par).toBe(20);
+    // a better replay replaces the plan, a worse one keeps it
+    recordYapDailyWin(
+      storage,
+      3,
+      { attempts: 4, ticks: 18, stars: 3, hints: 0, causes: [], par: 18, plan: ['S', 'S'] },
+      weekDay(3),
+      START,
+    );
+    expect(loadYapDays(storage).get(3)?.plan).toEqual(['S', 'S']);
+    recordYapDailyWin(
+      storage,
+      3,
+      { attempts: 5, ticks: 25, stars: 1, hints: 0, causes: [], par: 25, plan: ['W'] },
+      weekDay(3),
+      START,
+    );
+    expect(loadYapDays(storage).get(3)?.bestTicks).toBe(18);
+    expect(loadYapDays(storage).get(3)?.plan).toEqual(['S', 'S']);
   });
 
   it('a replay improves ticks and stars, never the winning attempt', () => {

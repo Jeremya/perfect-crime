@@ -168,6 +168,8 @@ describe("friend's plan visibility", () => {
         stars: 1,
         hints: 1,
         causes: [],
+        par: 41,
+        plan: [],
       }),
     ).toEqual({ won: true, hints: 1 });
   });
@@ -224,6 +226,8 @@ describe('score comparison', () => {
       stars: 3,
       hints: 0,
       causes: [],
+      par: 0,
+      plan: [],
     });
     expect(better).toEqual({
       verdict: 'better',
@@ -237,6 +241,8 @@ describe('score comparison', () => {
       stars: 3,
       hints: 0,
       causes: [],
+      par: 0,
+      plan: [],
     });
     expect(worse).toEqual({
       verdict: 'worse',
@@ -250,6 +256,8 @@ describe('score comparison', () => {
       stars: 3,
       hints: 0,
       causes: [],
+      par: 0,
+      plan: [],
     });
     expect(tieBreaksOnTicks?.verdict).toBe('better');
     expect(tieBreaksOnTicks?.beatSender).toBe(true);
@@ -259,6 +267,8 @@ describe('score comparison', () => {
       stars: 2,
       hints: 0,
       causes: [],
+      par: 0,
+      plan: [],
     });
     expect(tied).toEqual({ verdict: 'tied', beatSender: false, deltaAttempts: 0, deltaTicks: 0 });
   });
