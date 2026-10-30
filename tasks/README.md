@@ -5,16 +5,65 @@ optional). Each file is **self-contained**: an agent can pick it up with only
 `AGENTS.md` + the task file. Every task declares its **ownership** (the only
 files it may touch) so parallel agents never collide.
 
-Status snapshot: **2026-10-30 (after wave 8 + follow-ups #37–#39)**. `Done` means
-merged with repository acceptance evidenced. `In progress` includes merged work
-with an outstanding acceptance check (real-phone preview, playtest, live
-dashboards) or an open PR; each task file says which. External setup (such as
-live PostHog dashboards or real-phone checks) is not complete without evidence.
-Current count: **22 Done, 8 In progress, 6 To do** across the 34 required
-stories + 2 optional (O1 In progress, O2 Done). All dev stories are merged; the
-remaining work is PM-side: H1–H6 (feel sessions, recruitment, test week, Gate 1
-decision) plus the outstanding real-device / playtest / dashboard checks noted
-per task.
+Status snapshot: **2026-10-30 (after #44)**. `Done` means merged with
+repository acceptance evidenced. `In progress` includes merged work with an
+outstanding acceptance check (real-phone preview, playtest, live dashboards)
+or an open PR; each task file says which. External setup (such as live PostHog
+dashboards or real-phone checks) is not complete without evidence.
+
+Current count across the **34 required stories: 20 Done, 9 In progress, 5 To
+do**. Both optional stories are Done (O1 #32+#44, O2 #19). Every line of code
+for Gate 1 is merged; nothing is blocked on a developer.
+
+## What remains
+
+### 1. Acceptance checks (no code left, evidence missing)
+
+| Task | What is left | Who |
+|---|---|---|
+| C4 | failure replay: real-phone preview | Dev, on the test phone |
+| C6 | ghost preview on/off on a phone (task is Done, this check was noted) | Dev |
+| C8 | audio unlock + Android vibration on a phone (sound cannot be automated) | Dev + a human ear |
+| D2 | Home flow on a phone | Dev |
+| G2 | consent banner on a phone | Dev |
+| E5 | per-target rows (WhatsApp, Messages, Discord, Instagram) and iOS | PM/Dev, needs a real send |
+| G3 | live PostHog dashboards + test data | PM |
+
+The Android rows of E5 are already recorded (`docs/share-matrix.md`, three
+variants on Chrome 156 / Android 16); the app side of every other item is
+merged and tested.
+
+### 2. Human playtests (they need people, not code)
+
+- **F2** — 3-person playtest of T1 (the first ten minutes).
+- **F3** — 2-person playtest per daily heist (7 heists).
+- **H1** — feel session #1: protocol and fill-in template are ready in
+  `docs/feel/session-1.md`; the session itself has to run with 3 warm
+  testers on the production build.
+- **H2** — the fixes that come out of H1.
+- **H3** — feel session #2, ghost preview on/off.
+
+### 3. Critical path to the Gate 1 decision
+
+**H4 (recruit 20–30 testers) → H5 (test week, no reminders) → H6 (decision).**
+H4 was meant to run in parallel from day 1 and is now the only thing that can
+slip the gate: the build, the heists, the sharing and the analytics are ready.
+Without recruited testers, H5 and H6 cannot start.
+
+### 4. Known gaps, not covered by a story
+
+Kept here so they are not lost (all from `docs/UI-DESIGN.md`, none blocking
+Gate 1):
+
+- **Visual handoff**: `docs/design/` (style tile, mockups at 390 × 844 and
+  360 × 640, component sheet, readability check) does not exist. The Kenney
+  **UI Pack** sprites for primary/secondary controls are still not integrated.
+- **First launch**: the animated hand demonstrating a route (UI-DESIGN,
+  "First launch / T1") is not implemented; T1 opens with an empty board.
+- **Challenge card**: the E4 card has a large empty middle (it has not had a
+  visual pass).
+- **Landscape**: at 864 × 307 the Home layout overlaps (portrait-only is in
+  scope, but the degradation is ugly). Documented, not fixed.
 
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
