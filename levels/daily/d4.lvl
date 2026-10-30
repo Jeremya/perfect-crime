@@ -1,0 +1,33 @@
+# Daily heist 4 — normal, 1 guard + 1 laser, target par 18-24.
+# Intent: introduce the laser (first-encounter help bubble is UI-side).
+# The laser gates the only gap in the wall; cross it on the off beat.
+name: "Red Line"
+type: normal
+moment: ""
+maxPauses: 2
+par: 20
+map: |
+  ########
+  #S..#..#
+  #...#..#
+  #...#..#
+  #...#..#
+  #...#..#
+  #......#
+  #...#..#
+  #...#L.#
+  #...#..#
+  #...#.E#
+  ########
+guards:
+  - id: g1
+    route: [[6,7],[6,8],[6,9]]
+    mode: pingpong
+    phase: 3
+    range: 2
+lasers:
+  - id: l1
+    cells: [[4,6]]
+    on: 6
+    off: 6
+    phase: 4

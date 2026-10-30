@@ -1,0 +1,39 @@
+# Daily heist 5 — signature "The blind spot", 1 camera + 1 laser + 1 guard, target par 22-30.
+# Moment: wait under the camera while it sweeps the room.
+name: "The Blind Spot"
+type: signature
+moment: "Wait in the camera's blind spot while it sweeps the room, then slip through the gap as it turns."
+maxPauses: 3
+par: 26
+map: |
+  ########
+  #S..#..#
+  #...#..#
+  #...#..#
+  #...#..#
+  #...#..#
+  #......#
+  #...#..#
+  #...#L.#
+  #...#..#
+  #...#.E#
+  ########
+guards:
+  - id: g1
+    route: [[2,2],[2,3],[2,4],[2,5]]
+    mode: pingpong
+    phase: 0
+    range: 2
+cameras:
+  - id: c1
+    at: [4,5]
+    dirs: [E, W]
+    hold: 12
+    phase: 6
+    range: 3
+lasers:
+  - id: l1
+    cells: [[6,7],[6,8]]
+    on: 6
+    off: 6
+    phase: 0

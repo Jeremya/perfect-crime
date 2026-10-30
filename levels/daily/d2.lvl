@@ -1,0 +1,38 @@
+# Daily heist 2 — normal, 2 guards + 1 camera, target par 18-24.
+# Intent: combine two known elements. The camera sweeps north/east of the block.
+name: "Watchful"
+type: normal
+moment: ""
+maxPauses: 2
+par: 20
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #..##..#
+  #..##..#
+  #..L...#
+  #......#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[1,4],[2,4]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[5,8],[6,8]]
+    mode: pingpong
+    phase: 1
+    range: 2
+cameras:
+  - id: c1
+    at: [4,4]
+    dirs: [N, E]
+    hold: 6
+    phase: 3
+    range: 3

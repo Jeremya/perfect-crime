@@ -1,0 +1,38 @@
+# Daily heist 7 — signature "The changing of the guard", 2 guards crossing paths + 1 camera,
+# target par 24-32. Moment: a one-tick window with a mandatory pause.
+name: "Changing of the Guard"
+type: signature
+moment: "Wait out the changing of the guard, then thread the one-tick window as the two patrols cross."
+maxPauses: 3
+par: 30
+map: |
+  ########
+  #S....E#
+  #......#
+  #......#
+  #..##..#
+  #..##..#
+  #......#
+  #......#
+  #......#
+  #......#
+  #.....L#
+  ########
+guards:
+  - id: g1
+    route: [[1,6],[2,6],[3,6],[4,6],[5,6]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[4,6],[5,6],[6,6],[6,7],[6,8],[5,8],[4,8],[4,7]]
+    mode: loop
+    phase: 2
+    range: 2
+cameras:
+  - id: c1
+    at: [4,4]
+    dirs: [N, E]
+    hold: 6
+    phase: 0
+    range: 3
