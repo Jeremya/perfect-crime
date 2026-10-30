@@ -47,6 +47,12 @@ export const fr: YapDictionary = {
     pausesLeft: 'Pauses restantes : {count}',
     clear: 'Effacer',
     play: 'PLAY',
+    // Passe visuelle C1 : une seule ligne de stats sous le nom du niveau.
+    statsTicks: '{ticks} ticks',
+    statsPar: 'par {par}',
+    statsPauses: '{count} pauses',
+    statsSeparator: ' · ',
+    drawRoute: 'Trace ta route',
     hint: 'Indice',
     grabDiamond: 'Prends le diamant, puis sors',
   },

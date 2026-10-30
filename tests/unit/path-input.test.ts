@@ -63,9 +63,9 @@ function lvl(mapRows: readonly string[], maxPauses = 3): YapLevel {
   return parseLevel(src);
 }
 
-// 360 x 640 viewport: 40 px cells, board origin (20, 64).
+// 360 x 640 viewport: 39 px cells, board origin (24, 70).
 const layout: YapBoardLayout = yapComputeLayout(360, 640, 8, 12);
-// 390 x 844 viewport: 48 px cells, board origin (3, 118).
+// 390 x 844 viewport: 47 px cells, board origin (7, 124).
 const layoutWide: YapBoardLayout = yapComputeLayout(390, 844, 8, 12);
 
 const S: YapCell = { x: 1, y: 1 };

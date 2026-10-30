@@ -58,17 +58,18 @@ shape, outline, and icon.
 | `floor` | `#D9D8D2` | Walkable cells |
 | `wall` | `#47515B` | Walls and slate structures |
 | `wall-detail` | `#77818A` | Desaturated wall furniture/detail |
-| `grid-line` | `#B7B8B3` | Cell boundaries |
+| `grid-line` | `#767C81` | Cell boundaries (≈2.7:1 on the floor) |
 | `text-primary` | `#202A33` | Main text and thief outline |
 | `text-secondary` | `#56616B` | Supporting text |
 | `action-primary` | `#176B78` | PLAY and primary Share action |
 | `action-secondary` | `#E6E8E6` | Secondary controls |
+| `action-primary-soft` | `#D7E6E8` | Disabled primary action (keeps the brand hue) |
 | `danger-guard` | `#D99B32` | Guard cone tint only, at about 30% opacity |
 | `danger-guard-outline` | `#8A5600` | Guard cone cell outline |
 | `danger-camera` | `#8260A8` | Camera cone tint and outline |
 | `danger-laser` | `#C74747` | Active laser and caught state |
 | `laser-off` | `#69727B` | Inactive dashed laser |
-| `objective-diamond` | `#00AFC2` | Diamond and objective marker |
+| `objective-diamond` | `#007F8D` | Diamond and objective marker (≈3.3:1 on the floor) |
 | `objective-exit` | `#32865A` | Exit and door icon |
 | `path-light` | `#FFFFFF` | Planned route fill |
 | `path-outline` | `#26313B` | Route outline |
@@ -84,7 +85,9 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
 ## Board and world rendering
 
 - Board: top-down building on an 8-column × 12-row grid, origin at the top
-  left. Floor is light warm gray; walls are dark slate.
+  left. Floor is light warm gray; walls are dark slate. The board is a card:
+  a 6 px inset from the page edge, a soft shadow and a 2 px frame, so the grid
+  reads as one object rather than tiles floating on the background.
 - Thief: one Kenney Top-down Shooter character in its **stand** pose, no
   weapon, dark enough to remain visible over danger cells, with a light edge.
 - Guards: a different **stand** character from the same pack, no weapon;
