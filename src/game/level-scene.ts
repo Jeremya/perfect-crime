@@ -211,6 +211,22 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBuild();
   };
 
+  /**
+   * End-to-end hook (tests/e2e/share.spec.ts): the phase currently on screen,
+   * so a browser test can wait for the planning screen or the Win screen
+   * instead of sleeping. Read-only, no gameplay effect, absent outside a
+   * browser.
+   */
+  private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win'): void {
+    try {
+      if (typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>)['__yapPhase'] = phase;
+      }
+    } catch {
+      // no window: nothing to expose
+    }
+  }
+
   /** D2: forget the previous run (path, playback, failure, win, attempts). */
   private yapResetRun(data: YapLevelSceneData): void {
     this.yapSceneData = data;
@@ -694,6 +710,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   /** Top bar (level name, plan ticks/par/pauses) and bottom action bar. */
   private yapBuildChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('planning');
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
 
@@ -940,6 +957,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   /** Top bar (level name, tick counter, par) and bottom bar (×2, Stop). */
   private yapBuildExecutionChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('execution');
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
     // the tick line is filled by yapUpdateExecutionChrome right after the build
@@ -1292,6 +1310,7 @@ export class YapLevelScene extends Phaser.Scene {
    * tap-to-return hint. No button: one tap anywhere returns to the plan.
    */
   private yapBuildFailureChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('failure');
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
     const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
@@ -1399,6 +1418,7 @@ export class YapLevelScene extends Phaser.Scene {
    * actions; the bottom bar holds the dominant Share action.
    */
   private yapBuildWinChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('win');
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
     const win = this.yapWin;
