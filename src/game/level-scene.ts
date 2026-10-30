@@ -33,6 +33,7 @@
 // (src/core/sim.ts) via the helpers of ./board.ts; drawing lives in ./render.ts
 // and the path overlay below; the input rules live in ./path-input.ts.
 import Phaser from 'phaser';
+import { yapText } from './ui';
 import { parseLevel, type YapCell, type YapDir, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
@@ -702,7 +703,7 @@ export class YapLevelScene extends Phaser.Scene {
       const c = cells[i];
       if (n <= 0 || c === undefined) continue;
       const p = yapCellCenter(layout, c);
-      const label = this.add.text(p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
+      const label = yapText(this, p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
       const bg = this.add
         .rectangle(
           p.x,
@@ -759,8 +760,7 @@ export class YapLevelScene extends Phaser.Scene {
     const last = cells[cells.length - 1];
     if (plan !== null && last !== undefined && badge !== null) {
       const p = yapCellCenter(layout, last);
-      const label = this.add
-        .text(0, 0, yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }), {
+      const label = yapText(this, 0, 0, yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }), {
           fontFamily: 'sans-serif',
           fontSize: '14px',
           color: YAP_PALETTE['path-light'],
@@ -843,8 +843,7 @@ export class YapLevelScene extends Phaser.Scene {
     chrome.add(bar);
 
     // short instruction while the plan does not reach the exit with the diamond
-    this.yapInstruction = this.add
-      .text(layout.viewWidth / 2, barY + 12, yapI18n.t('planning.grabDiamond'), {
+    this.yapInstruction = yapText(this, layout.viewWidth / 2, barY + 12, yapI18n.t('planning.grabDiamond'), {
         fontFamily: 'sans-serif',
         fontSize: '14px',
         color: YAP_PALETTE['text-secondary'],
@@ -932,16 +931,14 @@ export class YapLevelScene extends Phaser.Scene {
       .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
     chrome.add(header);
 
-    const name = this.add
-      .text(16, 24, title, {
+    const name = yapText(this, 16, 24, title, {
         fontFamily: 'sans-serif',
         fontSize: '20px',
         fontStyle: 'bold',
         color: YAP_PALETTE['text-primary'],
       })
       .setOrigin(0, 0.5);
-    const statsText = this.add
-      .text(16, 47, stats, {
+    const statsText = yapText(this, 16, 47, stats, {
         fontFamily: 'sans-serif',
         fontSize: '14px',
         color: YAP_PALETTE['text-secondary'],
@@ -978,8 +975,7 @@ export class YapLevelScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
+    const label = yapText(this, 0, 0, labelText, {
         fontFamily: 'sans-serif',
         fontSize: '16px',
         color: textColor,
@@ -1449,8 +1445,7 @@ export class YapLevelScene extends Phaser.Scene {
     const failure = this.yapFailure;
     const causeText =
       failure !== null ? yapI18n.t(failure.yapCauseKey()) : yapI18n.t('failure.spottedByGuard');
-    const cause = this.add
-      .text(layout.viewWidth / 2, barY + 12, causeText, textStyle(16))
+    const cause = yapText(this, layout.viewWidth / 2, barY + 12, causeText, textStyle(16))
       .setOrigin(0.5, 0);
     chrome.add(cause);
     // warning icon next to the cause: triangle + "!" (icon, not color alone)
@@ -1465,8 +1460,7 @@ export class YapLevelScene extends Phaser.Scene {
       .strokeTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8);
     chrome.add(warn);
     chrome.add(
-      this.add
-        .text(iconX, iconY - 1, '!', {
+      yapText(this, iconX, iconY - 1, '!', {
           fontFamily: 'sans-serif',
           fontSize: '12px',
           color: YAP_PALETTE['path-light'],
@@ -1474,8 +1468,7 @@ export class YapLevelScene extends Phaser.Scene {
         .setOrigin(0.5, 0.5),
     );
     chrome.add(
-      this.add
-        .text(layout.viewWidth / 2, barY + 46, yapI18n.t('failure.tapToReturn'), {
+      yapText(this, layout.viewWidth / 2, barY + 46, yapI18n.t('failure.tapToReturn'), {
           fontFamily: 'sans-serif',
           fontSize: '14px',
           color: YAP_PALETTE['text-secondary'],
@@ -1587,8 +1580,7 @@ export class YapLevelScene extends Phaser.Scene {
     body.add(panel);
 
     body.add(
-      this.add
-        .text(cx, y, titleText, textStyle(24, YAP_PALETTE['text-primary']))
+      yapText(this, cx, y, titleText, textStyle(24, YAP_PALETTE['text-primary']))
         .setOrigin(0.5, 0),
     );
     y += titleH + 14;
@@ -1596,13 +1588,11 @@ export class YapLevelScene extends Phaser.Scene {
     // stats rows: label left, value right (14 px minimum body text)
     for (const [label, value] of rows) {
       body.add(
-        this.add
-          .text(innerX, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
+        yapText(this, innerX, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
           .setOrigin(0, 0),
       );
       body.add(
-        this.add
-          .text(innerX + innerW, y, value, textStyle(16, YAP_PALETTE['text-primary']))
+        yapText(this, innerX + innerW, y, value, textStyle(16, YAP_PALETTE['text-primary']))
           .setOrigin(1, 0),
       );
       y += rowGap;
@@ -1611,12 +1601,11 @@ export class YapLevelScene extends Phaser.Scene {
 
     // the emoji line that will go into the share, as a preview
     body.add(
-      this.add
-        .text(cx, y, previewLabel, textStyle(14, YAP_PALETTE['text-secondary']))
+      yapText(this, cx, y, previewLabel, textStyle(14, YAP_PALETTE['text-secondary']))
         .setOrigin(0.5, 0),
     );
     y += 20;
-    body.add(this.add.text(cx, y, win.yapEmojiLine(), textStyle(22, YAP_PALETTE['text-primary'])).setOrigin(0.5, 0));
+    body.add(yapText(this, cx, y, win.yapEmojiLine(), textStyle(22, YAP_PALETTE['text-primary'])).setOrigin(0.5, 0));
 
     // Improve my score + Home, side by side, above the dominant Share action
     const halfW = (innerW - gap) / 2;
@@ -1733,8 +1722,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
-    const toast = this.add
-      .text(layout.viewWidth / 2, layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT - 12, message, {
+    const toast = yapText(this, layout.viewWidth / 2, layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT - 12, message, {
         fontFamily: 'sans-serif',
         fontSize: '16px',
         color: YAP_PALETTE['path-light'],
