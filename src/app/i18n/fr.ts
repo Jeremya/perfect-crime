@@ -125,6 +125,11 @@ export const fr: YapDictionary = {
   ghost: {
     tickBadge: 't{tick}',
   },
+  // Story C5 — panneau de l'écran de victoire (src/game/win.ts) : label de
+  // l'aperçu de la ligne d'emojis qui ira dans le partage.
+  winScreen: {
+    sharePreview: 'Aperçu du partage',
+  },
   // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
   consentBanner: {
     learnMore: 'En savoir plus',
