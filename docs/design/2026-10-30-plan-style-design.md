@@ -59,8 +59,11 @@ Goals:
 - **Thematic moments**: stamps ("REPÉRÉ", "CASSE RÉUSSI"), the folder of the
   day, the sealed plan, the first-launch hand.
 
-Non-goals: no new screens or features (Settings stays absent), no rule,
-level or flow change, no dark theme, no web font, no new runtime dependency.
+Non-goals: no new screens or features, no rule, level or flow change, no dark
+theme, no web font, no new runtime dependency. Settings remains in Gate 1
+scope; it is simply not among the six representative screen mockups in this
+visual pass. Implement it with the shared component kit and the existing
+Settings requirements in `docs/UI-DESIGN.md`.
 The dev viewer only inherits crisp rendering and the shared board renderer.
 
 Anti-goals (a failure even if it "works"):
@@ -353,7 +356,8 @@ The plan decides the split. A natural order, one PR each:
 - The UI stays drawn in Phaser rather than moving to an HTML layer.
 - The thin frame needs a full wall border, with a uniform-cell fallback.
 - The hint route is graphite and the friend's route ink blue.
-- The consent note pushes the header down instead of covering it.
+- The first-launch consent banner stays non-blocking at the bottom as required
+  by `docs/UI-DESIGN.md`; it must not cover the grid's key area or the header.
 - Essential info is ≥ 14 px even where the mockups were smaller.
 - The OG previews are restyled too, as the last step.
 - The Kenney files are deleted.
