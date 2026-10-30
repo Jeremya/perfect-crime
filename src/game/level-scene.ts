@@ -47,6 +47,12 @@ import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
 import { YapAttemptLog, YapWinScreen } from './win';
 import {
+  YAP_EXECUTION_TICK_EVENT,
+  YAP_PATH_STEP_EVENT,
+  YAP_UI_TAP_EVENT,
+  yapAttachSound,
+} from './sound';
+import {
   yapDrawCamera,
   yapDrawCone,
   yapDrawDiamond,
@@ -150,6 +156,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.yapOnPointerMove, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
     this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
+    yapAttachSound(this); // C8: sounds + vibration on this scene's events
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
@@ -227,12 +234,8 @@ export class YapLevelScene extends Phaser.Scene {
     const input = this.yapPathInput;
     if (input === null) return;
     if (input.yapPath().length > previousLength) {
-      // each new cell gives a short 8 ms vibration where the browser allows it
-      try {
-        navigator.vibrate(8);
-      } catch {
-        // vibration is optional (desktop, private mode)
-      }
+      // each new cell: short sound + 8 ms vibration, per settings (C8, ./sound.ts)
+      this.events.emit(YAP_PATH_STEP_EVENT);
     }
     this.yapRedrawPath();
     this.yapUpdateChrome();
@@ -626,6 +629,7 @@ export class YapLevelScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     zone.on('pointerdown', onPress);
+    zone.on('pointerdown', () => this.events.emit(YAP_UI_TAP_EVENT));
     container.add([bg, zone, label]);
     return { container, bg, label };
   }
@@ -792,6 +796,7 @@ export class YapLevelScene extends Phaser.Scene {
       return;
     }
     this.yapDrawState(frame);
+    this.events.emit(YAP_EXECUTION_TICK_EVENT, frame);
     // Dev assertion: what is on screen is exactly the simulated frame.
     if (this.yapDisplayed !== null) exec.yapAssertDisplayedMatchesSim(this.yapDisplayed);
     this.yapUpdateExecutionChrome();
