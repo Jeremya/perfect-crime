@@ -15,6 +15,7 @@ import { YAP_PALETTE } from '../../src/game/board';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const shell = readFileSync(`${ROOT}index.html`, 'utf8');
 const viteConfig = readFileSync(`${ROOT}vite.config.ts`, 'utf8');
+const mainEntry = readFileSync(`${ROOT}src/main.ts`, 'utf8');
 
 describe('HTML shell and build base', () => {
   it('paints the app background with the surface-page token', () => {
@@ -35,5 +36,19 @@ describe('HTML shell and build base', () => {
   it('uses root-absolute asset URLs so /dev/viewer can boot', () => {
     expect(viteConfig).toMatch(/\bbase: '\/'/);
     expect(viteConfig).not.toMatch(/\bbase: '\.\/'/);
+  });
+});
+
+describe('app shell wiring', () => {
+  it('registers the challenge scene and starts it for a link arrival', () => {
+    // Regression: E4 merged the challenge card but never registered the scene,
+    // so /c/<day>#<payload> skipped the card and opened the heist directly.
+    expect(mainEntry).toContain('YapChallengeScene');
+    expect(mainEntry).toContain('YAP_CHALLENGE_SCENE_KEY');
+    expect(mainEntry).toMatch(/route\.challengeShareId !== undefined/);
+  });
+
+  it('reports entry: link when the URL carries a payload', () => {
+    expect(mainEntry).toMatch(/entry: link === null \? 'direct' : 'link'/);
   });
 });
