@@ -18,6 +18,10 @@
 // and Share (dominant, stub event until E2) / Improve my score / Home. Every
 // PLAY press counts as an attempt until the win; replaying after the win
 // never changes attempts.
+// Hints (C7, ./hints.ts): after 3 then 6 failures on the heist, the Hint
+// button of the bottom bar reveals the first third then two thirds of the
+// optimal plan (YapSolver) as a dotted ghost under the player's path; the
+// hints used are counted in the share (💡) via YapWinScreen.
 // Layout adapts to the viewport (readable on a 360 x 640 screen) and rebuilds
 // on resize, preserving the drawn path.
 //
@@ -55,7 +59,9 @@ import {
 import { YapPathInput } from './path-input';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
+import { YapHints } from './hints';
 import { YapAttemptLog, YapWinScreen } from './win';
+import { track } from '../app/analytics';
 import {
   YAP_EXECUTION_TICK_EVENT,
   YAP_PATH_STEP_EVENT,
@@ -105,6 +111,8 @@ interface YapChromeButton {
   readonly container: Phaser.GameObjects.Container;
   readonly bg: Phaser.GameObjects.Graphics;
   readonly label: Phaser.GameObjects.Text;
+  readonly w: number;
+  readonly h: number;
 }
 
 export class YapLevelScene extends Phaser.Scene {
@@ -157,6 +165,15 @@ export class YapLevelScene extends Phaser.Scene {
   private yapUiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   /** D2: the data the scene was started with (route of the app flow). */
   private yapSceneData: YapLevelSceneData = {};
+  // --- Hints (C7) ---
+  /** Hint model of the current run: failures, hints used, ghost cells. */
+  private yapHints: YapHints | null = null;
+  /** Ghost layer of the revealed hint, under the player's path (draw over). */
+  private yapHintLayer: Phaser.GameObjects.Graphics | null = null;
+  /** Compact 💡 badge at the end of the revealed ghost path. */
+  private yapHintBadge: Phaser.GameObjects.Container | null = null;
+  /** The bottom-bar Hint button (visible only while a hint is available). */
+  private yapHintButton: YapChromeButton | null = null;
 
   constructor() {
     super('yap-level');
@@ -174,6 +191,8 @@ export class YapLevelScene extends Phaser.Scene {
     const source = data.levelSource ?? tutorialSource;
     this.yapLevel = data.level ?? parseLevel(source, 'levels/tutorial/t1.lvl');
     this.yapState = createInitialState(this.yapLevel);
+    // C7: the hints of this run (failures unlock them, the win counts them)
+    this.yapHints = new YapHints(this.yapLevel);
     this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
     this.yapBuild();
     // Path drawing: pointer events, a single finger (Gate 1 spec).
@@ -206,6 +225,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapAttemptLog = new YapAttemptLog();
     this.yapWin = null;
     this.yapWinFrame = null;
+    this.yapHints = null; // rebuilt per run in create()
+    this.yapHintButton = null;
   }
 
   private readonly yapOnShutdown = (): void => {
@@ -308,6 +329,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapDynamic = null;
     this.yapEntities = null;
     this.yapMarksLayer = null;
+    this.yapHintLayer = null;
+    this.yapHintBadge = null;
 
     const layout = yapComputeLayout(
       this.scale.width,
@@ -348,12 +371,21 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapDynamic = this.add.container(0, 0);
     board.add(this.yapDynamic);
 
+    // C7: the hint ghost (dotted path of the revealed optimal plan) sits
+    // under the player's route, so the player can draw over it.
+    this.yapHintLayer = this.add.graphics();
+    board.add(this.yapHintLayer);
+
     // The player's plan: thick rounded near-white route with a dark outline,
     // plus compact pause badges (docs/UI-DESIGN.md, Planned path).
     this.yapPathLayer = this.add.graphics();
     board.add(this.yapPathLayer);
     this.yapBadgeLayer = this.add.container(0, 0);
     board.add(this.yapBadgeLayer);
+
+    // C7: compact 💡 badge at the end of the revealed ghost path.
+    this.yapHintBadge = this.add.container(0, 0);
+    board.add(this.yapHintBadge);
 
     this.yapEntities = this.add.container(0, 0);
     board.add(this.yapEntities);
@@ -386,6 +418,7 @@ export class YapLevelScene extends Phaser.Scene {
     } else {
       this.yapBuildChrome(level, layout);
       this.yapDrawState(state);
+      this.yapRedrawHint(); // C7: the revealed hint ghost, if any
       this.yapUpdateChrome();
     }
     this.yapRedrawMarks();
@@ -518,6 +551,89 @@ export class YapLevelScene extends Phaser.Scene {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Hints (C7): after 3 then 6 failures, the Hint button reveals the first
+  // third then two thirds of the optimal plan as a dotted ghost path.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Redraws the hint ghost: a dotted path (dots at the cell centres and at
+   * the midpoints, so it cannot be confused with the solid player route)
+   * over the revealed cells of the optimal plan, plus a compact 💡 badge at
+   * its end. Only in planning mode; the player's path draws over it.
+   */
+  private yapRedrawHint(): void {
+    const g = this.yapHintLayer;
+    const badge = this.yapHintBadge;
+    const layout = this.yapLayout;
+    const hints = this.yapHints;
+    if (g === null || layout === null) return;
+    g.clear();
+    badge?.removeAll(true);
+    if (hints === null) return;
+    if (this.yapExecution !== null || this.yapFailure !== null || this.yapWin !== null) return;
+    const cells = hints.yapGhostCells();
+    if (cells.length < 2) return;
+    const col = yapHexToInt(YAP_PALETTE['action-primary']);
+    const r = Math.max(2, layout.cell * 0.14);
+    g.fillStyle(col, 0.9);
+    for (let i = 0; i < cells.length; i += 1) {
+      const c = cells[i];
+      if (c === undefined) continue;
+      const p = yapCellCenter(layout, c);
+      g.fillCircle(p.x, p.y, r);
+      const prev = cells[i - 1];
+      if (prev !== undefined) {
+        const q = yapCellCenter(layout, prev);
+        g.fillCircle((p.x + q.x) / 2, (p.y + q.y) / 2, r * 0.8);
+      }
+    }
+    // compact status badge at the end of the ghost: 💡 shown/total steps
+    const plan = hints.yapOptimalPlan();
+    const last = cells[cells.length - 1];
+    if (plan !== null && last !== undefined && badge !== null) {
+      const p = yapCellCenter(layout, last);
+      const label = this.add
+        .text(0, 0, yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }), {
+          fontFamily: 'sans-serif',
+          fontSize: '14px',
+          color: YAP_PALETTE['path-light'],
+        })
+        .setOrigin(0.5);
+      const bg = this.add
+        .rectangle(
+          0,
+          0,
+          label.width + 10,
+          label.height + 4,
+          yapHexToInt(YAP_PALETTE['action-primary']),
+          1,
+        )
+        .setStrokeStyle(2, yapHexToInt(YAP_PALETTE['path-outline']));
+      const at = this.add.container(p.x, p.y);
+      at.add([bg, label]);
+      badge.add(at);
+    }
+  }
+
+  /**
+   * The Hint button: reveals the next tier of the optimal plan as a ghost
+   * and counts the hint (the Win screen puts one 💡 per hint in the share).
+   */
+  private yapOnHint(): void {
+    const hints = this.yapHints;
+    if (hints === null) return;
+    const reveal = hints.yapUseHint();
+    if (reveal === null) return;
+    this.yapRedrawHint();
+    this.yapUpdateChrome();
+    track('hint_used', {
+      level_id: this.yapSceneData.levelId ?? 'tutorial/t1',
+      hint_index: reveal.index,
+      attempt: this.yapAttemptLog.yapAttempts(),
+    });
+  }
+
   /** Top bar (level name, plan ticks, par, pauses left) and bottom action bar. */
   private yapBuildChrome(level: YapLevel, layout: YapBoardLayout): void {
     const chrome = this.add.container(0, 0);
@@ -564,12 +680,10 @@ export class YapLevelScene extends Phaser.Scene {
       .setOrigin(1, 0.5);
     parText.x = pausesText.x - pausesText.width - 16;
     const ticksText = this.add
-      .text(
-        0,
-        47,
-        yapI18n.t('planning.planTicks', { ticks: input?.yapSteps() ?? 0 }),
-        { ...textStyle(14), fontStyle: 'bold' },
-      )
+      .text(0, 47, yapI18n.t('planning.planTicks', { ticks: input?.yapSteps() ?? 0 }), {
+        ...textStyle(14),
+        fontStyle: 'bold',
+      })
       .setOrigin(1, 0.5);
     ticksText.x = parText.x - parText.width - 16;
 
@@ -610,11 +724,18 @@ export class YapLevelScene extends Phaser.Scene {
     chrome.add(this.yapInstruction);
 
     // Buttons have generous phone-sized targets; PLAY is the visual anchor.
+    // Three slots (Clear, Hint, PLAY): the Hint button is only visible while
+    // a hint is available (C7), but its slot keeps the layout stable.
     const btnY = barY + 66;
+    const margin = 12;
+    const gap = 8;
+    const slots = Math.max(1, layout.viewWidth - 2 * margin - 2 * gap);
+    const sideW = Math.max(64, Math.floor(slots * 0.27));
+    const playW = Math.max(96, slots - 2 * sideW);
     const clearBtn = this.yapMakeButton(
-      16 + 50,
+      margin + sideW / 2,
       btnY,
-      100,
+      sideW,
       48,
       yapI18n.t('planning.clear'),
       'action-secondary',
@@ -628,10 +749,23 @@ export class YapLevelScene extends Phaser.Scene {
       },
     );
     chrome.add(clearBtn.container);
-    const playBtn = this.yapMakeButton(
-      layout.viewWidth / 2 + 42,
+    // C7: the Hint button, visible only when failures unlocked the next hint
+    const hintBtn = this.yapMakeButton(
+      margin + sideW + gap + sideW / 2,
       btnY,
-      168,
+      sideW,
+      48,
+      yapI18n.t('hints.button'),
+      'action-secondary',
+      YAP_PALETTE['text-primary'],
+      () => this.yapOnHint(),
+    );
+    chrome.add(hintBtn.container);
+    this.yapHintButton = hintBtn;
+    const playBtn = this.yapMakeButton(
+      margin + 2 * sideW + 2 * gap + playW / 2,
+      btnY,
+      playW,
       52,
       yapI18n.t('planning.play'),
       'action-secondary',
@@ -676,7 +810,7 @@ export class YapLevelScene extends Phaser.Scene {
     zone.on('pointerdown', onPress);
     zone.on('pointerdown', () => this.events.emit(YAP_UI_TAP_EVENT));
     container.add([bg, zone, label]);
-    return { container, bg, label };
+    return { container, bg, label, w, h };
   }
 
   /** Refreshes the dynamic chrome: plan ticks, pauses left, PLAY state. */
@@ -687,6 +821,17 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPausesText?.setText(yapI18n.t('planning.pausesLeft', { count: input.yapPausesLeft() }));
     const canPlay = input.yapCanPlay();
     this.yapInstruction?.setVisible(!canPlay);
+    // C7: the Hint button is only shown while a hint is available
+    const hintBtn = this.yapHintButton;
+    if (hintBtn !== null) {
+      const available = this.yapHints?.yapHintAvailable() ?? false;
+      hintBtn.container.setVisible(available);
+      const zone = hintBtn.container.list.find(
+        (child): child is Phaser.GameObjects.Zone => child instanceof Phaser.GameObjects.Zone,
+      );
+      if (available) zone?.setInteractive({ useHandCursor: true });
+      else zone?.disableInteractive();
+    }
     const play = this.yapPlayButton;
     if (play === null) return;
     if (canPlay) {
@@ -694,9 +839,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-        .fillRoundedRect(-84, -26, 168, 52, 10)
+        .fillRoundedRect(-play.w / 2, -play.h / 2, play.w, play.h, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-84, -26, 168, 52, 10);
+        .strokeRoundedRect(-play.w / 2, -play.h / 2, play.w, play.h, 10);
       play.label.setColor(YAP_PALETTE['path-light']);
       if (this.yapPlayPulse === null) {
         this.yapPlayPulse = this.tweens.add({
@@ -712,9 +857,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
-        .fillRoundedRect(-84, -26, 168, 52, 10)
+        .fillRoundedRect(-play.w / 2, -play.h / 2, play.w, play.h, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-84, -26, 168, 52, 10);
+        .strokeRoundedRect(-play.w / 2, -play.h / 2, play.w, play.h, 10);
       play.label.setColor(YAP_PALETTE['text-secondary']);
       if (this.yapPlayPulse !== null) {
         this.yapPlayPulse.stop();
@@ -757,6 +902,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPausesText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapHintButton = null;
 
     // bottom action bar: 96 px strip with ×2 on the left, Stop on the right
     const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
@@ -857,6 +1003,8 @@ export class YapLevelScene extends Phaser.Scene {
     if (outcome.kind === 'detected') {
       // C4: slow-motion replay of the last ticks, zoom, written cause.
       this.yapAttemptLog.yapRegisterFailure(outcome.cause);
+      // C7: each failure on the heist brings the hints closer (3, then 6)
+      if (!this.yapAttemptLog.yapIsWon()) this.yapHints?.yapRegisterFailure();
       this.yapStartFailure(exec);
       return;
     }
@@ -1174,6 +1322,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPausesText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapHintButton = null;
     this.yapExecTickText = null;
     this.yapSpeedButton = null;
   }
@@ -1190,7 +1339,14 @@ export class YapLevelScene extends Phaser.Scene {
     if (level === null || layout === null) return;
     const outcome = exec.yapOutcome();
     if (outcome.kind !== 'won') return;
-    this.yapWin = new YapWinScreen(level, outcome, this.yapAttemptLog);
+    // C7: the hints used are counted in the share (💡 in the emoji line and
+    // the hints field of the E1 payload, src/game/win.ts)
+    this.yapWin = new YapWinScreen(
+      level,
+      outcome,
+      this.yapAttemptLog,
+      this.yapHints?.yapHintsUsed() ?? 0,
+    );
     this.yapWinFrame = exec.yapFrame(); // the won frame stays on the board
     this.yapExecution = null; // the playback is over; the Win screen drives now
     this.yapChrome?.destroy();
@@ -1217,7 +1373,9 @@ export class YapLevelScene extends Phaser.Scene {
     });
     const midY = YAP_TOP_BAR_HEIGHT / 2;
     chrome.add(
-      this.add.text(16, midY, level.name, textStyle(16, YAP_PALETTE['text-primary'])).setOrigin(0, 0.5),
+      this.add
+        .text(16, midY, level.name, textStyle(16, YAP_PALETTE['text-primary']))
+        .setOrigin(0, 0.5),
     );
 
     // panel over the board area, between the top and bottom bars
@@ -1266,7 +1424,12 @@ export class YapLevelScene extends Phaser.Scene {
     // the emoji line that will go into the share, as a preview
     chrome.add(
       this.add
-        .text(cx, y, yapI18n.t('winScreen.sharePreview'), textStyle(14, YAP_PALETTE['text-secondary']))
+        .text(
+          cx,
+          y,
+          yapI18n.t('winScreen.sharePreview'),
+          textStyle(14, YAP_PALETTE['text-secondary']),
+        )
         .setOrigin(0.5, 0),
     );
     y += 20;
@@ -1342,6 +1505,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPausesText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapHintButton = null;
     this.yapExecTickText = null;
     this.yapSpeedButton = null;
   }

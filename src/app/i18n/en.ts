@@ -162,6 +162,13 @@ export const en = {
     yourTurn: 'Your turn: {link}',
     failed: 'Could not share',
   },
+  // Story C7 — hints after 3 then 6 failures (src/game/hints.ts): the Hint
+  // button of the planning bottom bar (shown only when a hint is available)
+  // and the compact badge at the end of the revealed ghost path.
+  hints: {
+    button: '💡 Hint',
+    badge: '💡 {shown}/{total}',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
