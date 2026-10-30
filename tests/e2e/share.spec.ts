@@ -11,22 +11,26 @@
 //     included — to the clipboard instead.
 //
 // The plan that wins T1 comes from the same solver the game ships with
-// (src/core/solver.ts), and the board geometry from src/game/board.ts, so the
-// pointer strokes land on the exact cells of the grid. The dist/ server, the
-// level catalog and the plan cells are shared with the other specs
-// (./support.ts).
+// (src/core/solver.ts). The dist/ server, the level catalog, the plan cells,
+// the stroke and the PLAY tap are shared with the other specs (./support.ts),
+// whose board geometry comes from src/game/board.ts so the strokes land on the
+// exact cells of the grid; only the Share tap's geometry lives here.
 //
 // Run against the built app (npm run build first):
 //   npx playwright test tests/e2e/share.spec.ts
 import { expect, test, type Page } from '@playwright/test';
 import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
-import { yapCellCenter, yapComputeLayout, type YapBoardLayout, type YapPoint } from '../../src/game/board';
 import {
   YAP_MOBILE_UA as MOBILE_UA,
+  yapCanvasView,
   yapCatalogLevel,
+  yapDraw,
   yapPlanCells,
+  yapPressPlay,
   yapStartDistServer,
+  yapWaitPhase,
+  type YapCanvasView,
   type YapDistServer,
 } from './support';
 
@@ -56,7 +60,7 @@ const T1: YapLevel = yapCatalogLevel('tutorial/t1');
 const T1_SOLUTION: YapSolveResult = solveLevel(T1);
 
 // ---------------------------------------------------------------------------
-// Page helpers: geometry, the T1 win, and the Share tap
+// Page helpers: the T1 win and the Share tap
 // ---------------------------------------------------------------------------
 
 const DESKTOP_UA =
@@ -87,59 +91,17 @@ async function yapCopiedTexts(page: Page): Promise<string[]> {
   });
 }
 
-interface YapView {
-  readonly box: { readonly x: number; readonly y: number };
-  readonly viewWidth: number;
-  readonly viewHeight: number;
-  readonly layout: YapBoardLayout;
-}
-
-/** Canvas box + the board layout the scene computed for that size. */
-async function yapView(page: Page): Promise<YapView> {
-  const box = await page.locator('canvas').first().boundingBox();
-  if (box === null) throw new Error('the app canvas never appeared');
-  const viewWidth = Math.round(box.width);
-  const viewHeight = Math.round(box.height);
-  return {
-    box,
-    viewWidth,
-    viewHeight,
-    layout: yapComputeLayout(viewWidth, viewHeight, T1.width, T1.height),
-  };
-}
-
-function yapToPage(view: YapView, point: YapPoint): { x: number; y: number } {
-  return { x: view.box.x + point.x, y: view.box.y + point.y };
-}
-
-/** Open `path`, draw the winning plan on the board and press PLAY. */
-async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapView> {
+/**
+ * Open `path`, draw the winning plan on the board and press PLAY (the phase
+ * wait, the stroke and the PLAY tap of ./support.ts). Returns the canvas the
+ * Share tap aims at.
+ */
+async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapCanvasView> {
   await page.goto(`${baseUrl}${path}`);
-  await page.locator('canvas').first().waitFor({ state: 'attached' });
-  // deterministic instead of a sleep: the level scene exposes its phase
-  // (`__yapPhase`) once the board is built and input is wired
-  await page.waitForFunction(
-    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'planning',
-    undefined,
-    { timeout: 15_000 },
-  );
-  const view = await yapView(page);
-  const cells = yapPlanCells(T1, T1_SOLUTION.plan);
-  const points = cells.map((cell) => yapCellCenter(view.layout, cell));
-  const first = points[0];
-  if (first === undefined) throw new Error('empty plan');
-  const start = yapToPage(view, first);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  for (const point of points.slice(1)) {
-    const at = yapToPage(view, point);
-    await page.mouse.move(at.x, at.y);
-  }
-  await page.mouse.up();
-  // PLAY: bottom bar, centred at (viewWidth/2 + 42, viewHeight - 30)
-  const play = yapToPage(view, { x: view.viewWidth / 2 + 42, y: view.viewHeight - 30 });
-  await page.mouse.click(play.x, play.y);
-  return view;
+  await yapWaitPhase(page, 'planning');
+  await yapDraw(page, T1, yapPlanCells(T1, T1_SOLUTION.plan));
+  await yapPressPlay(page);
+  return yapCanvasView(page);
 }
 
 /**
@@ -151,18 +113,14 @@ async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapView> {
  */
 async function yapTapShareUntil(
   page: Page,
-  view: YapView,
+  view: YapCanvasView,
   done: () => Promise<boolean>,
   timeoutMs = 30_000,
 ): Promise<void> {
   // wait for the Win screen itself before tapping: the Share button only
   // exists there, and a tap during the playback does nothing
-  await page.waitForFunction(
-    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'win',
-    undefined,
-    { timeout: timeoutMs },
-  );
-  const share = yapToPage(view, { x: view.viewWidth / 2, y: view.viewHeight - 60 });
+  await yapWaitPhase(page, 'win', timeoutMs);
+  const share = { x: view.x + view.width / 2, y: view.y + view.height - 60 };
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await done()) return;
