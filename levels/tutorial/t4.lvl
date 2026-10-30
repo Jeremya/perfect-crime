@@ -1,0 +1,28 @@
+# Tutorial 4 — "The pause": a tap on the path makes the thief wait. The only
+# passage is the corridor under the guard's walkway; its cone sweeps the
+# corridor, so one pause before entering is mandatory.
+# Format: ASCII map (12 rows x 8 cols) + entities. Periods must divide 24.
+name: Tutorial 4
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 14
+map: |
+  ########
+  #S.....#
+  #.######
+  #.....##
+  #......#
+  ######.#
+  #....L.#
+  #.....E#
+  #......#
+  #......#
+  #......#
+  ########
+guards:
+  - id: g1
+    route: [[2,3], [3,3], [4,3], [5,3]]
+    mode: pingpong
+    phase: 0
+    range: 2

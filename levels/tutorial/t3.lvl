@@ -1,0 +1,28 @@
+# Tutorial 3 — "The patrol": guards move, timing matters. The guard sweeps the
+# middle row back and forth; crossing right behind it (or waiting one tick)
+# is the lesson. Going straight down the left column is caught.
+# Format: ASCII map (12 rows x 8 cols) + entities. Periods must divide 24.
+name: Tutorial 3
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 17
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #L....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,5], [3,5], [4,5], [5,5], [6,5]]
+    mode: pingpong
+    phase: 2
+    range: 2
