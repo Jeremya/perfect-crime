@@ -37,6 +37,7 @@ import {
   yapCellCenter,
   yapComputeLayout,
   yapConeCells,
+  yapDirVector,
   yapHexToInt,
   yapLaserCells,
   type YapBoardLayout,
@@ -387,9 +388,13 @@ export class YapLevelScene extends Phaser.Scene {
         .fillCircle(p.x, p.y, r)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
         .strokeCircle(p.x, p.y, r);
+      // the Kenney pose faces east: turn it to the guard's facing, which the
+      // code-drawn facing wedge used to show
+      const d = yapDirVector(guard.facing);
       const sprite = this.add
         .image(p.x, p.y, 'yap-guard')
-        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9);
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9)
+        .setRotation(Math.atan2(d.y, d.x));
       ents.add([marker, sprite]);
     }
     const thiefAt = yapCellCenter(layout, state.thief);
