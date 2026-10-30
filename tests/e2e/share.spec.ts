@@ -12,121 +12,53 @@
 //
 // The plan that wins T1 comes from the same solver the game ships with
 // (src/core/solver.ts), and the board geometry from src/game/board.ts, so the
-// pointer strokes land on the exact cells of the grid.
+// pointer strokes land on the exact cells of the grid. The dist/ server, the
+// level catalog and the plan cells are shared with the other specs
+// (./support.ts).
 //
 // Run against the built app (npm run build first):
 //   npx playwright test tests/e2e/share.spec.ts
 import { expect, test, type Page } from '@playwright/test';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { YapCell, YapDir, YapLevel } from '../../src/core/level';
+import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
-import type { YapMove } from '../../src/core/sim';
 import { yapCellCenter, yapComputeLayout, type YapBoardLayout, type YapPoint } from '../../src/game/board';
+import {
+  YAP_MOBILE_UA as MOBILE_UA,
+  yapCatalogLevel,
+  yapPlanCells,
+  yapStartDistServer,
+  type YapDistServer,
+} from './support';
 
 // ---------------------------------------------------------------------------
-// Static server for dist/ (no playwright.config in this repo: the spec is
-// self-contained and serves the build itself on an ephemeral port)
+// Static server for dist/ (./support.ts): one per spec file, ephemeral port
 // ---------------------------------------------------------------------------
 
-const DIST_DIR = fileURLToPath(new URL('../../dist/', import.meta.url));
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.wav': 'audio/wav',
-  '.mp3': 'audio/mpeg',
-  '.ico': 'image/x-icon',
-};
-
-let server: Server | null = null;
+let server: YapDistServer | null = null;
 let baseUrl = '';
 
-async function yapServe(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  try {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-    let pathname = decodeURIComponent(url.pathname);
-    if (pathname === '/') pathname = '/index.html';
-    // Static hosts serve /c/<day>/index.html for /c/<day> (Cloudflare Pages).
-    else if (/^\/c\/\d+$/.test(pathname)) pathname = `${pathname}/index.html`;
-    const filePath = normalize(join(DIST_DIR, pathname));
-    if (!filePath.startsWith(DIST_DIR)) {
-      res.writeHead(403).end();
-      return;
-    }
-    const body = await readFile(filePath);
-    res.writeHead(200, { 'content-type': MIME[extname(filePath)] ?? 'application/octet-stream' });
-    res.end(body);
-  } catch {
-    res.writeHead(404).end('not found');
-  }
-}
-
 test.beforeAll(async () => {
-  const created = createServer((req, res) => {
-    void yapServe(req, res);
-  });
-  server = created;
-  await new Promise<void>((resolve) => created.listen(0, '127.0.0.1', resolve));
-  const address = created.address();
-  if (address === null || typeof address === 'string') throw new Error('no ephemeral port');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  server = await yapStartDistServer();
+  baseUrl = server.baseUrl;
 });
 
 test.afterAll(async () => {
   const closing = server;
   server = null;
-  if (closing !== null) await new Promise<void>((resolve) => closing.close(() => resolve()));
+  if (closing !== null) await closing.close();
 });
 
 // ---------------------------------------------------------------------------
 // The level that is played: tutorial T1 from the generated levels.json
 // ---------------------------------------------------------------------------
 
-interface YapLevelsJson {
-  readonly levels: readonly { readonly id: string; readonly level: YapLevel }[];
-}
-
-const LEVELS = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../levels/levels.json', import.meta.url)), 'utf8'),
-) as unknown as YapLevelsJson;
-const T1_ENTRY = LEVELS.levels.find((entry) => entry.id === 'tutorial/t1');
-if (T1_ENTRY === undefined) throw new Error('tutorial/t1 missing from levels/levels.json');
-const T1: YapLevel = T1_ENTRY.level;
+const T1: YapLevel = yapCatalogLevel('tutorial/t1');
 const T1_SOLUTION: YapSolveResult = solveLevel(T1);
-
-const DIR_VECTORS: Record<YapDir, YapCell> = {
-  N: { x: 0, y: -1 },
-  E: { x: 1, y: 0 },
-  S: { x: 0, y: 1 },
-  W: { x: -1, y: 0 },
-};
-
-/** The cells of the winning plan, start cell first. */
-function yapPlanCells(level: YapLevel, plan: readonly YapMove[]): YapCell[] {
-  const cells: YapCell[] = [{ x: level.start.x, y: level.start.y }];
-  let current = level.start;
-  for (const move of plan) {
-    if (move === 'wait') continue;
-    const delta = DIR_VECTORS[move];
-    current = { x: current.x + delta.x, y: current.y + delta.y };
-    cells.push(current);
-  }
-  return cells;
-}
 
 // ---------------------------------------------------------------------------
 // Page helpers: geometry, the T1 win, and the Share tap
 // ---------------------------------------------------------------------------
 
-const MOBILE_UA =
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const DESKTOP_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 

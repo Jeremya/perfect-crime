@@ -20,6 +20,7 @@ import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
+import { yapFitCamera, yapViewSize } from './hidpi';
 
 /** Minimum height of the banner strip: exactly the top bar zone. */
 const YAP_BANNER_MIN_HEIGHT = YAP_TOP_BAR_HEIGHT;
@@ -60,10 +61,11 @@ export class YapConsentScene extends Phaser.Scene {
 
   /** (Re)draws the banner strip over the top bar. */
   private yapBuild(): void {
+    yapFitCamera(this); // CSS px on a device-pixel canvas (C1)
     this.yapBanner?.destroy();
     this.yapBanner = null;
 
-    const width = this.scale.width;
+    const width = yapViewSize(this).width;
     const banner = this.add.container(0, 0);
     this.yapBanner = banner;
 

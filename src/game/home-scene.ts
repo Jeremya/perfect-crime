@@ -22,9 +22,9 @@
 // otherwise. It also emits level_start (and streak_day on the first same-day
 // win) through track().
 //
-// The layout is built from the real viewport (Phaser.Scale.RESIZE) and
-// rebuilt on resize; the countdown ticks every second and the whole screen
-// is rebuilt when the local day changes at midnight.
+// The layout is built from the real viewport, in CSS px (yapViewSize,
+// ./hidpi.ts), and rebuilt on resize; the countdown ticks every second and the
+// whole screen is rebuilt when the local day changes at midnight.
 import Phaser from 'phaser';
 import { track } from '../app/analytics';
 import { YAP_WEEK_DAYS, yapArchiveDays } from '../app/daily';
@@ -50,6 +50,7 @@ import {
   yapFitRows,
   yapHexToInt,
 } from './board';
+import { yapFitCamera, yapViewSize } from './hidpi';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
@@ -263,6 +264,7 @@ export class YapHomeScene extends Phaser.Scene {
 
   /** (Re)draw the whole screen from the stored progress and the local day. */
   private yapBuild(): void {
+    yapFitCamera(this); // CSS px on a device-pixel canvas (C1)
     this.yapRoot?.destroy();
     this.yapCountdownText = null;
     const now = new Date();
@@ -271,8 +273,7 @@ export class YapHomeScene extends Phaser.Scene {
     // story O1: the past days of the test week, playable from the archive
     const archiveDays = yapArchiveDays(now);
     const archiveOpen = this.yapArchiveOpen && archiveDays.length > 0;
-    const width = this.scale.width;
-    const height = this.scale.height;
+    const { width, height } = yapViewSize(this);
     const root = this.add.container(0, 0);
     this.yapRoot = root;
 
@@ -606,8 +607,9 @@ export class YapHomeScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
+    const view = yapViewSize(this);
     const toast = this.add
-      .text(this.scale.width / 2, this.scale.height - 96, message, {
+      .text(view.width / 2, view.height - 96, message, {
         fontFamily: 'sans-serif',
         fontSize: '16px',
         color: YAP_PALETTE['path-light'],

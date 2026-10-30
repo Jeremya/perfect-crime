@@ -60,6 +60,15 @@ import {
   yapLaserCells,
   type YapBoardLayout,
 } from './board';
+import {
+  YAP_DPR,
+  yapBakeTexture,
+  yapBakedImage,
+  yapDeviceViewport,
+  yapFitCamera,
+  yapPointerView,
+  yapViewSize,
+} from './hidpi';
 import { YapPathInput } from './path-input';
 import {
   yapGhostCones,
@@ -306,10 +315,11 @@ export class YapLevelScene extends Phaser.Scene {
     const layout = this.yapLayout;
     const input = this.yapPathInput;
     if (layout === null || input === null) return;
-    if (!this.yapIsOnBoard(layout, pointer.x, pointer.y)) return; // buttons live off-board
+    const at = yapPointerView(this, pointer); // CSS px, like the layout (C1)
+    if (!this.yapIsOnBoard(layout, at.x, at.y)) return; // buttons live off-board
     this.yapPointerId = pointer.id;
     const before = input.yapPath().length;
-    input.yapPointerDown(pointer.x, pointer.y, this.game.loop.now);
+    input.yapPointerDown(at.x, at.y, this.game.loop.now);
     this.yapAfterPathChange(before);
   };
 
@@ -319,7 +329,8 @@ export class YapLevelScene extends Phaser.Scene {
     const input = this.yapPathInput;
     if (input === null) return;
     const before = input.yapPath().length;
-    input.yapPointerMove(pointer.x, pointer.y);
+    const at = yapPointerView(this, pointer);
+    input.yapPointerMove(at.x, at.y);
     this.yapAfterPathChange(before);
   };
 
@@ -330,7 +341,8 @@ export class YapLevelScene extends Phaser.Scene {
     const input = this.yapPathInput;
     if (input === null) return;
     const before = input.yapPath().length;
-    input.yapPointerUp(pointer.x, pointer.y, this.game.loop.now);
+    const at = yapPointerView(this, pointer);
+    input.yapPointerUp(at.x, at.y, this.game.loop.now);
     this.yapAfterPathChange(before);
   };
 
@@ -353,6 +365,9 @@ export class YapLevelScene extends Phaser.Scene {
 
   /** (Re)draw the whole screen from the current level and tick-0 state. */
   private yapBuild(): void {
+    // CSS px on a device-pixel canvas (C1); during the failure replay,
+    // yapApplyFailureZoom below fits both of its cameras instead
+    if (this.yapFailure === null) yapFitCamera(this);
     const level = this.yapLevel;
     const state = this.yapState;
     if (level === null || state === null) return;
@@ -373,9 +388,10 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintLayer = null;
     this.yapHintBadge = null;
 
+    const view = yapViewSize(this);
     const layout = yapComputeLayout(
-      this.scale.width,
-      this.scale.height,
+      view.width,
+      view.height,
       level.width,
       level.height,
       YAP_TOP_BAR_HEIGHT,
@@ -413,16 +429,13 @@ export class YapLevelScene extends Phaser.Scene {
     }
     board.add(card);
 
-    // Static grid, drawn once into a texture (Gate 1 spec, Rendering and input).
+    // Static grid, drawn once into a texture (Gate 1 spec, Rendering and
+    // input), at device resolution so it stays crisp on a phone.
     const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
-    const grid = this.make.graphics({ x: 0, y: 0 }, false);
-    yapDrawStaticGrid(grid, level, bakeLayout);
-    if (this.textures.exists(YAP_GRID_TEXTURE_KEY)) {
-      this.textures.remove(YAP_GRID_TEXTURE_KEY);
-    }
-    grid.generateTexture(YAP_GRID_TEXTURE_KEY, layout.boardWidth, layout.boardHeight);
-    grid.destroy();
-    board.add(this.add.image(layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY).setOrigin(0, 0));
+    yapBakeTexture(this, YAP_GRID_TEXTURE_KEY, layout.boardWidth, layout.boardHeight, (g) =>
+      yapDrawStaticGrid(g, level, bakeLayout),
+    );
+    board.add(yapBakedImage(this, layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY));
 
     // the frame sits on top of the grid so the edge stays crisp
     const frame = this.add.graphics();
@@ -800,7 +813,7 @@ export class YapLevelScene extends Phaser.Scene {
    * the widest thing on the row.
    */
   private yapPlayRow(hasHint: boolean): { readonly x: number; readonly w: number } {
-    const width = this.yapLayout?.viewWidth ?? this.scale.width;
+    const width = this.yapLayout?.viewWidth ?? yapViewSize(this).width;
     const clearW = 96;
     const hintW = hasHint ? 96 : 0;
     const gap = 8;
@@ -1331,8 +1344,10 @@ export class YapLevelScene extends Phaser.Scene {
   /**
    * Zooms the board on the midpoint between the thief and the detector. Only
    * the board zooms: the main camera is clipped to the area between the bars,
-   * and an unzoomed UI camera draws the chrome, so the written cause and the
-   * attempt number stay on screen.
+   * and a UI camera without the failure zoom draws the chrome, so the written
+   * cause and the attempt number stay on screen. Camera viewports are in
+   * device pixels (C1): the CSS rectangles are scaled by the ratio, and so is
+   * the zoom.
    */
   private yapApplyFailureZoom(): void {
     const replay = this.yapFailure;
@@ -1344,22 +1359,25 @@ export class YapLevelScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setViewport(
       0,
-      YAP_TOP_BAR_HEIGHT,
-      layout.viewWidth,
-      layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT,
+      YAP_TOP_BAR_HEIGHT * YAP_DPR,
+      layout.viewWidth * YAP_DPR,
+      (layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT) * YAP_DPR,
     );
     // keep the zoomed view on the grid, never on the empty margins around it
     cam.setBounds(layout.originX, layout.originY, layout.boardWidth, layout.boardHeight);
-    cam.setZoom(replay.yapZoomFactor(layout));
+    cam.setZoom(replay.yapZoomFactor(layout) * YAP_DPR);
     cam.centerOn((a.x + b.x) / 2, (a.y + b.y) / 2);
-    const ui = this.yapUiCamera ?? this.cameras.add(0, 0, layout.viewWidth, layout.viewHeight);
-    ui.setSize(layout.viewWidth, layout.viewHeight);
+    const uiWidth = layout.viewWidth * YAP_DPR;
+    const uiHeight = layout.viewHeight * YAP_DPR;
+    const ui = this.yapUiCamera ?? this.cameras.add(0, 0, uiWidth, uiHeight);
+    ui.setSize(uiWidth, uiHeight);
+    yapFitCamera(this, ui);
     this.yapUiCamera = ui;
     if (this.yapChrome !== null) cam.ignore(this.yapChrome);
     if (this.yapBoard !== null) ui.ignore(this.yapBoard);
   }
 
-  /** Back to the full-board view (one camera, zoom 1, no scroll). */
+  /** Back to the full-board view: one camera on the whole CSS view, no bounds. */
   private yapResetCamera(): void {
     if (this.yapUiCamera !== null) {
       this.cameras.remove(this.yapUiCamera);
@@ -1367,9 +1385,9 @@ export class YapLevelScene extends Phaser.Scene {
     }
     const cam = this.cameras.main;
     cam.removeBounds();
-    cam.setViewport(0, 0, this.scale.width, this.scale.height);
-    cam.setZoom(1);
-    cam.centerOn(this.scale.width / 2, this.scale.height / 2);
+    const device = yapDeviceViewport(this);
+    cam.setViewport(0, 0, device.width, device.height);
+    yapFitCamera(this, cam);
   }
 
   /**

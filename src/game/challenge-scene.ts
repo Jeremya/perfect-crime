@@ -53,6 +53,7 @@ import {
   yapDirVector,
   yapHexToInt,
 } from './board';
+import { yapFitCamera, yapViewSize } from './hidpi';
 import { yapFlow } from './home-scene';
 import { yapDrawDiamond, yapDrawExit, yapDrawStart, yapDrawStaticGrid } from './render';
 
@@ -172,12 +173,12 @@ export class YapChallengeScene extends Phaser.Scene {
   // -------------------------------------------------------------------------
 
   private yapBuild(): void {
+    yapFitCamera(this); // CSS px on a device-pixel canvas (C1)
     this.yapRoot?.destroy();
     this.yapRoot = null;
     const entry = this.yapEntry;
     if (entry === null) return;
-    const width = this.scale.width;
-    const height = this.scale.height;
+    const { width, height } = yapViewSize(this);
     const root = this.add.container(0, 0);
     this.yapRoot = root;
 

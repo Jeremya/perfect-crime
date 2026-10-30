@@ -7,7 +7,10 @@
 //
 // This module must not import the Phaser runtime (type-only imports are
 // fine): it is unit-tested in node (tests/unit/hidpi.test.ts), where there is
-// no devicePixelRatio and YAP_DPR is 1.
+// no devicePixelRatio and YAP_DPR is 1. It is also the only module that
+// touches the device pixels of a scene (its game size, a pointer position, a
+// baked texture): tests/unit/hidpi-guard.test.ts keeps the scenes off them.
+import type Phaser from 'phaser';
 
 /**
  * The ratio is capped at 3 (docs/design/2026-10-30-plan-style-design.md §6):
@@ -53,4 +56,91 @@ export function yapCssSize(
   dpr: number,
 ): { width: number; height: number } {
   return { width: deviceWidth / dpr, height: deviceHeight / dpr };
+}
+
+// ---------------------------------------------------------------------------
+// Scenes: CSS pixels in, device pixels out
+// ---------------------------------------------------------------------------
+
+/**
+ * The view size in CSS pixels, the one size every scene lays out in: the game
+ * size (the canvas backing store, in device pixels) divided by the ratio.
+ */
+export function yapViewSize(scene: Phaser.Scene): { width: number; height: number } {
+  return yapCssSize(scene.scale.width, scene.scale.height, YAP_DPR);
+}
+
+/** The view size in device pixels. Only for camera viewports, which Phaser sizes in them. */
+export function yapDeviceViewport(scene: Phaser.Scene): { width: number; height: number } {
+  return { width: scene.scale.width, height: scene.scale.height };
+}
+
+/**
+ * Shows the CSS view on `camera`: zoom by the ratio, centred on the centre of
+ * the view. The camera keeps its default origin (0.5), with which centerOn
+ * maps the CSS view exactly onto a full device viewport, so world coordinates
+ * are CSS pixels.
+ */
+export function yapFitCamera(
+  scene: Phaser.Scene,
+  camera: Phaser.Cameras.Scene2D.Camera = scene.cameras.main,
+): void {
+  const view = yapViewSize(scene);
+  camera.setZoom(YAP_DPR);
+  camera.centerOn(view.width / 2, view.height / 2);
+}
+
+/** Where `pointer` is in CSS pixels: its world position under the main camera. */
+export function yapPointerView(
+  scene: Phaser.Scene,
+  pointer: Phaser.Input.Pointer,
+): { x: number; y: number } {
+  const point = scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+  return { x: point.x, y: point.y };
+}
+
+/**
+ * Bakes what `draw` paints, in CSS pixels, into the texture `key` at device
+ * resolution (replacing any previous texture with that key), so a baked grid
+ * stays as crisp as one drawn live. Show it with yapBakedImage.
+ */
+export function yapBakeTexture(
+  scene: Phaser.Scene,
+  key: string,
+  cssWidth: number,
+  cssHeight: number,
+  draw: (g: Phaser.GameObjects.Graphics) => void,
+): void {
+  const g = scene.make.graphics({ x: 0, y: 0 }, false);
+  g.scaleCanvas(YAP_DPR, YAP_DPR);
+  draw(g);
+  if (scene.textures.exists(key)) scene.textures.remove(key);
+  g.generateTexture(key, Math.ceil(cssWidth * YAP_DPR), Math.ceil(cssHeight * YAP_DPR));
+  g.destroy();
+}
+
+/** A texture baked by yapBakeTexture, its top-left corner at (x, y) in CSS pixels. */
+export function yapBakedImage(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  key: string,
+): Phaser.GameObjects.Image {
+  return scene.add
+    .image(x, y, key)
+    .setOrigin(0, 0)
+    .setScale(1 / YAP_DPR);
+}
+
+/**
+ * Keeps the game at the size of its page frame. Scale mode NONE does not
+ * follow the page by itself, so every window resize (a rotation included)
+ * resizes the game to the frame's CSS size in device pixels, which emits
+ * RESIZE to the scenes.
+ */
+export function yapInstallResize(game: Phaser.Game, frame: HTMLElement): void {
+  window.addEventListener('resize', () => {
+    const size = yapDeviceSize(frame.clientWidth, frame.clientHeight, YAP_DPR);
+    game.scale.resize(size.width, size.height);
+  });
 }

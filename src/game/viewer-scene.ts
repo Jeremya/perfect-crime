@@ -28,6 +28,7 @@ import {
   yapLaserCells,
   type YapBoardLayout,
 } from './board';
+import { yapBakeTexture, yapBakedImage, yapFitCamera, yapViewSize } from './hidpi';
 import {
   yapDrawCamera,
   yapDrawCone,
@@ -45,7 +46,7 @@ import {
 export const YAP_VIEWER_SCENE_KEY = 'yap-viewer';
 /** Texture key of the baked static grid. */
 const YAP_VIEWER_GRID_TEXTURE = 'yap-viewer-grid';
-/** Height of the bottom control panel, in game px (a DOM overlay sits on it). */
+/** Height of the bottom control panel, in CSS px (a DOM overlay sits on it). */
 const YAP_VIEWER_BOTTOM_BAR = 132;
 /** Replay period, in ms. */
 const YAP_VIEWER_TICK_MS = 400;
@@ -190,6 +191,7 @@ export class YapViewerScene extends Phaser.Scene {
 
   /** (Re)builds the whole screen: board, chrome, current tick, DOM panel data. */
   private yapBuildAll(): void {
+    yapFitCamera(this); // CSS px on a device-pixel canvas (C1)
     this.yapBoard?.destroy();
     this.yapChrome?.destroy();
     this.yapBoard = null;
@@ -200,9 +202,10 @@ export class YapViewerScene extends Phaser.Scene {
 
     const model = this.yapModel;
     const level = model?.level;
+    const view = yapViewSize(this);
     const layout = yapComputeLayout(
-      this.scale.width,
-      this.scale.height,
+      view.width,
+      view.height,
       level?.width ?? YAP_GRID_WIDTH,
       level?.height ?? YAP_GRID_HEIGHT,
       YAP_TOP_BAR_HEIGHT,
@@ -213,18 +216,13 @@ export class YapViewerScene extends Phaser.Scene {
     if (level !== undefined) {
       const board = this.add.container(0, 0);
       this.yapBoard = board;
-      // Static grid, baked once into a texture (same technique as C1).
+      // Static grid, baked once into a texture at device resolution (same
+      // technique as C1).
       const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
-      const grid = this.make.graphics({ x: 0, y: 0 }, false);
-      yapDrawStaticGrid(grid, level, bakeLayout);
-      if (this.textures.exists(YAP_VIEWER_GRID_TEXTURE)) {
-        this.textures.remove(YAP_VIEWER_GRID_TEXTURE);
-      }
-      grid.generateTexture(YAP_VIEWER_GRID_TEXTURE, layout.boardWidth, layout.boardHeight);
-      grid.destroy();
-      board.add(
-        this.add.image(layout.originX, layout.originY, YAP_VIEWER_GRID_TEXTURE).setOrigin(0, 0),
+      yapBakeTexture(this, YAP_VIEWER_GRID_TEXTURE, layout.boardWidth, layout.boardHeight, (g) =>
+        yapDrawStaticGrid(g, level, bakeLayout),
       );
+      board.add(yapBakedImage(this, layout.originX, layout.originY, YAP_VIEWER_GRID_TEXTURE));
       this.yapDynamic = this.add.container(0, 0);
       board.add(this.yapDynamic);
     }
@@ -247,18 +245,19 @@ export class YapViewerScene extends Phaser.Scene {
     this.yapNameText = this.add
       .text(16, YAP_TOP_BAR_HEIGHT / 2, this.yapModel?.level.name ?? yapI18n.t('viewer.title'), textStyle(20))
       .setOrigin(0, 0.5);
+    const view = yapViewSize(this);
     this.yapTickText = this.add
-      .text(this.scale.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
+      .text(view.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
       .setOrigin(1, 0.5);
     chrome.add([this.yapNameText, this.yapTickText]);
 
-    const barY = this.scale.height - YAP_VIEWER_BOTTOM_BAR;
+    const barY = view.height - YAP_VIEWER_BOTTOM_BAR;
     const bar = this.add.graphics();
     bar
       .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, barY, this.scale.width, YAP_VIEWER_BOTTOM_BAR)
+      .fillRect(0, barY, view.width, YAP_VIEWER_BOTTOM_BAR)
       .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, barY + 0.5, this.scale.width, barY + 0.5);
+      .lineBetween(0, barY + 0.5, view.width, barY + 0.5);
     chrome.add(bar);
   }
 
@@ -540,7 +539,7 @@ export class YapViewerScene extends Phaser.Scene {
     const panel = this.yapPanel;
     if (panel === null) return;
     const canvas = this.game.canvas;
-    const ratioY = canvas.clientHeight / this.scale.height;
+    const ratioY = canvas.clientHeight / yapViewSize(this).height;
     const height = Math.round(YAP_VIEWER_BOTTOM_BAR * ratioY);
     panel.style.left = `${canvas.offsetLeft}px`;
     panel.style.top = `${canvas.offsetTop + canvas.clientHeight - height}px`;
