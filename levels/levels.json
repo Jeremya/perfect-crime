@@ -94,6 +94,662 @@
           }
         ]
       }
+    },
+    {
+      "id": "daily/d1",
+      "level": {
+        "name": "First Shift",
+        "type": "normal",
+        "moment": "",
+        "maxPauses": 2,
+        "par": 18,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S.....#",
+          "#......#",
+          "#......#",
+          "#..##..#",
+          "#..##..#",
+          "#..L...#",
+          "#......#",
+          "#......#",
+          "#......#",
+          "#.....E#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 3,
+          "y": 6
+        },
+        "exit": {
+          "x": 6,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 1,
+                "y": 4
+              },
+              {
+                "x": 2,
+                "y": 4
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 1,
+            "range": 2
+          },
+          {
+            "id": "g2",
+            "route": [
+              {
+                "x": 5,
+                "y": 8
+              },
+              {
+                "x": 6,
+                "y": 8
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 1,
+            "range": 2
+          }
+        ],
+        "cameras": [],
+        "lasers": []
+      }
+    },
+    {
+      "id": "daily/d2",
+      "level": {
+        "name": "Watchful",
+        "type": "normal",
+        "moment": "",
+        "maxPauses": 2,
+        "par": 20,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S.....#",
+          "#......#",
+          "#......#",
+          "#..##..#",
+          "#..##..#",
+          "#..L...#",
+          "#......#",
+          "#......#",
+          "#......#",
+          "#.....E#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 3,
+          "y": 6
+        },
+        "exit": {
+          "x": 6,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 1,
+                "y": 4
+              },
+              {
+                "x": 2,
+                "y": 4
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 0,
+            "range": 2
+          },
+          {
+            "id": "g2",
+            "route": [
+              {
+                "x": 5,
+                "y": 8
+              },
+              {
+                "x": 6,
+                "y": 8
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 1,
+            "range": 2
+          }
+        ],
+        "cameras": [
+          {
+            "id": "c1",
+            "at": {
+              "x": 4,
+              "y": 4
+            },
+            "dirs": [
+              "N",
+              "E"
+            ],
+            "hold": 6,
+            "phase": 3,
+            "range": 3
+          }
+        ],
+        "lasers": []
+      }
+    },
+    {
+      "id": "daily/d3",
+      "level": {
+        "name": "The U-turn",
+        "type": "signature",
+        "moment": "Slip behind the patroller's back on the exact tick it turns around at the end of its beat.",
+        "maxPauses": 2,
+        "par": 22,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S.....#",
+          "#......#",
+          "#......#",
+          "#..##..#",
+          "#..##..#",
+          "#......#",
+          "#..L...#",
+          "#......#",
+          "#......#",
+          "#.....E#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 3,
+          "y": 7
+        },
+        "exit": {
+          "x": 6,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 1,
+                "y": 6
+              },
+              {
+                "x": 2,
+                "y": 6
+              },
+              {
+                "x": 3,
+                "y": 6
+              },
+              {
+                "x": 4,
+                "y": 6
+              },
+              {
+                "x": 5,
+                "y": 6
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 2,
+            "range": 3
+          },
+          {
+            "id": "g2",
+            "route": [
+              {
+                "x": 6,
+                "y": 8
+              },
+              {
+                "x": 6,
+                "y": 9
+              },
+              {
+                "x": 5,
+                "y": 9
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 0,
+            "range": 2
+          }
+        ],
+        "cameras": [],
+        "lasers": []
+      }
+    },
+    {
+      "id": "daily/d4",
+      "level": {
+        "name": "Red Line",
+        "type": "normal",
+        "moment": "",
+        "maxPauses": 2,
+        "par": 20,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S..#..#",
+          "#...#..#",
+          "#...#..#",
+          "#...#..#",
+          "#...#..#",
+          "#......#",
+          "#...#..#",
+          "#...#L.#",
+          "#...#..#",
+          "#...#.E#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 5,
+          "y": 8
+        },
+        "exit": {
+          "x": 6,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 6,
+                "y": 7
+              },
+              {
+                "x": 6,
+                "y": 8
+              },
+              {
+                "x": 6,
+                "y": 9
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 3,
+            "range": 2
+          }
+        ],
+        "cameras": [],
+        "lasers": [
+          {
+            "id": "l1",
+            "cells": [
+              {
+                "x": 4,
+                "y": 6
+              }
+            ],
+            "on": 6,
+            "off": 6,
+            "phase": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "daily/d5",
+      "level": {
+        "name": "The Blind Spot",
+        "type": "signature",
+        "moment": "Wait in the camera's blind spot while it sweeps the room, then slip through the gap as it turns.",
+        "maxPauses": 3,
+        "par": 26,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S..#..#",
+          "#...#..#",
+          "#...#..#",
+          "#...#..#",
+          "#...#..#",
+          "#......#",
+          "#...#..#",
+          "#...#L.#",
+          "#...#..#",
+          "#...#.E#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 5,
+          "y": 8
+        },
+        "exit": {
+          "x": 6,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 2,
+                "y": 2
+              },
+              {
+                "x": 2,
+                "y": 3
+              },
+              {
+                "x": 2,
+                "y": 4
+              },
+              {
+                "x": 2,
+                "y": 5
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 0,
+            "range": 2
+          }
+        ],
+        "cameras": [
+          {
+            "id": "c1",
+            "at": {
+              "x": 4,
+              "y": 5
+            },
+            "dirs": [
+              "E",
+              "W"
+            ],
+            "hold": 12,
+            "phase": 6,
+            "range": 3
+          }
+        ],
+        "lasers": [
+          {
+            "id": "l1",
+            "cells": [
+              {
+                "x": 6,
+                "y": 7
+              },
+              {
+                "x": 6,
+                "y": 8
+              }
+            ],
+            "on": 6,
+            "off": 6,
+            "phase": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "daily/d6",
+      "level": {
+        "name": "Crossroads",
+        "type": "normal",
+        "moment": "",
+        "maxPauses": 2,
+        "par": 22,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S.....#",
+          "#......#",
+          "#......#",
+          "#..##..#",
+          "#..##..#",
+          "#......#",
+          "#......#",
+          "#....L.#",
+          "#......#",
+          "#E.....#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 5,
+          "y": 8
+        },
+        "exit": {
+          "x": 1,
+          "y": 10
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 1,
+                "y": 6
+              },
+              {
+                "x": 2,
+                "y": 6
+              },
+              {
+                "x": 3,
+                "y": 6
+              },
+              {
+                "x": 4,
+                "y": 6
+              },
+              {
+                "x": 5,
+                "y": 6
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 0,
+            "range": 2
+          },
+          {
+            "id": "g2",
+            "route": [
+              {
+                "x": 6,
+                "y": 8
+              },
+              {
+                "x": 6,
+                "y": 9
+              },
+              {
+                "x": 5,
+                "y": 9
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 1,
+            "range": 2
+          }
+        ],
+        "cameras": [
+          {
+            "id": "c1",
+            "at": {
+              "x": 4,
+              "y": 4
+            },
+            "dirs": [
+              "N",
+              "E"
+            ],
+            "hold": 6,
+            "phase": 1,
+            "range": 3
+          }
+        ],
+        "lasers": []
+      }
+    },
+    {
+      "id": "daily/d7",
+      "level": {
+        "name": "Changing of the Guard",
+        "type": "signature",
+        "moment": "Wait out the changing of the guard, then thread the one-tick window as the two patrols cross.",
+        "maxPauses": 3,
+        "par": 30,
+        "width": 8,
+        "height": 12,
+        "map": [
+          "########",
+          "#S....E#",
+          "#......#",
+          "#......#",
+          "#..##..#",
+          "#..##..#",
+          "#......#",
+          "#......#",
+          "#......#",
+          "#......#",
+          "#.....L#",
+          "########"
+        ],
+        "start": {
+          "x": 1,
+          "y": 1
+        },
+        "loot": {
+          "x": 6,
+          "y": 10
+        },
+        "exit": {
+          "x": 6,
+          "y": 1
+        },
+        "guards": [
+          {
+            "id": "g1",
+            "route": [
+              {
+                "x": 1,
+                "y": 6
+              },
+              {
+                "x": 2,
+                "y": 6
+              },
+              {
+                "x": 3,
+                "y": 6
+              },
+              {
+                "x": 4,
+                "y": 6
+              },
+              {
+                "x": 5,
+                "y": 6
+              }
+            ],
+            "mode": "pingpong",
+            "phase": 0,
+            "range": 2
+          },
+          {
+            "id": "g2",
+            "route": [
+              {
+                "x": 4,
+                "y": 6
+              },
+              {
+                "x": 5,
+                "y": 6
+              },
+              {
+                "x": 6,
+                "y": 6
+              },
+              {
+                "x": 6,
+                "y": 7
+              },
+              {
+                "x": 6,
+                "y": 8
+              },
+              {
+                "x": 5,
+                "y": 8
+              },
+              {
+                "x": 4,
+                "y": 8
+              },
+              {
+                "x": 4,
+                "y": 7
+              }
+            ],
+            "mode": "loop",
+            "phase": 2,
+            "range": 2
+          }
+        ],
+        "cameras": [
+          {
+            "id": "c1",
+            "at": {
+              "x": 4,
+              "y": 4
+            },
+            "dirs": [
+              "N",
+              "E"
+            ],
+            "hold": 6,
+            "phase": 0,
+            "range": 3
+          }
+        ],
+        "lasers": []
+      }
     }
   ]
 }

@@ -1,0 +1,31 @@
+# Daily heist 3 — signature "The U-turn", 2 back-and-forth guards, target par 20-26.
+# Moment: slip behind a guard's back on the exact tick it turns around.
+name: "The U-turn"
+type: signature
+moment: "Slip behind the patroller's back on the exact tick it turns around at the end of its beat."
+maxPauses: 2
+par: 22
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #..##..#
+  #..##..#
+  #......#
+  #..L...#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[1,6],[2,6],[3,6],[4,6],[5,6]]
+    mode: pingpong
+    phase: 2
+    range: 3
+  - id: g2
+    route: [[6,8],[6,9],[5,9]]
+    mode: pingpong
+    phase: 0
+    range: 2

@@ -1,0 +1,31 @@
+# Daily heist 1 — normal, 2 guards, target par 16-22. Intent: reassure.
+# Two slow patrols; several open routes, no pause needed.
+name: "First Shift"
+type: normal
+moment: ""
+maxPauses: 2
+par: 18
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #..##..#
+  #..##..#
+  #..L...#
+  #......#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[1,4],[2,4]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[5,8],[6,8]]
+    mode: pingpong
+    phase: 1
+    range: 2
