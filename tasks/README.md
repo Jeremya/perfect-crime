@@ -11,7 +11,7 @@ outstanding acceptance check (real-phone preview, playtest, live dashboards)
 or an open PR; each task file says which. External setup (such as live PostHog
 dashboards or real-phone checks) is not complete without evidence.
 
-Current count across the **34 required stories: 20 Done, 9 In progress, 5 To
+Current count across the **34 required stories: 24 Done, 5 In progress, 5 To
 do**. Both optional stories are Done (O1 #32+#44, O2 #19). Every line of code
 for Gate 1 is merged; nothing is blocked on a developer.
 
@@ -21,11 +21,7 @@ for Gate 1 is merged; nothing is blocked on a developer.
 
 | Task | What is left | Who |
 |---|---|---|
-| C4 | failure replay: real-phone preview | Dev, on the test phone |
-| C6 | ghost preview on/off on a phone (task is Done, this check was noted) | Dev |
 | C8 | audio unlock + Android vibration on a phone (sound cannot be automated) | Dev + a human ear |
-| D2 | Home flow on a phone | Dev |
-| G2 | consent banner on a phone | Dev |
 | E5 | per-target rows (WhatsApp, Messages, Discord, Instagram) and iOS | PM/Dev, needs a real send |
 | G3 | live PostHog dashboards + test data | PM |
 
@@ -86,13 +82,13 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | C1 | Rendering | C | Dev | 3 | B2 | Done | `tasks/C1.md` |
 | C2 | Path drawing | C | Dev | 3 | C1 | Done | `tasks/C2.md` |
 | C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
-| C4 | Failure replay | C | Dev | 1.5 | C3 | In progress (#20 merged; phone check pending) | `tasks/C4.md` |
+| C4 | Failure replay | C | Dev | 1.5 | C3 | Done (#20; phone check) | `tasks/C4.md` |
 | C5 | Win screen | C | Dev | 1 | C3 | Done | `tasks/C5.md` |
-| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | Done (#21 + #40; phone on/off check pending) | `tasks/C6.md` |
+| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | Done (#21 + #40 + #46; phone on/off check) | `tasks/C6.md` |
 | C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | Done (#33) | `tasks/C7.md` |
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | In progress (#28 merged; phone audio/vibration check pending) | `tasks/C8.md` |
 | D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
-| D2 | Home and flow | D | Dev | 1.25 | D1, C5 | In progress (#30/#31 merged; phone check pending) | `tasks/D2.md` |
+| D2 | Home and flow | D | Dev | 1.25 | D1, C5 | Done (#30/#31; phone check) | `tasks/D2.md` |
 | E1 | Payload v1 | E | Dev | 1 | B2 | Done | `tasks/E1.md` |
 | E2 | Share button | E | Dev | 1.25 | E1, C5 | Done (#29 + #44; Home Share wired) | `tasks/E2.md` |
 | E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | Done | `tasks/E3.md` |
@@ -102,7 +98,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | In progress (#25 merged; 3-person playtest pending) | `tasks/F2.md` |
 | F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | In progress (#26 merged; per-heist playtest pending) | `tasks/F3.md` |
 | G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | Done | `tasks/G1.md` |
-| G2 | Consent and privacy | G | Dev | 0.5 | G1 | In progress (#22 merged; phone check pending) | `tasks/G2.md` |
+| G2 | Consent and privacy | G | Dev | 0.5 | G1 | Done (#22; phone check) | `tasks/G2.md` |
 | G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress (#9 merged; live dashboards pending) | `tasks/G3.md` |
 | H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | In progress (template ready, session to run) | `tasks/H1.md` |
 | H2 | Feel fixes | H | Dev | 2 | H1 | To do | `tasks/H2.md` |
