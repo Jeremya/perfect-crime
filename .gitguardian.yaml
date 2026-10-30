@@ -1,0 +1,18 @@
+# GitGuardian — known false positive, one public key.
+#
+# `src/app/analytics.ts` embeds the PostHog **project** token (`phc_…`). It is
+# public by design: it is the key the browser sends on every capture request
+# (`POST https://eu.i.posthog.com/batch/`), so it ships in the bundle and in
+# the repository. It cannot read analytics data, and it is not a personal key
+# (`ph_…`), which must never be committed.
+#
+# GitGuardian's "Generic High Entropy Secret" detector flags it. To silence
+# the incident on the dashboard as well: open the incident → "Ignore" (false
+# positive). Rotating the token would not help: the new one is public too.
+#
+# Rule: nothing but this exact public project token may be added below.
+version: 2
+secret:
+  ignored_matches:
+    - name: PostHog project token, public by design (Perfect Crime, Gate 1)
+      match: phc_wBu9Gdocezo2iU7K3qCCw8V6KDjaiWaR3JqYvmERryT3
