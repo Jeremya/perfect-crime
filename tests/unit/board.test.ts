@@ -12,6 +12,7 @@ import {
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapComputeLayout,
+  yapFitRows,
 } from '../../src/game/board';
 
 /** WCAG 2 relative luminance of a #rrggbb colour. */
@@ -79,5 +80,32 @@ describe('palette — gameplay information is readable', () => {
     expect(
       contrast(YAP_PALETTE['action-primary'], YAP_PALETTE['action-primary-soft']),
     ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('yapFitRows — the archive fits above the actions', () => {
+  it('keeps full-height rows when there is room', () => {
+    const m = yapFitRows(600, 7);
+    expect(m.height).toBe(64);
+    expect(m.gap).toBe(8);
+    expect(m.total).toBe(7 * 64 + 6 * 8);
+    expect(m.total).toBeLessThanOrEqual(600);
+  });
+
+  it('shrinks the rows on a 360 × 640 phone instead of overflowing', () => {
+    // measured on a real phone: the archive list gets ~320 px there
+    const m = yapFitRows(320, 7);
+    expect(m.height).toBeGreaterThanOrEqual(44);
+    expect(m.height).toBeLessThan(64);
+    expect(m.total).toBeLessThanOrEqual(320);
+  });
+
+  it('never goes below the touch minimum while a fit exists', () => {
+    expect(yapFitRows(1000, 3).height).toBe(64);
+    expect(yapFitRows(140, 3).height).toBe(44);
+  });
+
+  it('handles an empty archive', () => {
+    expect(yapFitRows(500, 0)).toEqual({ height: 0, gap: 0, total: 0 });
   });
 });

@@ -43,12 +43,27 @@ import {
   type YapRoute,
 } from '../app/router';
 import { yapStorage, type YapStorage } from '../app/storage';
-import type { YapCause, YapSimOutcome } from '../core/sim';
-import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
+import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
+import {
+  YAP_PALETTE,
+  YAP_TOP_BAR_HEIGHT,
+  yapFitRows,
+  yapHexToInt,
+} from './board';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
-import { YapAttemptLog, YapWinScreen } from './win';
+import { YapAttemptLog, YapWinScreen, yapEmojiLineFor } from './win';
+import {
+  yapBuildShareContent,
+  yapLoadShareId,
+  yapPrepareShareImage,
+  yapPreparedShareImage,
+  yapResolveShareVariant,
+  yapShare,
+  type YapShareReport,
+} from '../app/share';
+import { YAP_MAX_CAUSES, type YapPayloadData } from '../app/payload';
 
 /** Scene key of the Home screen. */
 export const YAP_HOME_SCENE_KEY = 'yap-home';
@@ -80,6 +95,8 @@ export class YapFlowController {
   private yapRoute: YapLevelRoute | null = null;
   /** Mirrors the level scene's attempt bookkeeping for the current level. */
   private yapLog = new YapAttemptLog();
+  /** Plan of the last PLAY press of the current level (E2 Home share). */
+  private yapLastPlan: YapPlan | null = null;
   private yapAttached = false;
 
   constructor(
@@ -102,6 +119,7 @@ export class YapFlowController {
     }
     this.yapRoute = route;
     this.yapLog = new YapAttemptLog();
+    this.yapLastPlan = null;
     const after = yapRouteAfterWin(route);
     const data: YapLevelSceneData = {
       level,
@@ -130,9 +148,14 @@ export class YapFlowController {
     });
   }
 
-  /** Every press of PLAY is an attempt (frozen after the win, like the scene's log). */
-  private readonly yapOnPlay = (): void => {
+  /**
+   * Every press of PLAY is an attempt (frozen after the win, like the scene's
+   * log). The plan is kept: the day record stores it so Home can share a
+   * challenge link (E2).
+   */
+  private readonly yapOnPlay = (plan?: YapPlan): void => {
     this.yapLog.yapPressPlay();
+    if (plan !== undefined) this.yapLastPlan = plan;
   };
 
   /** Failure: remember the cause. Win: record the tutorial or daily result. */
@@ -165,6 +188,8 @@ export class YapFlowController {
         stars: win.yapStars(),
         hints: 0,
         causes,
+        par: level.par,
+        plan: this.yapLastPlan ?? [],
       },
       this.now(),
     );
@@ -283,6 +308,17 @@ export class YapHomeScene extends Phaser.Scene {
         .setOrigin(0, 0.5),
     );
 
+    // Actions live in the bottom third; their top edge is needed by the
+    // archive list, which must fit above them (O1).
+    const btnW = Math.min(width - 32, 420);
+    const cx = width / 2;
+    const primaryH = 56;
+    const secondaryH = 48;
+    const primaryY = height - 16 - primaryH / 2;
+    const secondaryY = primaryY - primaryH / 2 - 12 - secondaryH / 2;
+    const hasSecondary = model.play !== null || archiveDays.length > 0;
+    const actionsTop = hasSecondary ? secondaryY - secondaryH / 2 : primaryY - primaryH / 2;
+
     // the daily heist card: number, status, stars, streak, countdown
     const cardX = 16;
     const cardY = YAP_TOP_BAR_HEIGHT + 16;
@@ -318,10 +354,15 @@ export class YapHomeScene extends Phaser.Scene {
 
     if (archiveOpen) {
       // archive panel (story O1): the past days, most recent first, each
-      // playable in mode 'archive' — no effect on the streak
-      line(yapI18n.t('archive.title'), 24, primary, true, 8);
-      line(yapI18n.t('archive.playPastDay'), 16, secondary, false, 16);
+      // playable in mode 'archive' — no effect on the streak. The rows shrink
+      // to fit between the card top and the actions, so the week never runs
+      // under the Close/Tutorial buttons (found on a 400 × 797 phone).
+      const compact = height < 700;
+      line(yapI18n.t('archive.title'), compact ? 20 : 24, primary, true, compact ? 4 : 8);
+      if (!compact) line(yapI18n.t('archive.playPastDay'), 16, secondary, false, 16);
+      else y += 8;
       divider();
+      const metrics = yapFitRows(actionsTop - 16 - y, archiveDays.length);
       const days = loadYapDays(yapStorage);
       for (const day of [...archiveDays].reverse()) {
         const record = days.get(day) ?? null;
@@ -332,17 +373,17 @@ export class YapHomeScene extends Phaser.Scene {
         root.add(
           this.yapMakeRow(
             innerX + innerW / 2,
-            y + 32,
+            y + metrics.height / 2,
             innerW,
-            64,
+            metrics.height,
             yapI18n.t('home.dailyHeist', { day }),
             status,
             () => yapFlow.yapGo(this, yapArchiveRoute(day)),
           ),
         );
-        y += 64 + 8;
+        y += metrics.height + metrics.gap;
       }
-      y -= 8; // no gap after the last row
+      y -= metrics.gap; // no gap after the last row
     } else if (model.phase === 'week') {
       line(yapI18n.t('home.dailyHeist', { day: model.day }), 24, primary, true, 8);
       const record = model.record;
@@ -417,12 +458,6 @@ export class YapHomeScene extends Phaser.Scene {
 
     const cardBottom = y;
     // actions in the bottom third, the primary one lowest (one-thumb reach)
-    const btnW = Math.min(width - 32, 420);
-    const cx = width / 2;
-    const primaryH = 56;
-    const secondaryH = 48;
-    const primaryY = height - 16 - primaryH / 2;
-    const secondaryY = primaryY - primaryH / 2 - 12 - secondaryH / 2;
     const play = model.play;
     const archiveToggle = (): void => {
       this.yapArchiveOpen = !archiveOpen;
@@ -439,7 +474,7 @@ export class YapHomeScene extends Phaser.Scene {
       if (model.canShare) {
         secondaryActions.push({
           label: yapI18n.t('home.share'),
-          onPress: () => this.events.emit(YAP_HOME_SHARE_EVENT, { day: model.day }),
+          onPress: () => this.yapShareDay(model.day),
         });
       }
       if (archiveDays.length > 0) {
@@ -475,9 +510,12 @@ export class YapHomeScene extends Phaser.Scene {
     // The middle band was empty: show the spoiler-free map of the heist the
     // screen is about (today's during the week, the last one afterwards). It
     // stops above the action row, secondary row included.
-    const hasSecondary = play !== null || archiveDays.length > 0;
-    const actionsTop = hasSecondary ? secondaryY - secondaryH / 2 : primaryY - primaryH / 2;
     this.yapDrawPreview(model, cardBottom, cx, innerW, actionsTop);
+
+    // The 'image' share variant needs its map File before the tap (E2).
+    if (model.canShare && yapResolveShareVariant() === 'image') {
+      void yapPrepareShareImage(model.day);
+    }
 
     // 180 ms fade-in: the screen settles instead of snapping (skipped under
     // prefers-reduced-motion, see ./motion.ts).
@@ -523,6 +561,70 @@ export class YapHomeScene extends Phaser.Scene {
     yapDrawMiniMap(g, level, x, y, cell);
     g.lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1).strokeRect(x + 1, y + 1, boardW - 2, boardH - 2);
     this.yapRoot?.add(g);
+  }
+
+  /**
+   * Share today's cleared heist from Home (E2): same payload and three
+   * variants as the Win screen, built from the stored day record (the winning
+   * plan is persisted with it, so the link replays the real run).
+   */
+  private yapShareDay(day: number): void {
+    const record = loadYapDays(yapStorage).get(day) ?? null;
+    if (record === null) return;
+    const payload: YapPayloadData = {
+      day,
+      attempts: Math.min(255, record.winningAttempt),
+      ticks: record.bestTicks,
+      stars: record.stars,
+      hints: Math.min(3, record.hints),
+      causes: record.causes.slice(0, YAP_MAX_CAUSES),
+      shareId: yapLoadShareId(),
+      plan: [...record.plan],
+      nickname: '',
+    };
+    const content = yapBuildShareContent(
+      {
+        attempts: record.winningAttempt,
+        ticks: record.bestTicks,
+        stars: record.stars,
+        emojiLine: yapEmojiLineFor(record.causes, record.winningAttempt, record.hints),
+      },
+      payload,
+    );
+    void yapShare({
+      context: 'home',
+      day,
+      content,
+      variant: yapResolveShareVariant(),
+      image: yapPreparedShareImage(day),
+    }).then((report) => this.yapShowShareToast(report));
+  }
+
+  /** Transient "Copied" (or failure) message above the primary action. */
+  private yapShowShareToast(report: YapShareReport): void {
+    let message: string | null = null;
+    if (report.outcome === 'error') message = yapI18n.t('share.failed');
+    else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
+    if (message === null) return;
+    const toast = this.add
+      .text(this.scale.width / 2, this.scale.height - 96, message, {
+        fontFamily: 'sans-serif',
+        fontSize: '16px',
+        color: YAP_PALETTE['path-light'],
+        backgroundColor: YAP_PALETTE['text-primary'],
+        padding: { x: 12, y: 8 },
+      })
+      .setOrigin(0.5, 1)
+      .setAlpha(0);
+    this.yapRoot?.add(toast);
+    this.tweens.add({ targets: toast, alpha: 1, duration: 120 });
+    this.tweens.add({
+      targets: toast,
+      alpha: 0,
+      delay: 1400,
+      duration: 200,
+      onComplete: () => toast.destroy(),
+    });
   }
 
   /** A rounded button drawn in code (same style as the level scene's buttons). */
@@ -576,18 +678,20 @@ export class YapHomeScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+    // two-line row that also survives the compact height of a small phone
+    const tight = h < 56;
     const titleText = this.add
-      .text(-w / 2 + 16, -h / 2 + 10, title, {
+      .text(-w / 2 + 16, -h / 2 + (tight ? 6 : 10), title, {
         fontFamily: 'sans-serif',
-        fontSize: '16px',
+        fontSize: tight ? '15px' : '16px',
         color: YAP_PALETTE['text-primary'],
         fontStyle: 'bold',
       })
       .setOrigin(0, 0);
     const statusText = this.add
-      .text(-w / 2 + 16, -h / 2 + 34, status, {
+      .text(-w / 2 + 16, -h / 2 + (tight ? 23 : 34), status, {
         fontFamily: 'sans-serif',
-        fontSize: '14px',
+        fontSize: tight ? '13px' : '14px',
         color: YAP_PALETTE['text-secondary'],
       })
       .setOrigin(0, 0);

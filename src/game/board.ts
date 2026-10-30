@@ -203,3 +203,38 @@ export interface YapLaserCells {
 export function yapLaserCells(state: YapSimState): YapLaserCells[] {
   return state.lasers.map((l) => ({ cells: l.cells, active: l.active }));
 }
+
+// ---------------------------------------------------------------------------
+// Fitting rows in a band (Home archive, story O1)
+// ---------------------------------------------------------------------------
+
+export interface YapRowMetrics {
+  /** Row height in px, between `min` and `max`. */
+  readonly height: number;
+  /** Gap between two rows, in px. */
+  readonly gap: number;
+  /** Total height of `count` rows and their gaps. */
+  readonly total: number;
+}
+
+/**
+ * Largest row height (with a comfortable gap) that fits `count` rows in
+ * `available` px, down to `min`. The archive can hold the whole week, so on a
+ * 360 × 640 screen the rows shrink instead of running over the actions.
+ */
+export function yapFitRows(
+  available: number,
+  count: number,
+  min = 44,
+  max = 64,
+): YapRowMetrics {
+  if (count <= 0) return { height: 0, gap: 0, total: 0 };
+  for (let height = max; height >= min; height -= 1) {
+    const gap = height >= 56 ? 8 : 4;
+    const total = count * height + (count - 1) * gap;
+    if (total <= available) return { height, gap, total };
+  }
+  // Even the minimum does not fit: return it anyway, the caller can scroll.
+  const gap = 2;
+  return { height: min, gap, total: count * min + (count - 1) * gap };
+}

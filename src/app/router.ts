@@ -21,7 +21,7 @@
 // The streak itself stays D1's (`yapcorp:streak`, src/app/daily.ts): only a
 // win on the heist of the same local day feeds it.
 import type { YapLevel } from '../core/level';
-import type { YapCause } from '../core/sim';
+import type { YapCause, YapMove } from '../core/sim';
 import { yapStoreIncomingChallenge } from './inbox';
 import { YapPayload } from './payload';
 import type { YapLevelMode } from './analytics';
@@ -171,7 +171,10 @@ export function yapTutorialRoute(progress: YapTutorialProgress): YapLevelRoute {
 // Daily results (`yapcorp:days`)
 // ---------------------------------------------------------------------------
 
-/** What Home shows for a cleared day (spec's per-day record, minus the plan). */
+/** The moves a stored plan may contain (src/core/sim.ts). */
+const YAP_MOVES: readonly YapMove[] = ['N', 'E', 'S', 'W', 'wait'];
+
+/** What Home shows for a cleared day (spec's per-day record). */
 export interface YapDayRecord {
   /** The daily score: number of the winning attempt (never improved by replays). */
   readonly winningAttempt: number;
@@ -182,6 +185,10 @@ export interface YapDayRecord {
   readonly hints: number;
   /** Causes of the failures before the first win. */
   readonly causes: readonly YapCause[];
+  /** Par of the heist, for the Home share summary (0 on older records). */
+  readonly par: number;
+  /** Plan of the best win, replayed by a challenge link (empty when unknown). */
+  readonly plan: readonly YapMove[];
 }
 
 /** One win on a daily heist, as the level scene reports it. */
@@ -191,6 +198,10 @@ export interface YapDailyWin {
   readonly stars: number;
   readonly hints: number;
   readonly causes: readonly YapCause[];
+  /** Par of the heist (optional: callers that only count a result). */
+  readonly par?: number;
+  /** Plan that won, kept so Home can share a challenge link (E2). */
+  readonly plan?: readonly YapMove[];
 }
 
 export interface YapDailyWinResult {
@@ -224,7 +235,11 @@ function sanitizeDayRecord(raw: unknown): YapDayRecord | null {
   const causes = Array.isArray(record.causes)
     ? (record.causes as unknown[]).filter((c): c is YapCause => YAP_CAUSES.includes(c as YapCause))
     : [];
-  return { winningAttempt, bestTicks, stars: Math.min(3, stars), hints, causes };
+  const par = nonNegativeInt(record.par) ?? 0;
+  const plan = Array.isArray(record.plan)
+    ? (record.plan as unknown[]).filter((m): m is YapMove => YAP_MOVES.includes(m as YapMove))
+    : [];
+  return { winningAttempt, bestTicks, stars: Math.min(3, stars), hints, causes, par, plan };
 }
 
 /** Read the per-day results (days 1..7), dropping corrupted entries. */
@@ -257,6 +272,7 @@ export function recordYapDailyWin(
 ): YapDailyWinResult {
   const days = loadYapDays(storage);
   const previous = days.get(day) ?? null;
+  const better = previous === null || win.ticks < previous.bestTicks;
   const record: YapDayRecord =
     previous === null
       ? {
@@ -265,11 +281,15 @@ export function recordYapDailyWin(
           stars: win.stars,
           hints: win.hints,
           causes: [...win.causes],
+          par: win.par ?? 0,
+          plan: [...(win.plan ?? [])],
         }
       : {
           ...previous,
           bestTicks: Math.min(previous.bestTicks, win.ticks),
           stars: Math.max(previous.stars, win.stars),
+          // the share replays the best plan, so keep the one that improved it
+          ...(better ? { par: win.par ?? previous.par, plan: [...(win.plan ?? previous.plan)] } : {}),
         };
   const out: Record<string, YapDayRecord> = {};
   for (const [d, r] of days) out[String(d)] = r;
