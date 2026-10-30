@@ -74,6 +74,10 @@ shape, outline, and icon.
 | `path-light` | `#FFFFFF` | Planned route fill |
 | `path-outline` | `#26313B` | Route outline |
 
+Motion is short and quiet: 120 ms for a press acknowledgement, 180 ms for a
+screen or panel entrance (fade plus a 12 px rise), and nothing at all under
+`prefers-reduced-motion: reduce`.
+
 Use the type scale `12 / 14 / 16 / 20 / 24 / 32 px`; body and control labels
 must be at least 14 px. Use an 8 px spacing scale (`4 px` is permitted only
 for fine alignment), rounded control corners around 8 px and card corners

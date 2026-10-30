@@ -386,3 +386,62 @@ export function yapDrawStart(
     layout.cell * 0.42,
   );
 }
+
+/**
+ * Spoiler-free thumbnail of a heist (Home, story D2 pass 2): the walls, the
+ * start, the diamond and the exit — never a route, a guard cone or a threat.
+ * `x`/`y` are the top-left corner and `cell` the size of one grid cell.
+ */
+export function yapDrawMiniMap(
+  g: Phaser.GameObjects.Graphics,
+  level: YapLevel,
+  x: number,
+  y: number,
+  cell: number,
+): void {
+  for (let cy = 0; cy < level.height; cy += 1) {
+    for (let cx = 0; cx < level.width; cx += 1) {
+      const ch = level.map[cy]?.charAt(cx) ?? '#';
+      g.fillStyle(color(ch === '#' ? 'wall' : 'floor'), 1).fillRect(
+        x + cx * cell,
+        y + cy * cell,
+        cell,
+        cell,
+      );
+    }
+  }
+  const at = (c: YapCell): { x: number; y: number } => ({
+    x: x + c.x * cell + cell / 2,
+    y: y + c.y * cell + cell / 2,
+  });
+  const start = at(level.start);
+  g.lineStyle(1, color('path-light'), 0.9).strokeCircle(start.x, start.y, cell * 0.34);
+  const loot = at(level.loot);
+  g.fillStyle(color('objective-diamond'), 1)
+    .fillPoints(
+      [
+        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
+        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
+        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
+        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
+      ],
+      true,
+    )
+    .lineStyle(1, color('path-outline'), 1)
+    .strokePoints(
+      [
+        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
+        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
+        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
+        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
+      ],
+      true,
+    );
+  const exit = at(level.exit);
+  g.fillStyle(color('objective-exit'), 1).fillRect(
+    exit.x - cell * 0.3,
+    exit.y - cell * 0.3,
+    cell * 0.6,
+    cell * 0.6,
+  );
+}

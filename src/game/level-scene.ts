@@ -55,6 +55,7 @@ import {
 import { YapPathInput } from './path-input';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
+import { yapFadeIn } from './motion';
 import { YapAttemptLog, YapWinScreen } from './win';
 import {
   YAP_EXECUTION_TICK_EVENT,
@@ -1237,110 +1238,121 @@ export class YapLevelScene extends Phaser.Scene {
     // same top bar as the planning screen: one visual language across modes
     this.yapBuildTopBar(chrome, layout, level.name, '');
 
-    // panel over the board area, between the top and bottom bars
+    // Panel from under the top bar to the page bottom: the Share action lives
+    // inside the card that it concludes instead of floating on its own bar.
+    const body = this.add.container(0, 0);
+    chrome.add(body);
     const panelX = 12;
     const panelY = YAP_TOP_BAR_HEIGHT + 8;
     const panelW = layout.viewWidth - 24;
-    const panelH = layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT - 16;
-    const panel = this.add.graphics();
-    panel
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRoundedRect(panelX, panelY, panelW, panelH, 12)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .strokeRoundedRect(panelX, panelY, panelW, panelH, 12);
-    chrome.add(panel);
-
+    const panelH = layout.viewHeight - 16 - panelY;
+    const panelBottom = panelY + panelH;
+    const innerX = panelX + 16;
+    const innerW = panelW - 32;
     const cx = layout.viewWidth / 2;
-    let y = panelY + 18;
-    const title = this.add
-      .text(cx, y, yapI18n.t('win.title'), textStyle(24, YAP_PALETTE['text-primary']))
-      .setOrigin(0.5, 0);
-    chrome.add(title);
-    y += title.height + 14;
 
-    // stats rows: label left, value right (14 px minimum body text)
+    // action stack anchored at the bottom of the panel
+    const shareH = 56;
+    const rowH = 48;
+    const gap = 8;
+    const shareY = panelBottom - 16 - shareH / 2;
+    const rowY = shareY - shareH / 2 - 12 - rowH / 2;
+
+    // content block, centred between the panel top and the action stack, so the
+    // card has no dead half and the eye lands on the result first
+    const titleText = yapI18n.t('win.title');
     const rows: readonly (readonly [string, string])[] = [
       [yapI18n.t('win.attempts'), String(win.yapAttempts())],
       [yapI18n.t('win.ticks'), String(win.yapTicks())],
       [yapI18n.t('win.par'), String(win.yapPar())],
       [yapI18n.t('win.stars'), win.yapStarsText()],
     ];
+    const previewLabel = yapI18n.t('winScreen.sharePreview');
+    const rowGap = 26;
+    const titleH = 32;
+    const emojiH = 28;
+    const contentH = titleH + 14 + rows.length * rowGap + 8 + 20 + emojiH;
+    const top = panelY + 20;
+    const bottom = rowY - rowH / 2 - 20;
+    let y = Math.round(top + Math.max(0, (bottom - top - contentH) / 2));
+
+    const panel = this.add.graphics();
+    panel
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRoundedRect(panelX, panelY, panelW, panelH, 12)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .strokeRoundedRect(panelX, panelY, panelW, panelH, 12);
+    body.add(panel);
+
+    body.add(
+      this.add
+        .text(cx, y, titleText, textStyle(24, YAP_PALETTE['text-primary']))
+        .setOrigin(0.5, 0),
+    );
+    y += titleH + 14;
+
+    // stats rows: label left, value right (14 px minimum body text)
     for (const [label, value] of rows) {
-      chrome.add(
+      body.add(
         this.add
-          .text(panelX + 16, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
+          .text(innerX, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
           .setOrigin(0, 0),
       );
-      chrome.add(
+      body.add(
         this.add
-          .text(panelX + panelW - 16, y, value, textStyle(16, YAP_PALETTE['text-primary']))
+          .text(innerX + innerW, y, value, textStyle(16, YAP_PALETTE['text-primary']))
           .setOrigin(1, 0),
       );
-      y += 26;
+      y += rowGap;
     }
     y += 8;
 
     // the emoji line that will go into the share, as a preview
-    chrome.add(
+    body.add(
       this.add
-        .text(cx, y, yapI18n.t('winScreen.sharePreview'), textStyle(14, YAP_PALETTE['text-secondary']))
+        .text(cx, y, previewLabel, textStyle(14, YAP_PALETTE['text-secondary']))
         .setOrigin(0.5, 0),
     );
     y += 20;
-    const emoji = this.add
-      .text(cx, y, win.yapEmojiLine(), textStyle(20, YAP_PALETTE['text-primary']))
-      .setOrigin(0.5, 0);
-    chrome.add(emoji);
+    body.add(this.add.text(cx, y, win.yapEmojiLine(), textStyle(22, YAP_PALETTE['text-primary'])).setOrigin(0.5, 0));
 
-    // Improve my score + Home, side by side, 44 px tall touch targets
-    const btnH = 44;
-    const gap = 8;
-    const halfW = (panelW - 32 - gap) / 2;
-    const btnY = panelY + panelH - 12 - btnH / 2;
+    // Improve my score + Home, side by side, above the dominant Share action
+    const halfW = (innerW - gap) / 2;
     const improveBtn = this.yapMakeButton(
-      panelX + 16 + halfW / 2,
-      btnY,
+      innerX + halfW / 2,
+      rowY,
       halfW,
-      btnH,
+      rowH,
       yapI18n.t('win.improve'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
       () => this.yapExitWin(),
     );
-    chrome.add(improveBtn.container);
+    body.add(improveBtn.container);
     const homeBtn = this.yapMakeButton(
-      panelX + 16 + halfW + gap + halfW / 2,
-      btnY,
+      innerX + halfW + gap + halfW / 2,
+      rowY,
       halfW,
-      btnH,
+      rowH,
       this.yapSceneData.winHomeLabel ?? yapI18n.t('win.home'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
       () => this.yapOnWinHome(),
     );
-    chrome.add(homeBtn.container);
+    body.add(homeBtn.container);
 
-    // bottom action bar: the dominant Share action
-    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
-    const bar = this.add.graphics();
-    bar
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, barY, layout.viewWidth, YAP_BOTTOM_BAR_HEIGHT)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
-    chrome.add(bar);
-    const shareW = Math.min(240, layout.viewWidth - 32);
     const shareBtn = this.yapMakeButton(
       cx,
-      barY + YAP_BOTTOM_BAR_HEIGHT - 6 - 22,
-      shareW,
-      44,
+      shareY,
+      innerW,
+      shareH,
       yapI18n.t('win.share'),
       'action-primary',
       YAP_PALETTE['path-light'],
       () => undefined, // E2: Share fires on pointerup, below
     );
-    chrome.add(shareBtn.container);
+    shareBtn.label.setFontSize(18).setFontStyle('bold');
+    body.add(shareBtn.container);
     // E2: navigator.share and the clipboard need transient user activation,
     // which a touch grants on its release (touchend), not on pointerdown.
     // Phaser dispatches the DOM touchend/mouseup synchronously down to the
@@ -1353,6 +1365,8 @@ export class YapLevelScene extends Phaser.Scene {
     if (yapResolveShareVariant() === 'image') {
       void yapPrepareShareImage(yapResolveShareDay(level.type, this.sys.settings.data));
     }
+    // the card settles in instead of snapping (skipped under reduced motion)
+    yapFadeIn(this, body, 180, 12);
 
     // the planning/execution chrome refs do not exist in this mode
     this.yapStatsText = null;
