@@ -148,6 +148,20 @@ export const en = {
     afterMessage: 'Thanks for pulling off this week of heists with us!',
     bestStreak: 'Best streak: {count} days',
   },
+  // Story E2 — the share text (Gate 1 spec, "What gets sent"): title line,
+  // score line ({emoji} = the Win screen emoji line, {stars} = one ⭐ per
+  // star), then the link line. A tutorial win has no daily heist number, so
+  // it shares an invitation to the game instead (src/app/share.ts). "Copied"
+  // reuses common.copied.
+  share: {
+    title: 'Daily Heist #{day} 🕵️ cracked in {attempts} tries',
+    titleOne: 'Daily Heist #{day} 🕵️ cracked in 1 try',
+    tutorialTitle: '{game} 🕵️ tutorial cleared in {attempts} tries',
+    tutorialTitleOne: '{game} 🕵️ tutorial cleared in 1 try',
+    score: '{emoji} · {ticks} ticks {stars}',
+    yourTurn: 'Your turn: {link}',
+    failed: 'Could not share',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
