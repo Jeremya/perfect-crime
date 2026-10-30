@@ -216,7 +216,9 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
     this.yapRemoveTickTimer();
     this.yapRemoveFailureTimer();
-    this.yapResetCamera();
+    // the camera manager has already torn its cameras down on shutdown (and
+    // builds a fresh main camera on the next start): only forget the UI one
+    this.yapUiCamera = null;
   };
 
   // -------------------------------------------------------------------------
