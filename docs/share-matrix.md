@@ -106,9 +106,16 @@ a row without one is an untested expectation.
 
 | Date | Device | OS | Target app | Variant | What arrived | Notes |
 |---|---|---|---|---|---|---|
-| — | — | — | WhatsApp | `text` | — | — |
-| — | — | — | Messages | `text` | — | — |
-| — | — | — | Discord | `text` | — | — |
-| — | — | — | WhatsApp | `fields` | — | — |
-| — | — | — | WhatsApp | `image` | — | — |
-| — | — | — | Instagram | `image` | — | — |
+| 2026-10-30 | Seeker (400 × 797 CSS, 3× DPR) | Android 16, Chrome 156.0.8078.73 | Android share sheet | `text` | One text field: title, emoji/ticks/stars line, `Your turn: https://yap-corp-perfect-crime.pages.dev/` | Link inside the text, no fragment; WhatsApp / Gmail / Quick Share listed |
+| 2026-10-30 | Seeker | Android 16, Chrome 156.0.8078.73 | Android share sheet | `fields` | The body, with Chrome appending the `url` on the last line | The link is **not** lost at the sheet level |
+| 2026-10-30 | Seeker | Android 16, Chrome 156.0.8078.73 | Android share sheet | `image` | "Sharing image": `perfect-crime-0.png` thumbnail + the caption (text and link) | `canShare({ files })` true on this build |
+| — | — | — | WhatsApp | `text` | — | not run: needs a real send to a contact |
+| — | — | — | WhatsApp | `fields` | — | not run |
+| — | — | — | Messages | `text` | — | not run |
+| — | — | — | Discord | `image` | — | not run |
+| — | — | — | Instagram | `image` | — | not run |
+
+The three rows above prove what the **app hands to the Android sheet**, with a
+real win and a real share. They do not prove per-target behaviour (what
+WhatsApp does with a separate `url`, what Instagram drops): those rows need a
+real send and a look at the received message.

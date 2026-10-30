@@ -9,7 +9,7 @@ Status snapshot: **2026-10-30**. `Done` means merged with repository
 acceptance evidenced. `In progress` includes merged work with an outstanding
 acceptance check, local uncommitted work, or an open PR; each task file says which.
 External setup (such as live PostHog dashboards or real-phone checks) is not
-complete without evidence. Current count: **12 Done, 15 In progress, 1
+complete without evidence. Current count: **14 Done, 13 In progress, 1
 Scaffolded, 6 To do** across the 34 required stories. Optional O1 is In progress (PR #32);
 O2 is Done (PR #19).
 
@@ -31,11 +31,11 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | Done | `tasks/B2.md` |
 | B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | Done | `tasks/B3.md` |
 | B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | Done | `tasks/B4.md` |
-| C1 | Rendering | C | Dev | 3 | B2 | In progress | `tasks/C1.md` |
+| C1 | Rendering | C | Dev | 3 | B2 | Done | `tasks/C1.md` |
 | C2 | Path drawing | C | Dev | 3 | C1 | Done | `tasks/C2.md` |
 | C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
 | C4 | Failure replay | C | Dev | 1.5 | C3 | In progress | `tasks/C4.md` |
-| C5 | Win screen | C | Dev | 1 | C3 | In progress | `tasks/C5.md` |
+| C5 | Win screen | C | Dev | 1 | C3 | Done | `tasks/C5.md` |
 | C6 | Ghost preview (flag) | C | Dev | 1 | C2 | In progress | `tasks/C6.md` |
 | C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | In progress | `tasks/C7.md` |
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | In progress | `tasks/C8.md` |
