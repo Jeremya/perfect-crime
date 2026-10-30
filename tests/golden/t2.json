@@ -1,0 +1,15 @@
+{
+  "level": "tutorial/t2",
+  "file": "levels/tutorial/t2.lvl",
+  "declaredPar": 13,
+  "par": 13,
+  "minPauses": 0,
+  "tension": 3,
+  "optimalPlans": 18,
+  "plan": ["S", "S", "S", "S", "S", "S", "E", "E", "S", "E", "E", "S", "S"],
+  "outcome": {
+    "kind": "won",
+    "tick": 13
+  },
+  "lootTick": 9
+}

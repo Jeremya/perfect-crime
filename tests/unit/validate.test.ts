@@ -5,7 +5,7 @@
 // fixtures live in tests/fixtures/validate/ and are scanned through the same
 // validateAllLevels() entry point the CLI uses.
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseLevel, YAP_TICK_PERIOD, type YapLevel } from '../../src/core/level';
@@ -75,14 +75,22 @@ function validSource(extra: readonly string[] = []): string {
 describe('validate — shipped levels', () => {
   it('finds the .lvl files of levels/ in sorted order', () => {
     const sources = collectLevelSources(SHIPPED_DIRS);
-    expect(sources.map((s) => s.id)).toEqual(['tutorial/t1']);
+    const ids = sources.map((s) => s.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids[0]).toBe('tutorial/t1');
     expect(sources[0]?.file).toContain('t1.lvl');
+    // Sorted within each directory, directories in YAP_LEVEL_DIRS order.
+    for (const dir of YAP_LEVEL_DIRS) {
+      const inDir = ids.filter((id) => id.startsWith(`${basename(dir)}/`));
+      expect(inDir).toEqual([...inDir].sort());
+    }
   });
 
   it('accepts every shipped .lvl with zero issues', () => {
     const { entries, issues } = validateAllLevels(SHIPPED_DIRS);
     expect(issues).toEqual([]);
-    expect(entries.map((e) => e.id)).toEqual(['tutorial/t1']);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.map((e) => e.id)).toContain('tutorial/t1');
   });
 
   it('reports the solver par of each shipped level', () => {
@@ -228,7 +236,7 @@ describe('compile-levels — generated levels.json', () => {
     const compiled = compileLevels(entries);
     expect(compiled.format).toBe(1);
     expect(compiled.tickPeriod).toBe(24);
-    expect(compiled.levels.map((l) => l.id)).toEqual(['tutorial/t1']);
+    expect(compiled.levels.map((l) => l.id)).toEqual(entries.map((e) => e.id));
     expect(compiled.levels[0]?.level.name).toBe('Tutorial 1');
     // Deterministic: same input, same bytes.
     const again = serializeLevels(compileLevels(loadLevelEntries(SHIPPED_DIRS)));
