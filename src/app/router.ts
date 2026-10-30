@@ -8,7 +8,11 @@
 // tutorial lands on Home. A player who quits mid-tutorial resumes at the first
 // level not cleared yet ("tutorial done" is what makes a player known, as in
 // the spec's profile). The express tutorial for link arrivals (T1, T2, T4) is
-// story E4's and reuses these routes.
+// story E4's and reuses these routes (see YAP_EXPRESS_TUTORIAL_SEQUENCE below).
+// Link arrivals (story E4) are read from the URL: /c/<day>#<payload> — the
+// path carries the day, the fragment the E1 payload; the decoded payload is
+// stored in the inbox (src/app/inbox.ts, `yapcorp:inbox`) and the fragment is
+// stripped from the address bar at launch.
 //
 // Progress lives under the `yapcorp:` prefix through YapStorage (A2):
 //   - `yapcorp:levels` — tutorial progress: cleared level ids + done marker;
@@ -18,6 +22,8 @@
 // win on the heist of the same local day feeds it.
 import type { YapLevel } from '../core/level';
 import type { YapCause } from '../core/sim';
+import { yapStoreIncomingChallenge } from './inbox';
+import { YapPayload } from './payload';
 import type { YapLevelMode } from './analytics';
 import {
   YAP_WEEK_DAYS,
@@ -78,6 +84,18 @@ export interface YapLevelRoute {
   readonly levelId: string;
   readonly mode: YapLevelMode;
   readonly day: number;
+  /**
+   * E4: set on the express-tutorial levels of a link arrival — the day of the
+   * linked heist the chain ends on (yapRouteAfterWin chains T1 → T2 → T4 →
+   * that heist).
+   */
+  readonly expressDay?: number;
+  /**
+   * E4: set on the route of a link arrival — the sender's anonymous share ID,
+   * key of the inbox entry (src/app/inbox.ts) the challenge card reads. The
+   * app shell starts the challenge scene (yap-challenge) for such a route.
+   */
+  readonly challengeShareId?: number;
 }
 /** Open the Home screen. */
 export interface YapHomeRoute {
@@ -271,8 +289,21 @@ export function yapIsKnownPlayer(storage: YapStorage): boolean {
   return loadYapTutorialProgress(storage).done || loadYapDays(storage).size > 0;
 }
 
-/** Launch: Home for a known player, otherwise straight into the tutorial (T1 first). */
-export function yapBootRoute(storage: YapStorage): YapRoute {
+/**
+ * Launch: Home for a known player, otherwise straight into the tutorial (T1
+ * first). E4: when the URL carries a share-link fragment, the arrival route
+ * wins — the challenge card for a readable payload, the linked heist for an
+ * unreadable one — and the fragment is stripped from the address bar. `link`
+ * defaults to the current URL's link context (null in node, where the boot
+ * behavior is unchanged).
+ */
+export function yapBootRoute(storage: YapStorage, link?: YapLinkContext | null): YapRoute {
+  const arrival = link === undefined ? yapReadLinkFromLocation() : link;
+  if (arrival !== null) {
+    yapStripLinkFragment();
+    const route = yapLinkArrivalRoute(storage, arrival);
+    if (route !== null) return route;
+  }
   if (yapIsKnownPlayer(storage)) return YAP_HOME;
   return yapTutorialRoute(loadYapTutorialProgress(storage));
 }
@@ -280,13 +311,157 @@ export function yapBootRoute(storage: YapStorage): YapRoute {
 /**
  * After a win, when the player leaves the Win screen: the next tutorial
  * level while the tutorial chain runs, Home after its last level and after
- * any daily heist.
+ * any daily heist. E4: while an express-tutorial chain runs (a link arrival
+ * by a player who has never played), the chain goes T1 → T2 → T4 and then
+ * opens the linked heist.
  */
 export function yapRouteAfterWin(route: YapLevelRoute): YapRoute {
+  if (route.expressDay !== undefined) {
+    const index = YAP_EXPRESS_TUTORIAL_SEQUENCE.indexOf(route.levelId);
+    const next = index >= 0 ? YAP_EXPRESS_TUTORIAL_SEQUENCE[index + 1] : undefined;
+    if (next !== undefined) return yapExpressTutorialLevelRoute(next, route.expressDay);
+    return yapChallengeHeistRoute(route.expressDay) ?? YAP_HOME;
+  }
   if (route.mode !== 'tutorial') return YAP_HOME;
   const index = YAP_TUTORIAL_SEQUENCE.indexOf(route.levelId);
   const next = index >= 0 ? YAP_TUTORIAL_SEQUENCE[index + 1] : undefined;
   return next === undefined ? YAP_HOME : yapTutorialLevelRoute(next);
+}
+
+// ---------------------------------------------------------------------------
+// Link arrivals (story E4): /c/<day>#<payload>
+// ---------------------------------------------------------------------------
+
+/** What a share link looks like at launch: the /c/<day> path and the fragment. */
+export interface YapLinkContext {
+  /** Day carried by the /c/<day> path (null on any other path). */
+  readonly pathDay: number | null;
+  /** The raw fragment, without the leading '#'. */
+  readonly fragment: string;
+}
+
+const YAP_LINK_PATH_RE = /^\/c\/(\d{1,3})\/?$/;
+
+/**
+ * Read the link context of the current URL. `loc` defaults to the real
+ * `location` (absent in node, where this returns null); pass null to force
+ * "no link". The fragment is the E1 payload; it is never sent to the server.
+ */
+export function yapReadLinkFromLocation(
+  loc?: { readonly pathname: string; readonly hash: string } | null,
+): YapLinkContext | null {
+  let source = loc;
+  if (source === undefined) {
+    try {
+      source = typeof location === 'undefined' ? null : location;
+    } catch {
+      source = null;
+    }
+  }
+  if (source === null) return null;
+  const fragment = source.hash.startsWith('#') ? source.hash.slice(1) : source.hash;
+  if (fragment === '') return null;
+  const match = YAP_LINK_PATH_RE.exec(source.pathname);
+  const pathDay = match !== null ? Number.parseInt(match[1] ?? '0', 10) : null;
+  return { pathDay: pathDay !== null && pathDay >= 1 && pathDay <= 255 ? pathDay : null, fragment };
+}
+
+/**
+ * Remove the fragment from the address bar (history.replaceState), so no tool
+ * can capture the payload afterwards (Gate 1 spec, "Link payload (v1)").
+ * `historyLike`/`loc` default to the real browser objects and are injectable
+ * for tests; a no-op outside the browser.
+ */
+export function yapStripLinkFragment(
+  historyLike?: {
+    replaceState(data: unknown, title: string, url?: string | null): void;
+  },
+  loc?: { readonly pathname: string; readonly search: string },
+): void {
+  let historyRef = historyLike;
+  let locRef = loc;
+  if (historyRef === undefined || locRef === undefined) {
+    try {
+      if (historyRef === undefined && typeof history !== 'undefined') historyRef = history;
+      if (locRef === undefined && typeof location !== 'undefined') locRef = location;
+    } catch {
+      // No DOM (node tests): nothing to strip.
+    }
+  }
+  if (historyRef === undefined || locRef === undefined) return;
+  try {
+    historyRef.replaceState(null, '', `${locRef.pathname}${locRef.search}`);
+  } catch {
+    // A sandboxed frame can refuse replaceState: the payload stays local anyway.
+  }
+}
+
+/**
+ * The route of a link arrival with a readable payload: the linked heist,
+ * marked with the sender's share ID (`challengeShareId`) so the app shell can
+ * open the challenge card (yap-challenge, src/game/challenge-scene.ts) for it.
+ * The heist itself is a mode 'daily' route on purpose: a win on it is recorded
+ * under `yapcorp:days`, which is what unlocks the friend's plan
+ * (yapFriendPlanVisible). Home when no heist exists for that day (outside 1..7).
+ */
+export function yapChallengeCardRoute(day: number, shareId: number): YapRoute {
+  const heist = yapChallengeHeistRoute(day);
+  if (heist === null) return YAP_HOME;
+  return { ...heist, challengeShareId: shareId };
+}
+
+/**
+ * The linked heist, opened with the same rules as the daily heist of its own
+ * day (Gate 1 spec, "The link"): a level route in mode 'daily' so that a win
+ * is recorded under `yapcorp:days` — which is what unlocks the friend's plan
+ * (yapFriendPlanVisible). Null when no heist exists for that day (outside 1..7).
+ */
+export function yapChallengeHeistRoute(day: number): YapLevelRoute | null {
+  const levelId = `daily/d${day}`;
+  return yapLevelById(levelId) !== null ? { kind: 'level', levelId, mode: 'daily', day } : null;
+}
+
+/**
+ * The route of a link arrival. A readable payload is stored in the inbox and
+ * opens the challenge card route (the linked heist marked with the sender's
+ * share ID); an unreadable payload simply opens the daily heist of the link's
+ * day, without a challenge card (Gate 1 spec, "The link"). Returns null when
+ * there is nothing to open (caller falls back to the boot route).
+ */
+export function yapLinkArrivalRoute(storage: YapStorage, link: YapLinkContext): YapRoute | null {
+  const payload = YapPayload.decode(link.fragment);
+  if (payload === null) {
+    return link.pathDay !== null ? yapChallengeHeistRoute(link.pathDay) : null;
+  }
+  yapStoreIncomingChallenge(storage, payload);
+  return yapChallengeCardRoute(payload.day, payload.shareId);
+}
+
+// ---------------------------------------------------------------------------
+// Express tutorial (story E4): T1, T2, T4 for a player who has never played
+// ---------------------------------------------------------------------------
+
+/** The three-level express tutorial offered to new players arriving from a link. */
+export const YAP_EXPRESS_TUTORIAL_SEQUENCE: readonly string[] = [
+  'tutorial/t1',
+  'tutorial/t2',
+  'tutorial/t4',
+];
+
+/** One express-tutorial level, chained to the linked heist of `day`. */
+export function yapExpressTutorialLevelRoute(levelId: string, day: number): YapLevelRoute {
+  return { kind: 'level', levelId, mode: 'tutorial', day: 0, expressDay: day };
+}
+
+/**
+ * Where a link arrival sends a player who has never played: the first express
+ * level not cleared yet (T1 → T2 → T4), then the linked heist. Once the
+ * express tutorial is done, straight to the linked heist.
+ */
+export function yapExpressTutorialRoute(progress: YapTutorialProgress, day: number): YapRoute {
+  const next = YAP_EXPRESS_TUTORIAL_SEQUENCE.find((id) => !progress.cleared.includes(id));
+  if (next === undefined) return yapChallengeHeistRoute(day) ?? YAP_HOME;
+  return yapExpressTutorialLevelRoute(next, day);
 }
 
 // ---------------------------------------------------------------------------

@@ -3,27 +3,34 @@
 //
 // Home (Gate 1 spec, Screens; docs/UI-DESIGN.md, Home): "Daily heist #3", its
 // status (to do, or cleared in N attempts with its stars), the streak 🔥, the
-// countdown to the next heist; actions Play, Share (once cleared) and
-// Tutorial, all in the bottom third for one-thumb use. Before the test week:
-// tutorial and countdown to the first heist; after day 7: an end message and
-// the best streak (the Archive is optional story O1). There is no Settings
-// screen at this stage, so its button is omitted rather than shown dead.
-// Share on Home is a stub until E2: it emits YAP_HOME_SHARE_EVENT with the day.
+// countdown to the next heist; actions Play, Share (once cleared), Archive
+// (optional story O1) and Tutorial, all in the bottom third for one-thumb use.
+// Before the test week: tutorial and countdown to the first heist; after day
+// 7: an end message and the best streak. The Archive (O1) lists the past days
+// of the test week; replaying one opens the level in mode 'archive', which the
+// flow controller never records — the streak is untouched. There is no
+// Settings screen at this stage, so its button is omitted rather than shown
+// dead. Share on Home is a stub until E2: it emits YAP_HOME_SHARE_EVENT with
+// the day.
 //
 // YapFlowController listens to the level scene's events from the outside —
 // 'yap-play' (one attempt), 'yap-execution-end' (the outcome) and
 // 'yap-win-home' (leaving the Win screen) — keeps its own YapAttemptLog to
-// record wins (tutorial progress, daily results + streak), and moves on: the
-// next tutorial level while the tutorial chain runs, Home otherwise. It also
-// emits level_start (and streak_day on the first same-day win) through track().
+// record wins (tutorial progress, daily results + streak; archive replays of
+// past days, story O1, are not recorded, so they never touch the streak), and
+// moves on: the next tutorial level while the tutorial chain runs, Home
+// otherwise. It also emits level_start (and streak_day on the first same-day
+// win) through track().
 //
 // The layout is built from the real viewport (Phaser.Scale.RESIZE) and
 // rebuilt on resize; the countdown ticks every second and the whole screen
 // is rebuilt when the local day changes at midnight.
 import Phaser from 'phaser';
 import { track } from '../app/analytics';
+import { YAP_WEEK_DAYS, yapArchiveDays } from '../app/daily';
 import { yapI18n } from '../app/i18n';
 import {
+  loadYapDays,
   recordYapDailyWin,
   recordYapTutorialCleared,
   yapCountdownParts,
@@ -38,7 +45,9 @@ import {
 import { yapStorage, type YapStorage } from '../app/storage';
 import type { YapCause, YapSimOutcome } from '../core/sim';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
+import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
+import { yapDrawMiniMap } from './render';
 import { YapAttemptLog, YapWinScreen } from './win';
 
 /** Scene key of the Home screen. */
@@ -55,6 +64,15 @@ const YAP_WIN_HOME_EVENT = 'yap-win-home';
 const YAP_STREAK_ICON = '🔥';
 
 const YAP_HOME_ROUTE: YapRoute = { kind: 'home' };
+
+/**
+ * Route to replay a past day from the archive (story O1): the same daily
+ * level, in mode 'archive'. The flow controller only records wins of mode
+ * 'daily', so an archive replay never touches the streak or the day record.
+ */
+function yapArchiveRoute(day: number): YapLevelRoute {
+  return { kind: 'level', levelId: `daily/d${day}`, mode: 'archive', day };
+}
 
 /** Executes app-flow routes and records wins from the level scene's events. */
 export class YapFlowController {
@@ -164,6 +182,8 @@ export class YapHomeScene extends Phaser.Scene {
   private yapModel: YapHomeModel | null = null;
   private yapCountdownText: Phaser.GameObjects.Text | null = null;
   private yapTimer: Phaser.Time.TimerEvent | null = null;
+  /** The archive panel is open instead of the daily heist card (story O1). */
+  private yapArchiveOpen = false;
 
   constructor() {
     super(YAP_HOME_SCENE_KEY);
@@ -187,6 +207,7 @@ export class YapHomeScene extends Phaser.Scene {
     this.yapTimer = null;
     this.yapRoot = null;
     this.yapCountdownText = null;
+    this.yapArchiveOpen = false;
   };
 
   /** Countdown tick; a new local day (midnight) rebuilds the whole screen. */
@@ -219,8 +240,12 @@ export class YapHomeScene extends Phaser.Scene {
   private yapBuild(): void {
     this.yapRoot?.destroy();
     this.yapCountdownText = null;
-    const model = yapHomeModel(yapStorage, new Date());
+    const now = new Date();
+    const model = yapHomeModel(yapStorage, now);
     this.yapModel = model;
+    // story O1: the past days of the test week, playable from the archive
+    const archiveDays = yapArchiveDays(now);
+    const archiveOpen = this.yapArchiveOpen && archiveDays.length > 0;
     const width = this.scale.width;
     const height = this.scale.height;
     const root = this.add.container(0, 0);
@@ -246,9 +271,6 @@ export class YapHomeScene extends Phaser.Scene {
       .fillRect(0, 0, width, YAP_TOP_BAR_HEIGHT)
       .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
       .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, width, YAP_TOP_BAR_HEIGHT - 0.5);
-    header
-      .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-      .fillRect(0, 0, 4, YAP_TOP_BAR_HEIGHT);
     root.add(header);
     root.add(
       this.add
@@ -294,7 +316,34 @@ export class YapHomeScene extends Phaser.Scene {
     const secondary = YAP_PALETTE['text-secondary'];
     const countdown = this.yapCountdownLabel(model);
 
-    if (model.phase === 'week') {
+    if (archiveOpen) {
+      // archive panel (story O1): the past days, most recent first, each
+      // playable in mode 'archive' — no effect on the streak
+      line(yapI18n.t('archive.title'), 24, primary, true, 8);
+      line(yapI18n.t('archive.playPastDay'), 16, secondary, false, 16);
+      divider();
+      const days = loadYapDays(yapStorage);
+      for (const day of [...archiveDays].reverse()) {
+        const record = days.get(day) ?? null;
+        const status =
+          record === null
+            ? yapI18n.t('home.statusToDo')
+            : `${yapI18n.t('home.statusCleared', { attempts: record.winningAttempt })} ${'★'.repeat(record.stars)}${'☆'.repeat(3 - record.stars)}`;
+        root.add(
+          this.yapMakeRow(
+            innerX + innerW / 2,
+            y + 32,
+            innerW,
+            64,
+            yapI18n.t('home.dailyHeist', { day }),
+            status,
+            () => yapFlow.yapGo(this, yapArchiveRoute(day)),
+          ),
+        );
+        y += 64 + 8;
+      }
+      y -= 8; // no gap after the last row
+    } else if (model.phase === 'week') {
       line(yapI18n.t('home.dailyHeist', { day: model.day }), 24, primary, true, 8);
       const record = model.record;
       if (record === null) {
@@ -312,13 +361,31 @@ export class YapHomeScene extends Phaser.Scene {
       }
       y += 16;
       divider();
-      line(
+      const streakText = line(
         `${YAP_STREAK_ICON} ${yapI18n.t('home.streak', { count: model.streak })}`,
         16,
         primary,
         false,
         8,
       );
+      // seven pips: the streak at a glance, one filled dot per day (max 7)
+      const pips = this.add.graphics();
+      const filled = Math.max(0, Math.min(7, model.streak));
+      const pipR = 3.5;
+      const pipGap = 13;
+      const pipX = innerX + streakText.width + 14;
+      const pipY = streakText.y + streakText.height / 2;
+      for (let i = 0; i < 7; i += 1) {
+        const px = pipX + i * pipGap;
+        if (i < filled) {
+          pips.fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1).fillCircle(px, pipY, pipR);
+        } else {
+          pips
+            .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+            .strokeCircle(px, pipY, pipR);
+        }
+      }
+      root.add(pips);
     } else if (model.phase === 'before') {
       line(yapI18n.t('homeFlow.beforeTitle'), 24, primary, true, 8);
       line(yapI18n.t('homeFlow.beforeHint'), 16, secondary, false, 16);
@@ -335,7 +402,9 @@ export class YapHomeScene extends Phaser.Scene {
         8,
       );
     }
-    if (countdown !== null) this.yapCountdownText = line(countdown, 16, secondary, false, 8);
+    if (countdown !== null && !archiveOpen) {
+      this.yapCountdownText = line(countdown, 16, secondary, false, 8);
+    }
     y += 12; // bottom padding (20) minus the last line gap (8)
     card
       .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
@@ -346,6 +415,7 @@ export class YapHomeScene extends Phaser.Scene {
       card.lineBetween(innerX, dy + 0.5, innerX + innerW, dy + 0.5);
     }
 
+    const cardBottom = y;
     // actions in the bottom third, the primary one lowest (one-thumb reach)
     const btnW = Math.min(width - 32, 420);
     const cx = width / 2;
@@ -354,6 +424,11 @@ export class YapHomeScene extends Phaser.Scene {
     const primaryY = height - 16 - primaryH / 2;
     const secondaryY = primaryY - primaryH / 2 - 12 - secondaryH / 2;
     const play = model.play;
+    const archiveToggle = (): void => {
+      this.yapArchiveOpen = !archiveOpen;
+      this.yapBuild();
+    };
+    const archiveLabel = archiveOpen ? yapI18n.t('common.close') : yapI18n.t('home.archive');
     if (play !== null) {
       root.add(
         this.yapMakeButton(cx, primaryY, btnW, primaryH, yapI18n.t('home.play'), true, () =>
@@ -366,6 +441,9 @@ export class YapHomeScene extends Phaser.Scene {
           label: yapI18n.t('home.share'),
           onPress: () => this.events.emit(YAP_HOME_SHARE_EVENT, { day: model.day }),
         });
+      }
+      if (archiveDays.length > 0) {
+        secondaryActions.push({ label: archiveLabel, onPress: archiveToggle });
       }
       secondaryActions.push({
         label: yapI18n.t('home.tutorial'),
@@ -386,7 +464,65 @@ export class YapHomeScene extends Phaser.Scene {
           yapFlow.yapGo(this, model.tutorial),
         ),
       );
+      // after day 7 the archive is the main entry: offer it as a secondary action
+      if (archiveDays.length > 0) {
+        root.add(
+          this.yapMakeButton(cx, secondaryY, btnW, secondaryH, archiveLabel, false, archiveToggle),
+        );
+      }
     }
+
+    // The middle band was empty: show the spoiler-free map of the heist the
+    // screen is about (today's during the week, the last one afterwards). It
+    // stops above the action row, secondary row included.
+    const hasSecondary = play !== null || archiveDays.length > 0;
+    const actionsTop = hasSecondary ? secondaryY - secondaryH / 2 : primaryY - primaryH / 2;
+    this.yapDrawPreview(model, cardBottom, cx, innerW, actionsTop);
+
+    // 180 ms fade-in: the screen settles instead of snapping (skipped under
+    // prefers-reduced-motion, see ./motion.ts).
+    yapFadeIn(this, root, 180);
+  }
+
+  /**
+   * The spoiler-free map of the heist the Home screen is about, framed like
+   * the level board. Today's heist during the week; before the week the first
+   * one; after it, the last cleared day (day 7 by default).
+   */
+  private yapDrawPreview(
+    model: YapHomeModel,
+    cardBottom: number,
+    cx: number,
+    innerW: number,
+    actionsTop: number,
+  ): void {
+    if (this.yapArchiveOpen) return;
+    const days = loadYapDays(yapStorage);
+    let day = model.day;
+    if (model.phase === 'before') day = 1;
+    if (model.phase === 'after') {
+      let last = 0;
+      for (const [d, record] of days) if (record !== null && d > last) last = d;
+      day = last > 0 ? last : YAP_WEEK_DAYS;
+    }
+    if (day < 1) return;
+    const level = yapLevelById(`daily/d${day}`);
+    if (level === null) return;
+    const top = cardBottom + 16;
+    const bottom = actionsTop - 20;
+    if (bottom - top < 80) return;
+    const cell = Math.floor(Math.min(innerW / level.width, (bottom - top) / level.height));
+    if (cell < 3) return;
+    const boardW = cell * level.width;
+    const boardH = cell * level.height;
+    const x = Math.round(cx - boardW / 2);
+    const y = Math.round(top + (bottom - top - boardH) / 2);
+    const g = this.add.graphics();
+    // the same elevation as the level board: shadow + crisp frame
+    g.fillStyle(yapHexToInt(YAP_PALETTE['path-outline']), 0.08).fillRect(x + 1, y + 4, boardW, boardH);
+    yapDrawMiniMap(g, level, x, y, cell);
+    g.lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1).strokeRect(x + 1, y + 1, boardW - 2, boardH - 2);
+    this.yapRoot?.add(g);
   }
 
   /** A rounded button drawn in code (same style as the level scene's buttons). */
@@ -416,6 +552,54 @@ export class YapHomeScene extends Phaser.Scene {
       .setOrigin(0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, label]);
+    return container;
+  }
+
+  /**
+   * A tappable archive row (story O1): heist number and status on the left,
+   * Play on the right. Drawn in code like the other buttons; 64 px tall, a
+   * comfortable touch target.
+   */
+  private yapMakeRow(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    title: string,
+    status: string,
+    onPress: () => void,
+  ): Phaser.GameObjects.Container {
+    const container = this.add.container(x, y);
+    const bg = this.add.graphics();
+    bg.fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
+      .fillRoundedRect(-w / 2, -h / 2, w, h, 8)
+      .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
+      .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+    const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+    const titleText = this.add
+      .text(-w / 2 + 16, -h / 2 + 10, title, {
+        fontFamily: 'sans-serif',
+        fontSize: '16px',
+        color: YAP_PALETTE['text-primary'],
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0);
+    const statusText = this.add
+      .text(-w / 2 + 16, -h / 2 + 34, status, {
+        fontFamily: 'sans-serif',
+        fontSize: '14px',
+        color: YAP_PALETTE['text-secondary'],
+      })
+      .setOrigin(0, 0);
+    const playText = this.add
+      .text(w / 2 - 16, 0, yapI18n.t('home.play'), {
+        fontFamily: 'sans-serif',
+        fontSize: '16px',
+        color: YAP_PALETTE['text-primary'],
+      })
+      .setOrigin(1, 0.5);
+    zone.on('pointerdown', onPress);
+    container.add([bg, zone, titleText, statusText, playText]);
     return container;
   }
 }

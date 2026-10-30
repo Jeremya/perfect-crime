@@ -2,8 +2,14 @@ import Phaser from 'phaser';
 import { track } from './app/analytics';
 import { YAP_CORP } from './app/brand';
 import { yapInstallConsentGate, yapReadConsent } from './app/consent';
-import { yapBootRoute, yapIsFirstOpen, yapIsReturnToForeground } from './app/router';
+import {
+  yapBootRoute,
+  yapIsFirstOpen,
+  yapIsReturnToForeground,
+  yapReadLinkFromLocation,
+} from './app/router';
 import { yapStorage } from './app/storage';
+import { YAP_CHALLENGE_SCENE_KEY, YapChallengeScene } from './game/challenge-scene';
 import { YapConsentScene } from './game/consent-scene';
 import { YapHomeScene, yapFlow } from './game/home-scene';
 import { YapLevelScene } from './game/level-scene';
@@ -47,17 +53,37 @@ class YapBootScene extends Phaser.Scene {
     // the first launch opens tutorial T1 directly, a known player lands on
     // Home.
     const viewer = window.location.pathname.startsWith(YAP_VIEWER_PATH);
+    // Story E4: a /c/<day>#<payload> arrival is read before anything strips the
+    // fragment, so app_open can report the real entry source.
+    const link = viewer ? null : yapReadLinkFromLocation();
     if (!viewer) {
       // Story D2: app_open at launch (the profile does not exist yet on the
-      // very first one); link arrivals (entry: link) are story E4's.
-      track('app_open', { entry: 'direct', is_first_open: yapIsFirstOpen(yapStorage) });
+      // very first one); story E4: entry: link for a shared link.
+      track('app_open', {
+        entry: link === null ? 'direct' : 'link',
+        is_first_open: yapIsFirstOpen(yapStorage),
+      });
       yapWatchForegroundReturn();
     }
     // First launch: the non-blocking consent banner overlays the top bar
     // (YapConsentScene is last in the scene list, so it renders on top).
     if (yapReadConsent(yapStorage) === null) this.scene.launch('yap-consent');
-    if (viewer) this.scene.start('yap-viewer');
-    else yapFlow.yapGo(this, yapBootRoute(yapStorage));
+    if (viewer) {
+      this.scene.start('yap-viewer');
+      return;
+    }
+    const route = yapBootRoute(yapStorage, link);
+    // Story E4: a shared link opens the challenge card first — the route has
+    // already stored the decoded payload in the inbox, and carries the share
+    // ID the card reads. Every other route goes through the app flow.
+    if (route.kind === 'level' && route.challengeShareId !== undefined) {
+      this.scene.start(YAP_CHALLENGE_SCENE_KEY, {
+        day: route.day,
+        shareId: route.challengeShareId,
+      });
+      return;
+    }
+    yapFlow.yapGo(this, route);
   }
 }
 
@@ -92,7 +118,14 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   // YapConsentScene last: launched as an overlay, it must render on top of
   // the level and Home scenes (scene render order follows the config array order).
-  scene: [YapBootScene, YapHomeScene, YapLevelScene, YapViewerScene, YapConsentScene],
+  scene: [
+    YapBootScene,
+    YapHomeScene,
+    YapLevelScene,
+    YapChallengeScene,
+    YapViewerScene,
+    YapConsentScene,
+  ],
 };
 
 new Phaser.Game(config);
