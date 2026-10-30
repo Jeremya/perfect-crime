@@ -36,6 +36,8 @@ import Phaser from 'phaser';
 import { parseLevel, type YapCell, type YapDir, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
+import { loadYapProfile } from '../app/config';
+import { yapStorage } from '../app/storage';
 import {
   yapBuildShareContent,
   yapLoadShareId,
@@ -65,6 +67,7 @@ import {
   yapGhostCones,
   yapGhostLayerVisible,
   type YapGhostRenderMode,
+  yapResolveGhostFlag,
 } from './ghost';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
@@ -383,7 +386,10 @@ export class YapLevelScene extends Phaser.Scene {
     );
     this.yapLayout = layout;
     if (this.yapPathInput === null) {
-      this.yapPathInput = new YapPathInput(level, layout);
+      // C6: the ghost preview obeys the flag (`?flag=ghost:0`, stored profile)
+      this.yapPathInput = new YapPathInput(level, layout, {
+        ghost: yapResolveGhostFlag(window.location.search, loadYapProfile(yapStorage).flags),
+      });
     } else {
       this.yapPathInput.yapSetLayout(layout); // resize keeps the drawn path
     }
