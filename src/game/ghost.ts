@@ -106,6 +106,23 @@ export function yapGhostCones(level: YapLevel, ghost: YapGhostState): YapGhostCo
   };
 }
 
+/** The scene modes of YapLevelScene, as far as the ghost layer is concerned. */
+export type YapGhostRenderMode = 'planning' | 'execution' | 'failure' | 'win';
+
+/**
+ * Whether the scene draws the ghost layer: only in planning mode, and only
+ * when the path-input exposes a ghost state (drawing in progress + the ghost
+ * flag on). Every other case — drawing stopped, execution/failure/win running,
+ * flag off — clears the layer. This is the visibility rule of the C6 render in
+ * ./level-scene.ts, kept pure here so it is unit-tested in node.
+ */
+export function yapGhostLayerVisible(
+  mode: YapGhostRenderMode,
+  ghost: YapGhostState | null,
+): boolean {
+  return mode === 'planning' && ghost !== null;
+}
+
 /**
  * Resolve the `ghost` flag read-only from src/app/config.ts: the default (on),
  * then a stored profile flag, then the URL override (`?flag=ghost:0/1`, last
