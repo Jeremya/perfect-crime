@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { track } from './app/analytics';
 import { YAP_CORP } from './app/brand';
+import { loadYapProfile } from './app/config';
 import { yapInstallConsentGate, yapReadConsent } from './app/consent';
 import {
   yapBootRoute,
@@ -44,6 +45,10 @@ class YapBootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Story A2: apply the URL overrides once at boot (`?flag=ghost:0`,
+    // `?internal=1`) and persist them, so every later read of the profile sees
+    // them. Without this the flag switch silently did nothing.
+    loadYapProfile(yapStorage, window.location.search);
     // Story G2: nothing leaves the device before OK — the consent gate wraps
     // the shared analytics transport before any scene can emit an event.
     yapInstallConsentGate({ storage: yapStorage });

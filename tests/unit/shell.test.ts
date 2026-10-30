@@ -52,3 +52,16 @@ describe('app shell wiring', () => {
     expect(mainEntry).toMatch(/entry: link === null \? 'direct' : 'link'/);
   });
 });
+
+describe('feature flag wiring', () => {
+  it('applies the URL overrides at boot so ?flag=ghost:0 sticks', () => {
+    // Regression: nothing called loadYapProfile with the search, so the flag
+    // was parsed but never persisted and the ghost preview ignored it.
+    expect(mainEntry).toMatch(/loadYapProfile\(yapStorage, window\.location\.search\)/);
+  });
+
+  it('passes the ghost flag to the path input', () => {
+    const levelScene = readFileSync(`${ROOT}src/game/level-scene.ts`, 'utf8');
+    expect(levelScene).toMatch(/ghost: yapResolveGhostFlag\(/);
+  });
+});
