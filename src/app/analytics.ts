@@ -19,8 +19,8 @@ import { YAP_PROFILE_KEY, loadYapProfile, type YapFlags } from './config';
 import { YAP_LANGUAGE_STORAGE_KEY, YAP_LOCALES, yapDetectLocale } from './i18n';
 import { YapStorage, yapStorage } from './storage';
 
-/** PostHog project API key (public, browser-side by design). Placeholder until the project is created. */
-export const YAP_POSTHOG_API_KEY = 'phc_yapcorp_gate1_placeholder';
+/** PostHog project API key (public, browser-side by design). */
+export const YAP_POSTHOG_API_KEY = 'phc_wBu9Gdocezo2iU7K3qCCw8V6KDjaiWaR3JqYvmERryT3';
 /** PostHog EU host, per the Gate 1 spec ("hosted in Europe"). */
 export const YAP_POSTHOG_EU_HOST = 'https://eu.i.posthog.com';
 
