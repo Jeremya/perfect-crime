@@ -136,4 +136,18 @@ export const fr: YapDictionary = {
     detail:
       'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
   },
+  // Story D2 — écran d'accueil et enchaînement (src/game/home-scene.ts) :
+  // tutoriel enchaîné, compte à rebours avec jours, accueil avant / après la
+  // semaine de test.
+  homeFlow: {
+    nextLevel: 'Niveau suivant',
+    countdownWithDays: '{days} j {clock}',
+    lastHeist: 'Dernière casse de la semaine',
+    beforeTitle: 'La semaine des casses commence bientôt',
+    beforeHint: 'Entraîne-toi avec le tutoriel en attendant.',
+    firstHeistIn: 'Première casse dans {time}',
+    afterTitle: 'La semaine de test est terminée',
+    afterMessage: 'Merci d’avoir fait cette semaine de casses avec nous !',
+    bestStreak: 'Meilleure série : {count} jours',
+  },
 };

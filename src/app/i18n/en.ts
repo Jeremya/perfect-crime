@@ -135,6 +135,19 @@ export const en = {
     detail:
       'Anonymous events only (random ID), hosted in the EU and deleted at the end of Gate 2. No ads, no resale.',
   },
+  // Story D2 — Home screen and app flow (src/game/home-scene.ts): tutorial
+  // chaining, countdown with days, and Home before / after the test week.
+  homeFlow: {
+    nextLevel: 'Next level',
+    countdownWithDays: '{days}d {clock}',
+    lastHeist: 'Last heist of the week',
+    beforeTitle: 'The heist week starts soon',
+    beforeHint: 'Warm up with the tutorial in the meantime.',
+    firstHeistIn: 'First heist in {time}',
+    afterTitle: 'The test week is over',
+    afterMessage: 'Thanks for pulling off this week of heists with us!',
+    bestStreak: 'Best streak: {count} days',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
