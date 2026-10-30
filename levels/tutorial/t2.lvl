@@ -1,0 +1,28 @@
+# Tutorial 2 — "The gaze": a cone kills. The static guard watches the straight
+# line to the loot; go around the cone (left or right) and read the replay.
+# Format: ASCII map (12 rows x 8 cols) + entities. Periods must divide 24.
+name: Tutorial 2
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 13
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #....E.#
+  ########
+guards:
+  - id: g1
+    route: [[3,4]]
+    mode: loop
+    phase: 0
+    range: 2
+    face: S

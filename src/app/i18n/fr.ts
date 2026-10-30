@@ -130,4 +130,10 @@ export const fr: YapDictionary = {
   winScreen: {
     sharePreview: 'Aperçu du partage',
   },
+  // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
+  consentBanner: {
+    learnMore: 'En savoir plus',
+    detail:
+      'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
+  },
 };

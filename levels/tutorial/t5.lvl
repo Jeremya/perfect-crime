@@ -1,0 +1,35 @@
+# Tutorial 5 — "The camera": a rotating cone, and its blind spot. The camera
+# on the left wall sweeps N/E/S/W; wait for it to turn away, slip through,
+# and time the patrolling guard on the loot row.
+# Format: ASCII map (12 rows x 8 cols) + entities. Periods must divide 24.
+name: Tutorial 5
+type: tutorial
+moment: ""
+maxPauses: 3
+par: 15
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #.....E#
+  ########
+cameras:
+  - id: c1
+    at: [0,6]
+    dirs: [N, E, S, W]
+    hold: 3
+    phase: 0
+    range: 3
+guards:
+  - id: g1
+    route: [[2,9], [3,9], [4,9], [5,9], [6,9]]
+    mode: pingpong
+    phase: 0
+    range: 2

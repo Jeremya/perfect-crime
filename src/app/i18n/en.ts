@@ -129,6 +129,12 @@ export const en = {
   winScreen: {
     sharePreview: 'Share preview',
   },
+  // Story G2 — consent banner (first launch, non-blocking top strip).
+  consentBanner: {
+    learnMore: 'Learn more',
+    detail:
+      'Anonymous events only (random ID), hosted in the EU and deleted at the end of Gate 2. No ads, no resale.',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */

@@ -189,24 +189,18 @@ describe('parseLevel — valid files', () => {
     const level = parseLevel(readFileSync(path, 'utf8'), path);
     expect(level.name).toBe('Tutorial 1');
     expect(level.type).toBe('tutorial');
-    expect(level.par).toBe(18);
+    expect(level.par).toBe(10);
     expect(level.maxPauses).toBe(3);
     expect(level.width).toBe(8);
     expect(level.height).toBe(12);
     expect(level.map).toHaveLength(12);
     expect(level.start).toEqual({ x: 1, y: 1 });
-    expect(level.loot).toEqual({ x: 3, y: 10 });
-    expect(level.exit).toEqual({ x: 6, y: 10 });
-    expect(level.guards).toHaveLength(1);
-    expect(level.guards[0]?.id).toBe('g1');
-    expect(level.guards[0]?.mode).toBe('pingpong');
-    expect(level.cameras).toHaveLength(1);
-    expect(level.cameras[0]?.at).toEqual({ x: 3, y: 5 });
-    expect(level.lasers).toHaveLength(1);
-    expect(level.lasers[0]?.cells).toEqual([
-      { x: 1, y: 9 },
-      { x: 2, y: 9 },
-    ]);
+    expect(level.loot).toEqual({ x: 4, y: 4 });
+    expect(level.exit).toEqual({ x: 6, y: 6 });
+    // T1 teaches only the plan: no enemies (Gate 1 spec, Content — Tutorial).
+    expect(level.guards).toHaveLength(0);
+    expect(level.cameras).toHaveLength(0);
+    expect(level.lasers).toHaveLength(0);
   });
 
   it('is deterministic: parsing twice yields equal objects', () => {
