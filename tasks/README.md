@@ -10,10 +10,11 @@ merged with repository acceptance evidenced. `In progress` includes merged work
 with an outstanding acceptance check (real-phone preview, playtest, live
 dashboards) or an open PR; each task file says which. External setup (such as
 live PostHog dashboards or real-phone checks) is not complete without evidence.
-Current count: **18 Done, 12 In progress, 6 To do** across the 34 required
-stories + 2 optional (O1 In progress, O2 Done). Remaining dev work: C6 scene
-rendering (branche `c6-ghost-render`). H1–H6 are PM-side (feel sessions,
-recruitment, test week, Gate 1 decision).
+Current count: **19 Done, 11 In progress, 6 To do** across the 34 required
+stories + 2 optional (O1 In progress, O2 Done). All dev stories are merged; the
+remaining work is PM-side: H1–H6 (feel sessions, recruitment, test week, Gate 1
+decision) plus the outstanding real-device / playtest / dashboard checks noted
+per task.
 
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
@@ -38,7 +39,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
 | C4 | Failure replay | C | Dev | 1.5 | C3 | In progress (#20 merged; phone check pending) | `tasks/C4.md` |
 | C5 | Win screen | C | Dev | 1 | C3 | Done | `tasks/C5.md` |
-| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | In progress (#21 merged; rendu en cours, branche c6-ghost-render) | `tasks/C6.md` |
+| C6 | Ghost preview (flag) | C | Dev | 1 | C2 | Done (#21 + #40; phone on/off check pending) | `tasks/C6.md` |
 | C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | Done (#33) | `tasks/C7.md` |
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | In progress (#28 merged; phone audio/vibration check pending) | `tasks/C8.md` |
 | D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
