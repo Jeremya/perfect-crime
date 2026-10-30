@@ -2,7 +2,10 @@ import { defineConfig } from 'vitest/config';
 import { yapChallengePagesPlugin } from './tools/og';
 
 export default defineConfig({
-  base: './',
+  // Root-absolute asset URLs: every route must load the same entry chunk.
+  // `./` broke /dev/viewer, whose two-segment path resolved `./assets/…` to
+  // /dev/assets/… (a 404 served as index.html, refused by nosniff).
+  base: '/',
   plugins: [
     // Story E3: build-time preview images (public/icons/) and the static
     // challenge pages /c/1 … /c/7 with their og: tags (see tools/og.ts).
