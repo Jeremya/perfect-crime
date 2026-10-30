@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
+import { track } from './app/analytics';
 import { YAP_CORP } from './app/brand';
 import { yapInstallConsentGate, yapReadConsent } from './app/consent';
+import { yapBootRoute, yapIsFirstOpen, yapIsReturnToForeground } from './app/router';
 import { yapStorage } from './app/storage';
 import { YapConsentScene } from './game/consent-scene';
+import { YapHomeScene, yapFlow } from './game/home-scene';
 import { YapLevelScene } from './game/level-scene';
 import { YapViewerScene } from './game/viewer-scene';
 
@@ -40,15 +43,37 @@ class YapBootScene extends Phaser.Scene {
     yapInstallConsentGate({ storage: yapStorage });
     // Phaser 4 auto-starts only the first scene of the config array, so the
     // boot scene hands over explicitly: /dev/viewer opens the dev viewer
-    // (F1), every other path opens the Level scene (C1).
-    const target = window.location.pathname.startsWith(YAP_VIEWER_PATH)
-      ? 'yap-viewer'
-      : 'yap-level';
+    // (F1); every other path follows the app flow (D2, src/app/router.ts):
+    // the first launch opens tutorial T1 directly, a known player lands on
+    // Home.
+    const viewer = window.location.pathname.startsWith(YAP_VIEWER_PATH);
+    if (!viewer) {
+      // Story D2: app_open at launch (the profile does not exist yet on the
+      // very first one); link arrivals (entry: link) are story E4's.
+      track('app_open', { entry: 'direct', is_first_open: yapIsFirstOpen(yapStorage) });
+      yapWatchForegroundReturn();
+    }
     // First launch: the non-blocking consent banner overlays the top bar
     // (YapConsentScene is last in the scene list, so it renders on top).
     if (yapReadConsent(yapStorage) === null) this.scene.launch('yap-consent');
-    this.scene.start(target);
+    if (viewer) this.scene.start('yap-viewer');
+    else yapFlow.yapGo(this, yapBootRoute(yapStorage));
   }
+}
+
+/** app_open again on a return to the foreground after 30 min (Gate 1 spec, Events). */
+function yapWatchForegroundReturn(): void {
+  let hiddenAt: number | null = null;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
+    if (yapIsReturnToForeground(hiddenAt, Date.now())) {
+      track('app_open', { entry: 'direct', is_first_open: false });
+    }
+    hiddenAt = null;
+  });
 }
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -66,8 +91,8 @@ const config: Phaser.Types.Core.GameConfig = {
     height: 853,
   },
   // YapConsentScene last: launched as an overlay, it must render on top of
-  // the level scene (scene render order follows the config array order).
-  scene: [YapBootScene, YapLevelScene, YapViewerScene, YapConsentScene],
+  // the level and Home scenes (scene render order follows the config array order).
+  scene: [YapBootScene, YapHomeScene, YapLevelScene, YapViewerScene, YapConsentScene],
 };
 
 new Phaser.Game(config);

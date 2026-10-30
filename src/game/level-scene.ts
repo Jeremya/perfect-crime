@@ -88,6 +88,16 @@ const YAP_WIN_HOME_EVENT = 'yap-win-home';
 export interface YapLevelSceneData {
   /** .lvl source to render; defaults to the tutorial heist. */
   readonly levelSource?: string;
+  /** D2: an already compiled level (levels.json); wins over levelSource. */
+  readonly level?: YapLevel;
+  /** D2: catalog id of the level ('tutorial/t1', 'daily/d3'…). */
+  readonly levelId?: string;
+  /** D2: why the level is played (analytics level_start mode). */
+  readonly mode?: 'tutorial' | 'daily' | 'archive' | 'challenge';
+  /** D2: test day of the heist (0 = not a daily heist). */
+  readonly day?: number;
+  /** D2: label of the Win screen Home button (e.g. "Next level" in the tutorial). */
+  readonly winHomeLabel?: string;
 }
 
 /** A bottom-bar button: rounded rect drawn in code + a zone as hit area. */
@@ -136,7 +146,7 @@ export class YapLevelScene extends Phaser.Scene {
   private yapFatalMarker: YapCell | null = null;
   // --- Win (C5) ---
   /** Attempt bookkeeping: every PLAY press counts, until the heist is won. */
-  private readonly yapAttemptLog = new YapAttemptLog();
+  private yapAttemptLog = new YapAttemptLog();
   /** Win screen model while the Win screen is up (null = not). */
   private yapWin: YapWinScreen | null = null;
   /** The final (won) frame, kept on screen behind the Win panel. */
@@ -145,6 +155,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapMarksLayer: Phaser.GameObjects.Graphics | null = null;
   /** Unzoomed camera drawing the chrome while the Failure zoom is on. */
   private yapUiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
+  /** D2: the data the scene was started with (route of the app flow). */
+  private yapSceneData: YapLevelSceneData = {};
 
   constructor() {
     super('yap-level');
@@ -156,8 +168,11 @@ export class YapLevelScene extends Phaser.Scene {
   }
 
   create(data: YapLevelSceneData): void {
+    // D2: the app flow restarts this scene for every level, and Phaser keeps
+    // the instance — so each run starts from a clean per-level state.
+    this.yapResetRun(data);
     const source = data.levelSource ?? tutorialSource;
-    this.yapLevel = parseLevel(source, 'levels/tutorial/t1.lvl');
+    this.yapLevel = data.level ?? parseLevel(source, 'levels/tutorial/t1.lvl');
     this.yapState = createInitialState(this.yapLevel);
     this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
     this.yapBuild();
@@ -174,6 +189,24 @@ export class YapLevelScene extends Phaser.Scene {
   private readonly yapOnResize = (): void => {
     this.yapBuild();
   };
+
+  /** D2: forget the previous run (path, playback, failure, win, attempts). */
+  private yapResetRun(data: YapLevelSceneData): void {
+    this.yapSceneData = data;
+    this.yapBoard = null; // destroyed with the previous run's display list
+    this.yapChrome = null;
+    this.yapPathInput = null;
+    this.yapPointerId = null;
+    this.yapExecution = null;
+    this.yapDisplayed = null;
+    this.yapPlayPulse = null;
+    this.yapFailure = null;
+    this.yapFailureFrameIndex = 0;
+    this.yapFatalMarker = null;
+    this.yapAttemptLog = new YapAttemptLog();
+    this.yapWin = null;
+    this.yapWinFrame = null;
+  }
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize);
@@ -1261,7 +1294,7 @@ export class YapLevelScene extends Phaser.Scene {
       btnY,
       halfW,
       btnH,
-      yapI18n.t('win.home'),
+      this.yapSceneData.winHomeLabel ?? yapI18n.t('win.home'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
       () => this.yapOnWinHome(),
