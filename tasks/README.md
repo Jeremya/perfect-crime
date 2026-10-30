@@ -9,7 +9,7 @@ Status snapshot: **2026-10-30**. `Done` means merged with repository
 acceptance evidenced. `In progress` includes merged work with an outstanding
 acceptance check, local uncommitted work, or an open PR; each task file says which.
 External setup (such as live PostHog dashboards or real-phone checks) is not
-complete without evidence. Current count: **14 Done, 13 In progress, 1
+complete without evidence. Current count: **15 Done, 12 In progress, 1
 Scaffolded, 6 To do** across the 34 required stories. Optional O1 is In progress (PR #32);
 O2 is Done (PR #19).
 
@@ -49,7 +49,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | Done | `tasks/F1.md` |
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | In progress | `tasks/F2.md` |
 | F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | In progress | `tasks/F3.md` |
-| G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | In progress | `tasks/G1.md` |
+| G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | Done | `tasks/G1.md` |
 | G2 | Consent and privacy | G | Dev | 0.5 | G1 | In progress | `tasks/G2.md` |
 | G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress | `tasks/G3.md` |
 | H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | To do | `tasks/H1.md` |
