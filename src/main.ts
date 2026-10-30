@@ -26,7 +26,7 @@ class YapBootScene extends Phaser.Scene {
     const target = window.location.pathname.startsWith(YAP_VIEWER_PATH)
       ? 'yap-viewer'
       : 'yap-level';
-    // First launch: the non-blocking consent banner overlays the bottom bar
+    // First launch: the non-blocking consent banner overlays the top bar
     // (YapConsentScene is last in the scene list, so it renders on top).
     if (yapReadConsent(yapStorage) === null) this.scene.launch('yap-consent');
     this.scene.start(target);

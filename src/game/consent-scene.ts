@@ -3,29 +3,37 @@
 // "Consent is a non-blocking banner on the first-launch tutorial; it must not
 // prevent play or obscure the route-critical board area").
 //
-// The banner is a strip anchored at the very bottom of the screen, inside the
-// 96 px bottom action bar zone — it never covers the board. Its background is
-// plain (non-interactive) graphics, so pointer events pass through to the
-// level scene everywhere except on the banner's own buttons: the player can
-// keep drawing and press PLAY while the banner is up. Answering OK or
-// "No thanks" persists the choice (src/app/consent.ts) and dismisses the
-// banner; the choice governs analytics exactly as the spec requires (nothing
-// sent before OK, a refusal = zero events, ever).
+// The banner is a strip over the 64 px top bar — it never covers the bottom
+// action bar (Clear / PLAY stay visible and tappable). While it is up it
+// hides the plan / par / pauses readout, which comes back as soon as the
+// player answers. The spec copy is shown verbatim at the 14 px minimum text
+// size; when it needs more than the 64 px bar on a narrow layout, the strip
+// grows just enough, over the board's outer wall row on the first-launch
+// tutorial. The panel swallows taps on itself only; everywhere
+// else pointer events reach the level scene, so the player can keep drawing
+// and press PLAY. Answering OK or "No thanks" persists the choice
+// (src/app/consent.ts) and dismisses the banner; the choice governs analytics
+// exactly as the spec requires (nothing sent before OK, a refusal = zero
+// events, ever).
 import Phaser from 'phaser';
 import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
-import { YAP_BOTTOM_BAR_HEIGHT, YAP_PALETTE, yapHexToInt } from './board';
+import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
 
-/** Height of the banner strip: exactly the bottom action bar zone. */
-const YAP_BANNER_HEIGHT = YAP_BOTTOM_BAR_HEIGHT;
+/** Minimum height of the banner strip: exactly the top bar zone. */
+const YAP_BANNER_MIN_HEIGHT = YAP_TOP_BAR_HEIGHT;
 /** Touch-target height of the banner buttons (docs/UI-DESIGN.md: >= 44 px). */
 const YAP_BANNER_BUTTON_HEIGHT = 44;
+const YAP_BANNER_GAP = 8;
+const YAP_ACCEPT_WIDTH = 56;
+const YAP_DECLINE_WIDTH = 88;
+/** docs/UI-DESIGN.md: body text and control labels are at least 14 px. */
+const YAP_BANNER_FONT_SIZE = '14px';
 
 export class YapConsentScene extends Phaser.Scene {
   private yapBanner: Phaser.GameObjects.Container | null = null;
-  private yapMessage: Phaser.GameObjects.Text | null = null;
-  private yapDetail: Phaser.GameObjects.Text | null = null;
+  private yapShowDetail = false;
 
   constructor() {
     super('yap-consent');
@@ -50,71 +58,73 @@ export class YapConsentScene extends Phaser.Scene {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
   };
 
-  /** (Re)draws the banner strip at the bottom of the screen. */
+  /** (Re)draws the banner strip over the top bar. */
   private yapBuild(): void {
     this.yapBanner?.destroy();
     this.yapBanner = null;
-    this.yapMessage = null;
-    this.yapDetail = null;
 
     const width = this.scale.width;
-    const height = this.scale.height;
-    const top = height - YAP_BANNER_HEIGHT;
     const banner = this.add.container(0, 0);
     this.yapBanner = banner;
 
-    // Panel: non-interactive graphics, so taps pass through to the level
-    // scene (Clear / PLAY stay usable while the banner is visible).
+    // Copy on the left, at the minimum text size; the strip height follows it.
+    // Tapping the copy toggles between the message (followed by the "Learn
+    // more" cue) and the short privacy detail.
+    const textLeft = YAP_BANNER_GAP;
+    const textWidth = width - 4 * YAP_BANNER_GAP - YAP_DECLINE_WIDTH - YAP_ACCEPT_WIDTH;
+    const copy = this.yapShowDetail
+      ? yapI18n.t('consentBanner.detail')
+      : `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
+    const text = this.add.text(textLeft, 0, copy, {
+      fontFamily: 'sans-serif',
+      fontSize: YAP_BANNER_FONT_SIZE,
+      color: YAP_PALETTE['text-primary'],
+      wordWrap: { width: textWidth },
+    });
+    const height = Math.max(YAP_BANNER_MIN_HEIGHT, Math.ceil(text.height) + 2 * YAP_BANNER_GAP);
+    text.setOrigin(0, 0.5).setY(height / 2);
+
+    // Panel: opaque over the top bar readout, and interactive so a tap on
+    // the banner itself never reaches the level scene underneath.
     const panel = this.add.graphics();
     panel
       .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, top, width, YAP_BANNER_HEIGHT)
+      .fillRect(0, 0, width, height)
       .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, top + 0.5, width, top + 0.5);
-    banner.add(panel);
-
-    const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'sans-serif',
-      fontSize: '14px',
-      color: YAP_PALETTE['text-primary'],
-      wordWrap: { width: width - 32 },
-    };
-    const message = this.add.text(16, top + 6, yapI18n.t('consent.message'), textStyle).setOrigin(0, 0);
-    const detail = this.add
-      .text(16, top + 6, yapI18n.t('consentBanner.detail'), textStyle)
+      .lineBetween(0, height - 0.5, width, height - 0.5);
+    const blocker = this.add.zone(0, 0, width, height).setOrigin(0, 0).setInteractive();
+    const textZone = this.add
+      .zone(textLeft, 0, textWidth, height)
       .setOrigin(0, 0)
-      .setVisible(false);
-    banner.add([message, detail]);
-    this.yapMessage = message;
-    this.yapDetail = detail;
-
-    // Buttons row, 44 px tall touch targets, in the bottom third.
-    const btnY = height - 8 - YAP_BANNER_BUTTON_HEIGHT / 2;
-    const learnMore = this.yapMakeTextButton(16, btnY, yapI18n.t('consentBanner.learnMore'), () => {
-      // "Learn more" swaps the message for the short privacy detail.
-      const showDetail = !this.yapDetail?.visible;
-      this.yapMessage?.setVisible(!showDetail);
-      this.yapDetail?.setVisible(showDetail);
+      .setInteractive({ useHandCursor: true });
+    textZone.on('pointerdown', () => {
+      this.yapShowDetail = !this.yapShowDetail;
+      this.yapBuild();
     });
+
+    // Buttons on the right, vertically centred in the strip.
+    const btnY = height / 2;
+    const acceptX = width - YAP_BANNER_GAP - YAP_ACCEPT_WIDTH / 2;
+    const declineX = acceptX - YAP_ACCEPT_WIDTH / 2 - YAP_BANNER_GAP - YAP_DECLINE_WIDTH / 2;
     const decline = this.yapMakeButton(
-      width - 16 - 96 - 8 - 60,
+      declineX,
       btnY,
-      120,
+      YAP_DECLINE_WIDTH,
       yapI18n.t('consent.decline'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
       () => this.yapAnswer('refused'),
     );
     const accept = this.yapMakeButton(
-      width - 16 - 48,
+      acceptX,
       btnY,
-      96,
+      YAP_ACCEPT_WIDTH,
       yapI18n.t('consent.accept'),
       'action-primary',
       YAP_PALETTE['path-light'],
       () => this.yapAnswer('granted'),
     );
-    banner.add([learnMore, decline.container, accept.container]);
+    banner.add([panel, blocker, text, textZone, decline.container, accept.container]);
   }
 
   /** Persists the answer (which gates analytics) and dismisses the banner. */
@@ -145,35 +155,12 @@ export class YapConsentScene extends Phaser.Scene {
     const label = this.add
       .text(0, 0, labelText, {
         fontFamily: 'sans-serif',
-        fontSize: '16px',
+        fontSize: YAP_BANNER_FONT_SIZE,
         color: textColor,
       })
       .setOrigin(0.5);
     zone.on('pointerdown', onPress);
     container.add([bg, zone, label]);
     return { container };
-  }
-
-  /** A plain text button (the "Learn more" link), 44 px tall hit area. */
-  private yapMakeTextButton(
-    x: number,
-    y: number,
-    labelText: string,
-    onPress: () => void,
-  ): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y);
-    const label = this.add
-      .text(0, 0, labelText, {
-        fontFamily: 'sans-serif',
-        fontSize: '14px',
-        color: YAP_PALETTE['action-primary'],
-      })
-      .setOrigin(0, 0.5);
-    const zone = this.add
-      .zone(label.width / 2, 0, label.width, YAP_BANNER_BUTTON_HEIGHT)
-      .setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', onPress);
-    container.add([zone, label]);
-    return container;
   }
 }
