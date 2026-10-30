@@ -75,6 +75,7 @@ import { YapFailureReplay } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
 import { YapAttemptLog, YapWinScreen } from './win';
+import { yapStarThresholds } from './stars';
 import { track } from '../app/analytics';
 import {
   YAP_EXECUTION_TICK_EVENT,
@@ -948,12 +949,19 @@ export class YapLevelScene extends Phaser.Scene {
     return statsText;
   }
 
-  /** "18 ticks · par 20 · 3 pauses", all from the dictionaries. */
+  /**
+   * "18 ticks · par 20 · 3 pauses · ★3=20 ★2≤24" — the stats line, all from
+   * the dictionaries except the star thresholds (X1, docs/design/experience.md
+   * §4.3): glyphs and numbers only, 3★ = par and 2★ ≤ twoStarMax, so the
+   * player can chase the targets while drawing.
+   */
   private yapPlanningStats(level: YapLevel, ticks: number, pauses: number): string {
+    const { par, twoStarMax } = yapStarThresholds(level.par);
     return [
       yapI18n.t('planning.statsTicks', { ticks }),
       yapI18n.t('planning.statsPar', { par: level.par }),
       yapI18n.t('planning.statsPauses', { count: pauses }),
+      `★3=${par} ★2≤${twoStarMax}`,
     ].join(yapI18n.t('planning.statsSeparator'));
   }
 
