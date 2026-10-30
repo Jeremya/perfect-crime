@@ -11,9 +11,10 @@ with an outstanding acceptance check (real-phone preview, playtest, live
 dashboards) or an open PR; each task file says which. External setup (such as
 live PostHog dashboards or real-phone checks) is not complete without evidence.
 Current count: **19 Done, 11 In progress, 6 To do** across the 34 required
-stories + 2 optional (O1 In progress, O2 Done). Remaining dev work: C6 scene
-rendering (branche `c6-ghost-render`). H1–H6 are PM-side (feel sessions,
-recruitment, test week, Gate 1 decision).
+stories + 2 optional (O1 In progress, O2 Done). All dev stories are merged; the
+remaining work is PM-side: H1–H6 (feel sessions, recruitment, test week, Gate 1
+decision) plus the outstanding real-device / playtest / dashboard checks noted
+per task.
 
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
