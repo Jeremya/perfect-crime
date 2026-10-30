@@ -46,6 +46,12 @@ export const en = {
     pausesLeft: 'Pauses left: {count}',
     clear: 'Clear',
     play: 'PLAY',
+    // C1 visual pass: one compact stats line under the level name.
+    statsTicks: '{ticks} ticks',
+    statsPar: 'par {par}',
+    statsPauses: '{count} pauses',
+    statsSeparator: ' · ',
+    drawRoute: 'Draw your route',
     hint: 'Hint',
     grabDiamond: 'Grab the diamond, then get out',
   },

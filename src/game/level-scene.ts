@@ -116,9 +116,10 @@ export class YapLevelScene extends Phaser.Scene {
   private yapPathInput: YapPathInput | null = null;
   private yapPathLayer: Phaser.GameObjects.Graphics | null = null;
   private yapBadgeLayer: Phaser.GameObjects.Container | null = null;
-  private yapTicksText: Phaser.GameObjects.Text | null = null;
-  private yapPausesText: Phaser.GameObjects.Text | null = null;
+  private yapStatsText: Phaser.GameObjects.Text | null = null;
   private yapInstruction: Phaser.GameObjects.Text | null = null;
+  /** Size of the PLAY button, so yapUpdateChrome can repaint it in place. */
+  private yapPlaySize: { readonly w: number; readonly h: number } | null = null;
   private yapPlayButton: YapChromeButton | null = null;
   private yapPlayPulse: Phaser.Tweens.Tween | null = null;
   /** Id of the single finger currently drawing (null = none). */
@@ -327,6 +328,28 @@ export class YapLevelScene extends Phaser.Scene {
     const board = this.add.container(0, 0);
     this.yapBoard = board;
 
+    // Board card (C1 visual pass): a soft shadow under the grid and a 2 px
+    // frame around it. Without them the tiles floated on a background only
+    // 1.28:1 away from the floor, which read as a wireframe.
+    const outline = yapHexToInt(YAP_PALETTE['path-outline']);
+    const card = this.add.graphics();
+    for (const [dy, alpha] of [
+      [3, 0.09],
+      [6, 0.06],
+      [9, 0.03],
+    ] as const) {
+      card
+        .fillStyle(outline, alpha)
+        .fillRoundedRect(
+          layout.originX + 1,
+          layout.originY + dy,
+          layout.boardWidth - 2,
+          layout.boardHeight,
+          10,
+        );
+    }
+    board.add(card);
+
     // Static grid, drawn once into a texture (Gate 1 spec, Rendering and input).
     const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
     const grid = this.make.graphics({ x: 0, y: 0 }, false);
@@ -337,6 +360,18 @@ export class YapLevelScene extends Phaser.Scene {
     grid.generateTexture(YAP_GRID_TEXTURE_KEY, layout.boardWidth, layout.boardHeight);
     grid.destroy();
     board.add(this.add.image(layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY).setOrigin(0, 0));
+
+    // the frame sits on top of the grid so the edge stays crisp
+    const frame = this.add.graphics();
+    frame
+      .lineStyle(2, outline, 1)
+      .strokeRect(
+        layout.originX + 1,
+        layout.originY + 1,
+        layout.boardWidth - 2,
+        layout.boardHeight - 2,
+      );
+    board.add(frame);
 
     // Patrols: thin dotted lines with direction arrows, kept secondary.
     const patrolG = this.add.graphics();
@@ -426,23 +461,31 @@ export class YapLevelScene extends Phaser.Scene {
     ents.add(ent);
 
     // Kenney Top-down Shooter stand poses: the warm character chips separate
-    // guards from the thief while preserving a clear silhouette on danger cells.
+    // guards from the thief. The pose is upright (rotating a standing human
+    // 90° read as a fallen body); facing is shown by a wedge on the chip.
     for (const guard of state.guards) {
       const p = yapCellCenter(layout, guard.pos);
       const marker = this.add.graphics();
-      const r = layout.cell * 0.43;
+      const r = layout.cell * 0.42;
       marker
         .fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
         .fillCircle(p.x, p.y, r)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
         .strokeCircle(p.x, p.y, r);
-      // the Kenney pose faces east: turn it to the guard's facing, which the
-      // code-drawn facing wedge used to show
       const d = yapDirVector(guard.facing);
+      const px = -d.y;
+      const py = d.x;
+      marker.fillStyle(yapHexToInt(YAP_PALETTE['text-primary']), 1).fillTriangle(
+        p.x + d.x * r * 0.98,
+        p.y + d.y * r * 0.98,
+        p.x + d.x * r * 0.42 + px * r * 0.3,
+        p.y + d.y * r * 0.42 + py * r * 0.3,
+        p.x + d.x * r * 0.42 - px * r * 0.3,
+        p.y + d.y * r * 0.42 - py * r * 0.3,
+      );
       const sprite = this.add
         .image(p.x, p.y, 'yap-guard')
-        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9)
-        .setRotation(Math.atan2(d.y, d.x));
+        .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82);
       ents.add([marker, sprite]);
     }
     const thiefAt = yapCellCenter(layout, state.thief);
@@ -518,76 +561,22 @@ export class YapLevelScene extends Phaser.Scene {
     }
   }
 
-  /** Top bar (level name, plan ticks, par, pauses left) and bottom action bar. */
+  /** Top bar (level name, plan ticks/par/pauses) and bottom action bar. */
   private yapBuildChrome(level: YapLevel, layout: YapBoardLayout): void {
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
-    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color: YAP_PALETTE['text-primary'],
-    });
-    const header = this.add.graphics();
-    header
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
-    // A small accent gives the otherwise quiet HUD a clear game identity.
-    header.fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1).fillRect(0, 0, 4, 64);
-    chrome.add(header);
 
-    const name = this.add
-      .text(16, 18, level.name, {
-        ...textStyle(18),
-        fontStyle: 'bold',
-      })
-      .setOrigin(0, 0.5);
-    chrome.add(name);
-
-    // Compact second-line stats avoid collision with the level title on narrow
-    // phones while keeping the planning state visible at a glance.
     const input = this.yapPathInput;
-    const pausesText = this.add
-      .text(
-        layout.viewWidth - 14,
-        47,
-        yapI18n.t('planning.pausesLeft', { count: input?.yapPausesLeft() ?? level.maxPauses }),
-        { ...textStyle(14), fontStyle: 'bold' },
-      )
-      .setOrigin(1, 0.5);
-    const parText = this.add
-      .text(0, 47, yapI18n.t('planning.par', { par: level.par }), {
-        ...textStyle(14),
-        fontStyle: 'bold',
-      })
-      .setOrigin(1, 0.5);
-    parText.x = pausesText.x - pausesText.width - 16;
-    const ticksText = this.add
-      .text(
-        0,
-        47,
-        yapI18n.t('planning.planTicks', { ticks: input?.yapSteps() ?? 0 }),
-        { ...textStyle(14), fontStyle: 'bold' },
-      )
-      .setOrigin(1, 0.5);
-    ticksText.x = parText.x - parText.width - 16;
-
-    // Quiet pill backgrounds group the numbers without competing with the map.
-    const stats = this.add.graphics();
-    const pill = (text: Phaser.GameObjects.Text): void => {
-      const w = text.width + 16;
-      stats
-        .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
-        .fillRoundedRect(text.x - w + 8, 36, w, 22, 11);
-    };
-    pill(ticksText);
-    pill(parText);
-    pill(pausesText);
-    chrome.add(stats);
-    chrome.add([pausesText, parText, ticksText]);
-    this.yapPausesText = pausesText;
-    this.yapTicksText = ticksText;
+    this.yapStatsText = this.yapBuildTopBar(
+      chrome,
+      layout,
+      level.name,
+      this.yapPlanningStats(
+        level,
+        input?.yapSteps() ?? 0,
+        input?.yapPausesLeft() ?? level.maxPauses,
+      ),
+    );
 
     // bottom action bar: 96 px strip with the instruction, Clear and PLAY
     const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
@@ -601,7 +590,7 @@ export class YapLevelScene extends Phaser.Scene {
 
     // short instruction while the plan does not reach the exit with the diamond
     this.yapInstruction = this.add
-      .text(layout.viewWidth / 2, barY + 6, yapI18n.t('planning.grabDiamond'), {
+      .text(layout.viewWidth / 2, barY + 12, yapI18n.t('planning.grabDiamond'), {
         fontFamily: 'sans-serif',
         fontSize: '14px',
         color: YAP_PALETTE['text-secondary'],
@@ -609,13 +598,15 @@ export class YapLevelScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     chrome.add(this.yapInstruction);
 
-    // Buttons have generous phone-sized targets; PLAY is the visual anchor.
-    const btnY = barY + 66;
+    // One row at the bottom: Clear on the left, PLAY as the wide primary
+    // action. Both are 56 px tall, comfortably above the 44 px touch target.
+    const rowY = barY + YAP_BOTTOM_BAR_HEIGHT - 10 - 28;
+    const clearW = 96;
     const clearBtn = this.yapMakeButton(
-      16 + 50,
-      btnY,
-      100,
-      48,
+      16 + clearW / 2,
+      rowY,
+      clearW,
+      56,
       yapI18n.t('planning.clear'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
@@ -628,14 +619,17 @@ export class YapLevelScene extends Phaser.Scene {
       },
     );
     chrome.add(clearBtn.container);
+
+    const playX = 16 + clearW + 12;
+    const playW = layout.viewWidth - 16 - playX;
     const playBtn = this.yapMakeButton(
-      layout.viewWidth / 2 + 42,
-      btnY,
-      168,
-      52,
-      yapI18n.t('planning.play'),
-      'action-secondary',
-      YAP_PALETTE['text-secondary'],
+      playX + playW / 2,
+      rowY,
+      playW,
+      56,
+      yapI18n.t('planning.drawRoute'),
+      'action-primary-soft',
+      YAP_PALETTE['action-primary'],
       () => {
         const pathInput = this.yapPathInput;
         if (pathInput === null || !pathInput.yapCanPlay()) return;
@@ -644,8 +638,57 @@ export class YapLevelScene extends Phaser.Scene {
         this.yapStartExecution(plan);
       },
     );
+    playBtn.label.setFontSize(18).setFontStyle('bold');
     chrome.add(playBtn.container);
     this.yapPlayButton = playBtn;
+    this.yapPlaySize = { w: playW, h: 56 };
+  }
+
+  /**
+   * Shared top bar: the level name (20 px) and one compact stats line (14 px,
+   * secondary) — one visual entry point instead of three equally loud badges.
+   * Returns the stats text so the caller can refresh it in place.
+   */
+  private yapBuildTopBar(
+    chrome: Phaser.GameObjects.Container,
+    layout: YapBoardLayout,
+    title: string,
+    stats: string,
+  ): Phaser.GameObjects.Text {
+    const header = this.add.graphics();
+    header
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
+    chrome.add(header);
+
+    const name = this.add
+      .text(16, 24, title, {
+        fontFamily: 'sans-serif',
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: YAP_PALETTE['text-primary'],
+      })
+      .setOrigin(0, 0.5);
+    const statsText = this.add
+      .text(16, 47, stats, {
+        fontFamily: 'sans-serif',
+        fontSize: '14px',
+        color: YAP_PALETTE['text-secondary'],
+      })
+      .setOrigin(0, 0.5);
+    chrome.add([name, statsText]);
+    return statsText;
+  }
+
+  /** "18 ticks · par 20 · 3 pauses", all from the dictionaries. */
+  private yapPlanningStats(level: YapLevel, ticks: number, pauses: number): string {
+    return [
+      yapI18n.t('planning.statsTicks', { ticks }),
+      yapI18n.t('planning.statsPar', { par: level.par }),
+      yapI18n.t('planning.statsPauses', { count: pauses }),
+    ].join(yapI18n.t('planning.statsSeparator'));
   }
 
   /** A rounded button drawn in code: graphics + zone hit area + label. */
@@ -655,16 +698,16 @@ export class YapLevelScene extends Phaser.Scene {
     w: number,
     h: number,
     labelText: string,
-    fillToken: 'action-primary' | 'action-secondary',
+    fillToken: 'action-primary' | 'action-primary-soft' | 'action-secondary',
     textColor: string,
     onPress: () => void,
   ): YapChromeButton {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
     bg.fillStyle(yapHexToInt(YAP_PALETTE[fillToken]), 1)
-      .fillRoundedRect(-w / 2, -h / 2, w, h, 8)
+      .fillRoundedRect(-w / 2, -h / 2, w, h, 10)
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-      .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
+      .strokeRoundedRect(-w / 2, -h / 2, w, h, 10);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
     const label = this.add
       .text(0, 0, labelText, {
@@ -679,48 +722,51 @@ export class YapLevelScene extends Phaser.Scene {
     return { container, bg, label };
   }
 
-  /** Refreshes the dynamic chrome: plan ticks, pauses left, PLAY state. */
+  /** Refreshes the dynamic chrome: stats line, instruction, PLAY state. */
   private yapUpdateChrome(): void {
     const input = this.yapPathInput;
-    if (input === null) return;
-    this.yapTicksText?.setText(yapI18n.t('planning.planTicks', { ticks: input.yapSteps() }));
-    this.yapPausesText?.setText(yapI18n.t('planning.pausesLeft', { count: input.yapPausesLeft() }));
+    const level = this.yapLevel;
+    if (input === null || level === null) return;
+    this.yapStatsText?.setText(
+      this.yapPlanningStats(level, input.yapSteps(), input.yapPausesLeft()),
+    );
     const canPlay = input.yapCanPlay();
     this.yapInstruction?.setVisible(!canPlay);
     const play = this.yapPlayButton;
-    if (play === null) return;
+    const size = this.yapPlaySize;
+    if (play === null || size === null) return;
+    // The primary action always carries the brand hue: solid teal once the
+    // plan can run, a soft teal prompt ("Draw your route") before that.
+    const halfW = size.w / 2;
+    const halfH = size.h / 2;
+    play.bg
+      .clear()
+      .fillStyle(
+        yapHexToInt(YAP_PALETTE[canPlay ? 'action-primary' : 'action-primary-soft']),
+        1,
+      )
+      .fillRoundedRect(-halfW, -halfH, size.w, size.h, 10)
+      .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
+      .strokeRoundedRect(-halfW, -halfH, size.w, size.h, 10);
+    play.label
+      .setText(yapI18n.t(canPlay ? 'planning.play' : 'planning.drawRoute'))
+      .setColor(YAP_PALETTE[canPlay ? 'path-light' : 'action-primary']);
     if (canPlay) {
       // PLAY pulses once the drawing auto-finished at the exit
-      play.bg
-        .clear()
-        .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-        .fillRoundedRect(-84, -26, 168, 52, 10)
-        .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-84, -26, 168, 52, 10);
-      play.label.setColor(YAP_PALETTE['path-light']);
       if (this.yapPlayPulse === null) {
         this.yapPlayPulse = this.tweens.add({
           targets: play.container,
-          scale: 1.06,
+          scale: 1.03,
           duration: 420,
           yoyo: true,
           repeat: -1,
           ease: 'Sine.easeInOut',
         });
       }
-    } else {
-      play.bg
-        .clear()
-        .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
-        .fillRoundedRect(-84, -26, 168, 52, 10)
-        .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-84, -26, 168, 52, 10);
-      play.label.setColor(YAP_PALETTE['text-secondary']);
-      if (this.yapPlayPulse !== null) {
-        this.yapPlayPulse.stop();
-        this.yapPlayPulse = null;
-        play.container.setScale(1);
-      }
+    } else if (this.yapPlayPulse !== null) {
+      this.yapPlayPulse.stop();
+      this.yapPlayPulse = null;
+      play.container.setScale(1);
     }
   }
 
@@ -732,31 +778,13 @@ export class YapLevelScene extends Phaser.Scene {
   private yapBuildExecutionChrome(level: YapLevel, layout: YapBoardLayout): void {
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
-    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color: YAP_PALETTE['text-primary'],
-    });
-    const midY = YAP_TOP_BAR_HEIGHT / 2;
-
-    chrome.add(this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5));
-    const parText = this.add
-      .text(
-        layout.viewWidth - 16,
-        midY,
-        yapI18n.t('planning.par', { par: level.par }),
-        textStyle(14),
-      )
-      .setOrigin(1, 0.5);
-    const tickText = this.add.text(0, midY, '', textStyle(14)).setOrigin(1, 0.5);
-    tickText.x = parText.x - parText.width - 12;
-    chrome.add([parText, tickText]);
-    this.yapExecTickText = tickText;
+    // the tick line is filled by yapUpdateExecutionChrome right after the build
+    this.yapExecTickText = this.yapBuildTopBar(chrome, layout, level.name, '');
     // the planning-only chrome refs do not exist in this mode
-    this.yapTicksText = null;
-    this.yapPausesText = null;
+    this.yapStatsText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapPlaySize = null;
 
     // bottom action bar: 96 px strip with ×2 on the left, Stop on the right
     const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
@@ -768,13 +796,12 @@ export class YapLevelScene extends Phaser.Scene {
       .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
     chrome.add(bar);
 
-    const btnH = 44;
-    const btnY = barY + YAP_BOTTOM_BAR_HEIGHT - 6 - btnH / 2;
+    const rowY = barY + YAP_BOTTOM_BAR_HEIGHT - 10 - 28;
     const speedBtn = this.yapMakeButton(
       16 + 48,
-      btnY,
+      rowY,
       96,
-      btnH,
+      56,
       yapI18n.t('execution.speed', { speed: 1 }),
       'action-secondary',
       YAP_PALETTE['text-primary'],
@@ -784,9 +811,9 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapSpeedButton = speedBtn;
     const stopBtn = this.yapMakeButton(
       layout.viewWidth - 16 - 60,
-      btnY,
+      rowY,
       120,
-      btnH,
+      56,
       yapI18n.t('execution.stop'),
       'action-primary',
       YAP_PALETTE['path-light'],
@@ -798,9 +825,13 @@ export class YapLevelScene extends Phaser.Scene {
   /** Refreshes the execution chrome: tick counter and ×2 label. */
   private yapUpdateExecutionChrome(): void {
     const exec = this.yapExecution;
-    if (exec === null) return;
+    const level = this.yapLevel;
+    if (exec === null || level === null) return;
     this.yapExecTickText?.setText(
-      yapI18n.t('executionPlayback.tick', { tick: exec.yapTick(), max: exec.yapMaxTick() }),
+      [
+        yapI18n.t('executionPlayback.tick', { tick: exec.yapTick(), max: exec.yapMaxTick() }),
+        yapI18n.t('planning.statsPar', { par: level.par }),
+      ].join(yapI18n.t('planning.statsSeparator')),
     );
     this.yapSpeedButton?.label.setText(yapI18n.t('execution.speed', { speed: exec.yapSpeed() }));
   }
@@ -1102,25 +1133,13 @@ export class YapLevelScene extends Phaser.Scene {
       fontSize: `${size}px`,
       color: YAP_PALETTE['text-primary'],
     });
-    const midY = YAP_TOP_BAR_HEIGHT / 2;
-
-    // the zoomed main camera only covers the board area, so the top bar
-    // paints its own page background
-    const topBar = this.add.graphics();
-    topBar
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-page']), 1)
-      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT);
-    chrome.add(topBar);
-    chrome.add(this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5));
-    chrome.add(
-      this.add
-        .text(
-          layout.viewWidth - 16,
-          midY,
-          yapI18n.t('failure.attempt', { n: this.yapAttemptLog.yapAttempts() }),
-          textStyle(14),
-        )
-        .setOrigin(1, 0.5),
+    // the zoomed main camera only covers the board area; this top bar is
+    // drawn on the UI camera, in the same style as the other modes
+    this.yapBuildTopBar(
+      chrome,
+      layout,
+      level.name,
+      yapI18n.t('failure.attempt', { n: this.yapAttemptLog.yapAttempts() }),
     );
 
     // bottom action bar: 96 px strip with the written cause and the hint
@@ -1170,10 +1189,10 @@ export class YapLevelScene extends Phaser.Scene {
         .setOrigin(0.5, 0),
     );
     // the planning/execution chrome refs do not exist in this mode
-    this.yapTicksText = null;
-    this.yapPausesText = null;
+    this.yapStatsText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapPlaySize = null;
     this.yapExecTickText = null;
     this.yapSpeedButton = null;
   }
@@ -1215,10 +1234,8 @@ export class YapLevelScene extends Phaser.Scene {
       fontSize: `${size}px`,
       color,
     });
-    const midY = YAP_TOP_BAR_HEIGHT / 2;
-    chrome.add(
-      this.add.text(16, midY, level.name, textStyle(16, YAP_PALETTE['text-primary'])).setOrigin(0, 0.5),
-    );
+    // same top bar as the planning screen: one visual language across modes
+    this.yapBuildTopBar(chrome, layout, level.name, '');
 
     // panel over the board area, between the top and bottom bars
     const panelX = 12;
@@ -1338,10 +1355,10 @@ export class YapLevelScene extends Phaser.Scene {
     }
 
     // the planning/execution chrome refs do not exist in this mode
-    this.yapTicksText = null;
-    this.yapPausesText = null;
+    this.yapStatsText = null;
     this.yapInstruction = null;
     this.yapPlayButton = null;
+    this.yapPlaySize = null;
     this.yapExecTickText = null;
     this.yapSpeedButton = null;
   }
