@@ -22,6 +22,10 @@
 // button of the bottom bar reveals the first third then two thirds of the
 // optimal plan (YapSolver) as a dotted ghost under the player's path; the
 // hints used are counted in the share (💡) via YapWinScreen.
+// Ghost preview (C6, ./ghost.ts): while the player draws, a dedicated layer
+// above the board and under the path shows the guards, cameras, lasers and
+// their exact cones at the tick of the cell under the finger, at reduced
+// opacity so it cannot be confused with the tick-0 state (ghost flag).
 // Layout adapts to the viewport (readable on a 360 x 640 screen) and rebuilds
 // on resize, preserving the drawn path.
 //
@@ -29,7 +33,7 @@
 // (src/core/sim.ts) via the helpers of ./board.ts; drawing lives in ./render.ts
 // and the path overlay below; the input rules live in ./path-input.ts.
 import Phaser from 'phaser';
-import { parseLevel, type YapCell, type YapLevel } from '../core/level';
+import { parseLevel, type YapCell, type YapDir, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
 import {
@@ -57,6 +61,11 @@ import {
   type YapBoardLayout,
 } from './board';
 import { YapPathInput } from './path-input';
+import {
+  yapGhostCones,
+  yapGhostLayerVisible,
+  type YapGhostRenderMode,
+} from './ghost';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
 import { YapHints } from './hints';
@@ -91,6 +100,11 @@ const YAP_EXECUTION_END_EVENT = 'yap-execution-end';
 const YAP_WIN_SHARE_EVENT = 'yap-win-share';
 /** Scene event emitted when Home is pressed on the Win screen (D2 wires it). */
 const YAP_WIN_HOME_EVENT = 'yap-win-home';
+/**
+ * C6: opacity of the whole ghost layer. docs/UI-DESIGN.md — the ghost preview
+ * uses reduced opacity so it can never be confused with the tick-0 state.
+ */
+const YAP_GHOST_ALPHA = 0.5;
 
 export interface YapLevelSceneData {
   /** .lvl source to render; defaults to the tutorial heist. */
@@ -137,6 +151,13 @@ export class YapLevelScene extends Phaser.Scene {
   private yapExecution: YapExecution | null = null;
   /** Dynamic layer under the path: cones and lasers of the displayed tick. */
   private yapDynamic: Phaser.GameObjects.Container | null = null;
+  // --- Ghost preview (C6) ---
+  /**
+   * Dedicated ghost layer: guards, cameras, lasers and their exact cones at
+   * the tick of the cell under the finger, drawn at reduced opacity. Above
+   * the board and the tick-0 cones, under the hint ghost and the player's path.
+   */
+  private yapGhostLayer: Phaser.GameObjects.Container | null = null;
   /** Entity layer on top of the path: thief, guards, cameras, objectives. */
   private yapEntities: Phaser.GameObjects.Container | null = null;
   /** What is on screen right now (input of the dev assertion). */
@@ -322,6 +343,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.events.emit(YAP_PATH_STEP_EVENT);
     }
     this.yapRedrawPath();
+    this.yapRedrawGhost(); // C6: refresh the ghost preview on every cell change
     this.yapUpdateChrome();
   }
 
@@ -345,6 +367,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPathLayer = null;
     this.yapBadgeLayer = null;
     this.yapDynamic = null;
+    this.yapGhostLayer = null;
     this.yapEntities = null;
     this.yapMarksLayer = null;
     this.yapHintLayer = null;
@@ -423,6 +446,11 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapDynamic = this.add.container(0, 0);
     board.add(this.yapDynamic);
 
+    // C6: the ghost preview layer sits above the board and the tick-0 cones,
+    // under the hint ghost and the player's path (yapRedrawGhost fills it).
+    this.yapGhostLayer = this.add.container(0, 0);
+    board.add(this.yapGhostLayer);
+
     // C7: the hint ghost (dotted path of the revealed optimal plan) sits
     // under the player's route, so the player can draw over it.
     this.yapHintLayer = this.add.graphics();
@@ -474,6 +502,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapUpdateChrome();
     }
     this.yapRedrawMarks();
+    this.yapRedrawGhost(); // C6: no ghost after a rebuild outside planning
   }
 
   /**
@@ -516,23 +545,7 @@ export class YapLevelScene extends Phaser.Scene {
     for (const guard of state.guards) {
       const p = yapCellCenter(layout, guard.pos);
       const marker = this.add.graphics();
-      const r = layout.cell * 0.42;
-      marker
-        .fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
-        .fillCircle(p.x, p.y, r)
-        .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
-        .strokeCircle(p.x, p.y, r);
-      const d = yapDirVector(guard.facing);
-      const px = -d.y;
-      const py = d.x;
-      marker.fillStyle(yapHexToInt(YAP_PALETTE['text-primary']), 1).fillTriangle(
-        p.x + d.x * r * 0.98,
-        p.y + d.y * r * 0.98,
-        p.x + d.x * r * 0.42 + px * r * 0.3,
-        p.y + d.y * r * 0.42 + py * r * 0.3,
-        p.x + d.x * r * 0.42 - px * r * 0.3,
-        p.y + d.y * r * 0.42 - py * r * 0.3,
-      );
+      this.yapDrawGuardMarker(marker, layout, guard.pos, guard.facing);
       const sprite = this.add
         .image(p.x, p.y, 'yap-guard')
         .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82);
@@ -553,6 +566,93 @@ export class YapLevelScene extends Phaser.Scene {
       cameras: state.cameras.map((c) => ({ at: c.at, facing: c.facing })),
       lasers: state.lasers.map((l) => ({ cells: l.cells, active: l.active })),
     };
+  }
+
+  /**
+   * Guard marker: amber disc with a dark facing wedge, under the Kenney stand
+   * pose. Shared by the real entities (yapDrawState) and the C6 ghost preview,
+   * so both use the exact same shapes and colors.
+   */
+  private yapDrawGuardMarker(
+    g: Phaser.GameObjects.Graphics,
+    layout: YapBoardLayout,
+    pos: YapCell,
+    facing: YapDir,
+  ): void {
+    const p = yapCellCenter(layout, pos);
+    const r = layout.cell * 0.42;
+    g.fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
+      .fillCircle(p.x, p.y, r)
+      .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
+      .strokeCircle(p.x, p.y, r);
+    const d = yapDirVector(facing);
+    const px = -d.y;
+    const py = d.x;
+    g.fillStyle(yapHexToInt(YAP_PALETTE['text-primary']), 1).fillTriangle(
+      p.x + d.x * r * 0.98,
+      p.y + d.y * r * 0.98,
+      p.x + d.x * r * 0.42 + px * r * 0.3,
+      p.y + d.y * r * 0.42 + py * r * 0.3,
+      p.x + d.x * r * 0.42 - px * r * 0.3,
+      p.y + d.y * r * 0.42 - py * r * 0.3,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Ghost preview (C6): while drawing, the world at the tick of the cell under
+  // the finger, in a dedicated layer at reduced opacity.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Redraws the ghost layer. While the player draws (and the ghost flag is on),
+   * `yapPathInput.yapGhostState()` is non-null and the layer shows the guards,
+   * cameras, lasers and their cones at that tick — the cones are exactly the
+   * cells of visibleCells for the tick (yapGhostCones), drawn with the same
+   * helpers and colors as the real entities, the whole layer at YAP_GHOST_ALPHA
+   * so it cannot be confused with the tick-0 state (docs/UI-DESIGN.md). The
+   * layer is cleared as soon as the drawing stops, when the execution, the
+   * failure or the win screen starts, or when the flag is off.
+   */
+  private yapRedrawGhost(): void {
+    const layer = this.yapGhostLayer;
+    const layout = this.yapLayout;
+    const level = this.yapLevel;
+    const input = this.yapPathInput;
+    if (layer === null || layout === null || level === null) return;
+    layer.removeAll(true); // hidden by default: not drawing, flag off, other mode
+    const mode: YapGhostRenderMode =
+      this.yapExecution !== null
+        ? 'execution'
+        : this.yapFailure !== null
+          ? 'failure'
+          : this.yapWin !== null
+            ? 'win'
+            : 'planning';
+    const ghost = input === null ? null : input.yapGhostState();
+    if (ghost === null || !yapGhostLayerVisible(mode, ghost)) return;
+
+    const g = this.add.graphics();
+    g.setAlpha(YAP_GHOST_ALPHA); // the whole ghost layer at reduced opacity
+    // Cones: exactly the visibleCells cells of the ghost tick.
+    const cones = yapGhostCones(level, ghost);
+    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
+    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
+    // Lasers at the ghost tick, same active/off treatment as the real ones.
+    for (const laser of ghost.lasers) yapDrawLaser(g, layout, laser.cells, laser.active);
+    // Cameras and guard markers: the same shapes and colors as yapDrawState.
+    for (const cam of ghost.cameras) yapDrawCamera(g, layout, cam.at, cam.facing);
+    for (const guard of ghost.guards) this.yapDrawGuardMarker(g, layout, guard.pos, guard.facing);
+    layer.add(g);
+    // Kenney stand pose on each ghost guard, same size as the real one.
+    for (const guard of ghost.guards) {
+      const p = yapCellCenter(layout, guard.pos);
+      layer.add(
+        this.add
+          .image(p.x, p.y, 'yap-guard')
+          .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82)
+          .setAlpha(YAP_GHOST_ALPHA),
+      );
+    }
   }
 
   /** Redraws the route line and the pause badges from the path-input state. */
@@ -1040,6 +1140,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBuildExecutionChrome(level, layout);
     this.yapDrawState(exec.yapFrame());
     this.yapRedrawMarks();
+    this.yapRedrawGhost(); // C6: the ghost preview is cleared when PLAY starts
     this.yapUpdateExecutionChrome();
     this.yapScheduleTick();
   }
@@ -1100,6 +1201,7 @@ export class YapLevelScene extends Phaser.Scene {
     }
     if (state !== null) this.yapDrawState(state);
     this.yapRedrawPath();
+    this.yapRedrawGhost(); // C6: back to planning, no stroke in progress
     this.yapUpdateChrome();
   }
 
@@ -1222,6 +1324,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (state !== null) this.yapDrawState(state); // tick 0, planning view
     this.yapRedrawPath(); // the drawn path and its pauses are untouched
     this.yapRedrawMarks(); // the red fatal-cell marker stays on the plan
+    this.yapRedrawGhost(); // C6: no stroke in progress after the failure
     this.yapUpdateChrome();
   }
 
@@ -1586,6 +1689,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (state !== null) this.yapDrawState(state); // tick 0, planning view
     this.yapRedrawPath(); // the drawn path and its pauses are untouched
     this.yapRedrawMarks();
+    this.yapRedrawGhost(); // C6: no stroke in progress after the win
     this.yapUpdateChrome();
   }
 
