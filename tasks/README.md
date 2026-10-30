@@ -55,7 +55,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | Done | `tasks/G1.md` |
 | G2 | Consent and privacy | G | Dev | 0.5 | G1 | In progress (#22 merged; phone check pending) | `tasks/G2.md` |
 | G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress (#9 merged; live dashboards pending) | `tasks/G3.md` |
-| H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | To do | `tasks/H1.md` |
+| H1 | Feel session #1 | H | PM | 1.5 | C1–C5, F2, 3×F3 | In progress (template ready, session to run) | `tasks/H1.md` |
 | H2 | Feel fixes | H | Dev | 2 | H1 | To do | `tasks/H2.md` |
 | H3 | Feel session #2 (ghost on/off) | H | PM+Dev | 1.5 | H2 | To do | `tasks/H3.md` |
 | H4 | Recruitment 20–30 testers | H | PM | 1.5 | — (parallel from day 1) | To do | `tasks/H4.md` |
