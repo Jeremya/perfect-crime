@@ -28,6 +28,16 @@ import Phaser from 'phaser';
 import { parseLevel, type YapCell, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n } from '../app/i18n';
+import {
+  yapBuildShareContent,
+  yapLoadShareId,
+  yapPrepareShareImage,
+  yapPreparedShareImage,
+  yapResolveShareDay,
+  yapResolveShareVariant,
+  yapShare,
+  type YapShareReport,
+} from '../app/share';
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
@@ -1276,9 +1286,21 @@ export class YapLevelScene extends Phaser.Scene {
       yapI18n.t('win.share'),
       'action-primary',
       YAP_PALETTE['path-light'],
-      () => this.yapOnWinShare(),
+      () => undefined, // E2: Share fires on pointerup, below
     );
     chrome.add(shareBtn.container);
+    // E2: navigator.share and the clipboard need transient user activation,
+    // which a touch grants on its release (touchend), not on pointerdown.
+    // Phaser dispatches the DOM touchend/mouseup synchronously down to the
+    // zone's 'pointerup', so the share runs inside the activation.
+    const shareZone = shareBtn.container.list.find(
+      (child): child is Phaser.GameObjects.Zone => child instanceof Phaser.GameObjects.Zone,
+    );
+    shareZone?.on('pointerup', () => this.yapOnWinShare());
+    // The 'image' variant needs its map File before the tap: fetch it now.
+    if (yapResolveShareVariant() === 'image') {
+      void yapPrepareShareImage(yapResolveShareDay(level.type, this.sys.settings.data));
+    }
 
     // the planning/execution chrome refs do not exist in this mode
     this.yapTicksText = null;
@@ -1307,11 +1329,51 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapUpdateChrome();
   }
 
-  /** Share (stub until E2): emits the share payload as a scene event. */
+  /**
+   * Share (E2): one tap to the share sheet, or the text copied with a
+   * "Copied" message (src/app/share.ts). Runs synchronously from pointerup:
+   * nothing is awaited before navigator.share. The day comes from the scene
+   * data (`day`, D2) when there is one; a tutorial win has no daily heist and
+   * shares an invitation to the game instead (day 0 in share_tapped).
+   */
   private yapOnWinShare(): void {
     const win = this.yapWin;
-    if (win === null) return;
+    const level = this.yapLevel;
+    if (win === null || level === null) return;
+    const day = yapResolveShareDay(level.type, this.sys.settings.data);
+    const plan = this.yapPathInput?.yapPlan() ?? [];
+    const payload = day === null ? null : win.yapPayloadData(day, plan, yapLoadShareId());
+    const content = yapBuildShareContent(win.yapSharePayload(), payload);
+    void yapShare({
+      context: 'win',
+      day: day ?? 0,
+      content,
+      variant: yapResolveShareVariant(),
+      image: yapPreparedShareImage(day),
+    }).then((report) => this.yapShowShareToast(report));
     this.events.emit(YAP_WIN_SHARE_EVENT, win.yapSharePayload());
+  }
+
+  /** E2: a transient "Copied" (or failure) message above the Share button. */
+  private yapShowShareToast(report: YapShareReport): void {
+    const chrome = this.yapChrome;
+    const layout = this.yapLayout;
+    if (!this.sys.isActive() || this.yapWin === null || chrome === null || layout === null) return;
+    let message: string | null = null;
+    if (report.outcome === 'error') message = yapI18n.t('share.failed');
+    else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
+    if (message === null) return;
+    const toast = this.add
+      .text(layout.viewWidth / 2, layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT - 12, message, {
+        fontFamily: 'sans-serif',
+        fontSize: '16px',
+        color: YAP_PALETTE['path-light'],
+        backgroundColor: YAP_PALETTE['text-primary'],
+        padding: { x: 12, y: 8 },
+      })
+      .setOrigin(0.5, 1);
+    chrome.add(toast);
+    this.time.delayedCall(1600, () => toast.destroy());
   }
 
   /** Home (stub until D2): emits a scene event. */
