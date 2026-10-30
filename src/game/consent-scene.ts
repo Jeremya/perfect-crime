@@ -16,6 +16,7 @@
 // exactly as the spec requires (nothing sent before OK, a refusal = zero
 // events, ever).
 import Phaser from 'phaser';
+import { yapText } from './ui';
 import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
@@ -75,7 +76,7 @@ export class YapConsentScene extends Phaser.Scene {
     const copy = this.yapShowDetail
       ? yapI18n.t('consentBanner.detail')
       : `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
-    const text = this.add.text(textLeft, 0, copy, {
+    const text = yapText(this, textLeft, 0, copy, {
       fontFamily: 'sans-serif',
       fontSize: YAP_BANNER_FONT_SIZE,
       color: YAP_PALETTE['text-primary'],
@@ -152,8 +153,7 @@ export class YapConsentScene extends Phaser.Scene {
     const zone = this.add
       .zone(0, 0, w, YAP_BANNER_BUTTON_HEIGHT)
       .setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
+    const label = yapText(this, 0, 0, labelText, {
         fontFamily: 'sans-serif',
         fontSize: YAP_BANNER_FONT_SIZE,
         color: textColor,

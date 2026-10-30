@@ -14,6 +14,7 @@
 // laser state comes from the pure sim frames (src/core/sim.ts); drawing
 // reuses ./board.ts and ./render.ts of the C1 level scene.
 import Phaser from 'phaser';
+import { yapText } from './ui';
 import { parseLevel, YAP_GRID_HEIGHT, YAP_GRID_WIDTH, YAP_MAX_TICKS, type YapLevel } from '../core/level';
 import { createInitialState, run, type YapSimState } from '../core/sim';
 import { solveLevel, YapSolverError, type YapSolveResult } from '../core/solver';
@@ -244,11 +245,9 @@ export class YapViewerScene extends Phaser.Scene {
       fontSize: `${size}px`,
       color: YAP_PALETTE['text-primary'],
     });
-    this.yapNameText = this.add
-      .text(16, YAP_TOP_BAR_HEIGHT / 2, this.yapModel?.level.name ?? yapI18n.t('viewer.title'), textStyle(20))
+    this.yapNameText = yapText(this, 16, YAP_TOP_BAR_HEIGHT / 2, this.yapModel?.level.name ?? yapI18n.t('viewer.title'), textStyle(20))
       .setOrigin(0, 0.5);
-    this.yapTickText = this.add
-      .text(this.scale.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
+    this.yapTickText = yapText(this, this.scale.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
       .setOrigin(1, 0.5);
     chrome.add([this.yapNameText, this.yapTickText]);
 
@@ -333,8 +332,7 @@ export class YapViewerScene extends Phaser.Scene {
           .strokeCircle(bx, by, r);
         dyn.add(badge);
         dyn.add(
-          this.add
-            .text(bx, by, String(pauses), {
+          yapText(this, bx, by, String(pauses), {
               fontFamily: 'sans-serif',
               fontSize: `${Math.max(10, Math.floor(layout.cell * 0.28))}px`,
               color: YAP_PALETTE['path-light'],

@@ -26,6 +26,7 @@
 // rebuilt on resize; the countdown ticks every second and the whole screen
 // is rebuilt when the local day changes at midnight.
 import Phaser from 'phaser';
+import { yapText } from './ui';
 import { track } from '../app/analytics';
 import { YAP_WEEK_DAYS, yapArchiveDays } from '../app/daily';
 import { yapI18n } from '../app/i18n';
@@ -298,8 +299,7 @@ export class YapHomeScene extends Phaser.Scene {
       .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, width, YAP_TOP_BAR_HEIGHT - 0.5);
     root.add(header);
     root.add(
-      this.add
-        .text(
+      yapText(this, 
           16,
           YAP_TOP_BAR_HEIGHT / 2,
           yapI18n.t('app.title'),
@@ -335,8 +335,7 @@ export class YapHomeScene extends Phaser.Scene {
       bold: boolean,
       gapAfter: number,
     ): Phaser.GameObjects.Text => {
-      const t = this.add
-        .text(innerX, y, text, textStyle(size, color, bold, innerW))
+      const t = yapText(this, innerX, y, text, textStyle(size, color, bold, innerW))
         .setOrigin(0, 0);
       root.add(t);
       y += t.height + gapAfter;
@@ -606,8 +605,7 @@ export class YapHomeScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
-    const toast = this.add
-      .text(this.scale.width / 2, this.scale.height - 96, message, {
+    const toast = yapText(this, this.scale.width / 2, this.scale.height - 96, message, {
         fontFamily: 'sans-serif',
         fontSize: '16px',
         color: YAP_PALETTE['path-light'],
@@ -644,8 +642,7 @@ export class YapHomeScene extends Phaser.Scene {
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = this.add
-      .text(0, 0, labelText, {
+    const label = yapText(this, 0, 0, labelText, {
         fontFamily: 'sans-serif',
         fontSize: primary ? '20px' : '16px',
         color: primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
@@ -680,23 +677,20 @@ export class YapHomeScene extends Phaser.Scene {
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
     // two-line row that also survives the compact height of a small phone
     const tight = h < 56;
-    const titleText = this.add
-      .text(-w / 2 + 16, -h / 2 + (tight ? 6 : 10), title, {
+    const titleText = yapText(this, -w / 2 + 16, -h / 2 + (tight ? 6 : 10), title, {
         fontFamily: 'sans-serif',
         fontSize: tight ? '15px' : '16px',
         color: YAP_PALETTE['text-primary'],
         fontStyle: 'bold',
       })
       .setOrigin(0, 0);
-    const statusText = this.add
-      .text(-w / 2 + 16, -h / 2 + (tight ? 23 : 34), status, {
+    const statusText = yapText(this, -w / 2 + 16, -h / 2 + (tight ? 23 : 34), status, {
         fontFamily: 'sans-serif',
         fontSize: tight ? '13px' : '14px',
         color: YAP_PALETTE['text-secondary'],
       })
       .setOrigin(0, 0);
-    const playText = this.add
-      .text(w / 2 - 16, 0, yapI18n.t('home.play'), {
+    const playText = yapText(this, w / 2 - 16, 0, yapI18n.t('home.play'), {
         fontFamily: 'sans-serif',
         fontSize: '16px',
         color: YAP_PALETTE['text-primary'],
