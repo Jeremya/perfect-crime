@@ -173,6 +173,14 @@ controls. Elements without a suitable sprite should be explicitly marked
 camera/laser emitters). Do not add a dependency or asset bundle that breaks
 the 3 MB initial-download budget.
 
+Current Gate 1 sprite mapping: `public/assets/kenney/thief-hitman-stand.png`
+uses Kenney's **Hitman 1 / stand** pose for the thief;
+`public/assets/kenney/guard-man-brown-stand.png` uses **Man Brown / stand** for
+guards, consistently backed by the amber guard marker. Both are copied from the
+CC0 Top-down Shooter pack; see `public/assets/kenney/LICENSE-topdown-shooter.txt`.
+The board and threat marks remain drawn in code. Kenney UI Pack button sprites
+have not yet been integrated.
+
 ## Visual design deliverables and review
 
 The visual handoff for Gate 1 consists of:

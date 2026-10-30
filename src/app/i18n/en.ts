@@ -124,6 +124,11 @@ export const en = {
   ghost: {
     tickBadge: 't{tick}',
   },
+  // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
+  // preview that will go into the share.
+  winScreen: {
+    sharePreview: 'Share preview',
+  },
   // Story G2 — consent banner (first launch, non-blocking top strip).
   consentBanner: {
     learnMore: 'Learn more',

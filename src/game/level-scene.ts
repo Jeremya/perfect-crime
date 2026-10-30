@@ -13,6 +13,11 @@
 // thief and whatever saw it, the detector cone in red, the written cause
 // with a marker on the fatal cell, and one tap back to the intact plan
 // (path and pauses kept, red fatal-cell marker retained).
+// On a win (C5), YapWinScreen (./win.ts) drives the Win screen: a panel over
+// the final frame with attempts, ticks vs par, stars, the emoji-line preview
+// and Share (dominant, stub event until E2) / Improve my score / Home. Every
+// PLAY press counts as an attempt until the win; replaying after the win
+// never changes attempts.
 // Layout adapts to the viewport (readable on a 360 x 640 screen) and rebuilds
 // on resize, preserving the drawn path.
 //
@@ -32,6 +37,7 @@ import {
   yapCellCenter,
   yapComputeLayout,
   yapConeCells,
+  yapDirVector,
   yapHexToInt,
   yapLaserCells,
   type YapBoardLayout,
@@ -39,12 +45,12 @@ import {
 import { YapPathInput } from './path-input';
 import { YapExecution, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
+import { YapAttemptLog, YapWinScreen } from './win';
 import {
   yapDrawCamera,
   yapDrawCone,
   yapDrawDiamond,
   yapDrawExit,
-  yapDrawGuard,
   yapDrawLaser,
   yapDrawPatrol,
   yapDrawStaticGrid,
@@ -58,6 +64,10 @@ const YAP_GRID_TEXTURE_KEY = 'yap-board-grid';
 const YAP_PLAY_EVENT = 'yap-play';
 /** Scene event emitted with the outcome when the playback reaches its end. */
 const YAP_EXECUTION_END_EVENT = 'yap-execution-end';
+/** Scene event emitted with the share payload when Share is pressed (E2 wires it). */
+const YAP_WIN_SHARE_EVENT = 'yap-win-share';
+/** Scene event emitted when Home is pressed on the Win screen (D2 wires it). */
+const YAP_WIN_HOME_EVENT = 'yap-win-home';
 
 export interface YapLevelSceneData {
   /** .lvl source to render; defaults to the tutorial heist. */
@@ -108,8 +118,13 @@ export class YapLevelScene extends Phaser.Scene {
   private yapFailureFrameIndex = 0;
   /** Red fatal-cell marker kept on the plan after a failure (null = none). */
   private yapFatalMarker: YapCell | null = null;
-  /** Number of PLAY presses (every press counts as an attempt, spec). */
-  private yapAttempts = 0;
+  // --- Win (C5) ---
+  /** Attempt bookkeeping: every PLAY press counts, until the heist is won. */
+  private readonly yapAttemptLog = new YapAttemptLog();
+  /** Win screen model while the Win screen is up (null = not). */
+  private yapWin: YapWinScreen | null = null;
+  /** The final (won) frame, kept on screen behind the Win panel. */
+  private yapWinFrame: YapSimState | null = null;
   /** Layer above the entities: red detector cone + fatal-cell marker. */
   private yapMarksLayer: Phaser.GameObjects.Graphics | null = null;
   /** Unzoomed camera drawing the chrome while the Failure zoom is on. */
@@ -117,6 +132,11 @@ export class YapLevelScene extends Phaser.Scene {
 
   constructor() {
     super('yap-level');
+  }
+
+  preload(): void {
+    this.load.image('yap-thief', '/assets/kenney/thief-hitman-stand.png');
+    this.load.image('yap-guard', '/assets/kenney/guard-man-brown-stand.png');
   }
 
   create(data: YapLevelSceneData): void {
@@ -168,6 +188,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapExitFailure();
       return;
     }
+    if (this.yapWin !== null) return; // the Win screen buttons handle their own taps
     if (this.yapPointerId !== null) return; // a single finger draws
     if (this.yapExecution !== null) return; // no drawing during playback
     const layout = this.yapLayout;
@@ -296,10 +317,11 @@ export class YapLevelScene extends Phaser.Scene {
     board.add(this.yapMarksLayer);
 
     this.yapRedrawPath();
-    // Chrome and displayed state of the current mode (planning, execution
-    // or failure).
+    // Chrome and displayed state of the current mode (planning, execution,
+    // failure or win).
     const exec = this.yapExecution;
     const failure = this.yapFailure;
+    const win = this.yapWin;
     if (exec !== null) {
       this.yapBuildExecutionChrome(level, layout);
       this.yapDrawState(exec.yapFrame());
@@ -310,6 +332,9 @@ export class YapLevelScene extends Phaser.Scene {
       const frame = frames[this.yapFailureFrameIndex] ?? frames[frames.length - 1];
       if (frame !== undefined) this.yapDrawState(frame);
       this.yapApplyFailureZoom();
+    } else if (win !== null) {
+      this.yapBuildWinChrome(level, layout);
+      if (this.yapWinFrame !== null) this.yapDrawState(this.yapWinFrame);
     } else {
       this.yapBuildChrome(level, layout);
       this.yapDrawState(state);
@@ -349,9 +374,35 @@ export class YapLevelScene extends Phaser.Scene {
     if (!state.hasLoot) yapDrawDiamond(ent, layout, level.loot);
     yapDrawStart(ent, layout, level.start);
     for (const cam of state.cameras) yapDrawCamera(ent, layout, cam.at, cam.facing);
-    for (const guard of state.guards) yapDrawGuard(ent, layout, guard.pos, guard.facing);
     yapDrawThief(ent, layout, state.thief);
     ents.add(ent);
+
+    // Kenney Top-down Shooter stand poses: the warm character chips separate
+    // guards from the thief while preserving a clear silhouette on danger cells.
+    for (const guard of state.guards) {
+      const p = yapCellCenter(layout, guard.pos);
+      const marker = this.add.graphics();
+      const r = layout.cell * 0.43;
+      marker
+        .fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
+        .fillCircle(p.x, p.y, r)
+        .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
+        .strokeCircle(p.x, p.y, r);
+      // the Kenney pose faces east: turn it to the guard's facing, which the
+      // code-drawn facing wedge used to show
+      const d = yapDirVector(guard.facing);
+      const sprite = this.add
+        .image(p.x, p.y, 'yap-guard')
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9)
+        .setRotation(Math.atan2(d.y, d.x));
+      ents.add([marker, sprite]);
+    }
+    const thiefAt = yapCellCenter(layout, state.thief);
+    ents.add(
+      this.add
+        .image(thiefAt.x, thiefAt.y, 'yap-thief')
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9),
+    );
 
     // What is on screen right now (input of the dev assertion).
     this.yapDisplayed = {
@@ -428,34 +479,64 @@ export class YapLevelScene extends Phaser.Scene {
       fontSize: `${size}px`,
       color: YAP_PALETTE['text-primary'],
     });
-    const midY = YAP_TOP_BAR_HEIGHT / 2;
+    const header = this.add.graphics();
+    header
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, 0, layout.viewWidth, YAP_TOP_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 0.5);
+    // A small accent gives the otherwise quiet HUD a clear game identity.
+    header.fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1).fillRect(0, 0, 4, 64);
+    chrome.add(header);
 
-    const name = this.add.text(16, midY, level.name, textStyle(16)).setOrigin(0, 0.5);
+    const name = this.add
+      .text(16, 18, level.name, {
+        ...textStyle(18),
+        fontStyle: 'bold',
+      })
+      .setOrigin(0, 0.5);
     chrome.add(name);
 
-    // right-aligned stats: pauses left, par, plan ticks (14 px minimum)
+    // Compact second-line stats avoid collision with the level title on narrow
+    // phones while keeping the planning state visible at a glance.
     const input = this.yapPathInput;
     const pausesText = this.add
       .text(
-        layout.viewWidth - 16,
-        midY,
+        layout.viewWidth - 14,
+        47,
         yapI18n.t('planning.pausesLeft', { count: input?.yapPausesLeft() ?? level.maxPauses }),
-        textStyle(14),
+        { ...textStyle(14), fontStyle: 'bold' },
       )
       .setOrigin(1, 0.5);
     const parText = this.add
-      .text(0, midY, yapI18n.t('planning.par', { par: level.par }), textStyle(14))
+      .text(0, 47, yapI18n.t('planning.par', { par: level.par }), {
+        ...textStyle(14),
+        fontStyle: 'bold',
+      })
       .setOrigin(1, 0.5);
-    parText.x = pausesText.x - pausesText.width - 12;
+    parText.x = pausesText.x - pausesText.width - 16;
     const ticksText = this.add
       .text(
         0,
-        midY,
+        47,
         yapI18n.t('planning.planTicks', { ticks: input?.yapSteps() ?? 0 }),
-        textStyle(14),
+        { ...textStyle(14), fontStyle: 'bold' },
       )
       .setOrigin(1, 0.5);
-    ticksText.x = parText.x - parText.width - 12;
+    ticksText.x = parText.x - parText.width - 16;
+
+    // Quiet pill backgrounds group the numbers without competing with the map.
+    const stats = this.add.graphics();
+    const pill = (text: Phaser.GameObjects.Text): void => {
+      const w = text.width + 16;
+      stats
+        .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
+        .fillRoundedRect(text.x - w + 8, 36, w, 22, 11);
+    };
+    pill(ticksText);
+    pill(parText);
+    pill(pausesText);
+    chrome.add(stats);
     chrome.add([pausesText, parText, ticksText]);
     this.yapPausesText = pausesText;
     this.yapTicksText = ticksText;
@@ -480,14 +561,13 @@ export class YapLevelScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     chrome.add(this.yapInstruction);
 
-    // buttons row: 44 px tall touch targets, PLAY the largest primary action
-    const btnH = 44;
-    const btnY = barY + YAP_BOTTOM_BAR_HEIGHT - 6 - btnH / 2;
+    // Buttons have generous phone-sized targets; PLAY is the visual anchor.
+    const btnY = barY + 66;
     const clearBtn = this.yapMakeButton(
-      16 + 48,
+      16 + 50,
       btnY,
-      96,
-      btnH,
+      100,
+      48,
       yapI18n.t('planning.clear'),
       'action-secondary',
       YAP_PALETTE['text-primary'],
@@ -501,10 +581,10 @@ export class YapLevelScene extends Phaser.Scene {
     );
     chrome.add(clearBtn.container);
     const playBtn = this.yapMakeButton(
-      layout.viewWidth - 16 - 75,
+      layout.viewWidth / 2 + 42,
       btnY,
-      150,
-      btnH,
+      168,
+      52,
       yapI18n.t('planning.play'),
       'action-secondary',
       YAP_PALETTE['text-secondary'],
@@ -565,9 +645,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-        .fillRoundedRect(-75, -22, 150, 44, 8)
+        .fillRoundedRect(-84, -26, 168, 52, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-75, -22, 150, 44, 8);
+        .strokeRoundedRect(-84, -26, 168, 52, 10);
       play.label.setColor(YAP_PALETTE['path-light']);
       if (this.yapPlayPulse === null) {
         this.yapPlayPulse = this.tweens.add({
@@ -583,9 +663,9 @@ export class YapLevelScene extends Phaser.Scene {
       play.bg
         .clear()
         .fillStyle(yapHexToInt(YAP_PALETTE['action-secondary']), 1)
-        .fillRoundedRect(-75, -22, 150, 44, 8)
+        .fillRoundedRect(-84, -26, 168, 52, 10)
         .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-        .strokeRoundedRect(-75, -22, 150, 44, 8);
+        .strokeRoundedRect(-84, -26, 168, 52, 10);
       play.label.setColor(YAP_PALETTE['text-secondary']);
       if (this.yapPlayPulse !== null) {
         this.yapPlayPulse.stop();
@@ -681,7 +761,9 @@ export class YapLevelScene extends Phaser.Scene {
     const level = this.yapLevel;
     const layout = this.yapLayout;
     if (level === null || layout === null) return;
-    this.yapAttempts += 1; // every press of PLAY counts as an attempt (spec)
+    // every press of PLAY counts as an attempt — until the heist is won
+    // (replaying after the win never changes attempts, Gate 1 spec)
+    this.yapAttemptLog.yapPressPlay();
     this.yapFatalMarker = null; // a new attempt clears the old fatal marker
     const exec = new YapExecution(level, plan);
     this.yapExecution = exec;
@@ -724,7 +806,14 @@ export class YapLevelScene extends Phaser.Scene {
     this.events.emit(YAP_EXECUTION_END_EVENT, outcome);
     if (outcome.kind === 'detected') {
       // C4: slow-motion replay of the last ticks, zoom, written cause.
+      this.yapAttemptLog.yapRegisterFailure(outcome.cause);
       this.yapStartFailure(exec);
+      return;
+    }
+    if (outcome.kind === 'won') {
+      // C5: the Win screen over the final frame.
+      this.yapAttemptLog.yapRegisterWin();
+      this.yapStartWin(exec);
       return;
     }
     this.yapUpdateExecutionChrome();
@@ -978,7 +1067,7 @@ export class YapLevelScene extends Phaser.Scene {
         .text(
           layout.viewWidth - 16,
           midY,
-          yapI18n.t('failure.attempt', { n: this.yapAttempts }),
+          yapI18n.t('failure.attempt', { n: this.yapAttemptLog.yapAttempts() }),
           textStyle(14),
         )
         .setOrigin(1, 0.5),
@@ -1037,5 +1126,191 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPlayButton = null;
     this.yapExecTickText = null;
     this.yapSpeedButton = null;
+  }
+
+  // -------------------------------------------------------------------------
+  // Win (C5): the Win screen over the final frame — attempts, ticks vs par,
+  // stars, the emoji-line preview, and Share / Improve / Home.
+  // -------------------------------------------------------------------------
+
+  /** Win: build the Win screen model and put its chrome over the final frame. */
+  private yapStartWin(exec: YapExecution): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    if (level === null || layout === null) return;
+    const outcome = exec.yapOutcome();
+    if (outcome.kind !== 'won') return;
+    this.yapWin = new YapWinScreen(level, outcome, this.yapAttemptLog);
+    this.yapWinFrame = exec.yapFrame(); // the won frame stays on the board
+    this.yapExecution = null; // the playback is over; the Win screen drives now
+    this.yapChrome?.destroy();
+    this.yapChrome = null;
+    this.yapBuildWinChrome(level, layout);
+    this.yapDrawState(this.yapWinFrame);
+    this.yapRedrawMarks();
+  }
+
+  /**
+   * Win chrome: a panel over the board with the title, the attempts / ticks /
+   * par / stars rows, the emoji-line preview and the Improve and Home
+   * actions; the bottom bar holds the dominant Share action.
+   */
+  private yapBuildWinChrome(level: YapLevel, layout: YapBoardLayout): void {
+    const chrome = this.add.container(0, 0);
+    this.yapChrome = chrome;
+    const win = this.yapWin;
+    if (win === null) return;
+    const textStyle = (size: number, color: string): Phaser.Types.GameObjects.Text.TextStyle => ({
+      fontFamily: 'sans-serif',
+      fontSize: `${size}px`,
+      color,
+    });
+    const midY = YAP_TOP_BAR_HEIGHT / 2;
+    chrome.add(
+      this.add.text(16, midY, level.name, textStyle(16, YAP_PALETTE['text-primary'])).setOrigin(0, 0.5),
+    );
+
+    // panel over the board area, between the top and bottom bars
+    const panelX = 12;
+    const panelY = YAP_TOP_BAR_HEIGHT + 8;
+    const panelW = layout.viewWidth - 24;
+    const panelH = layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT - 16;
+    const panel = this.add.graphics();
+    panel
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRoundedRect(panelX, panelY, panelW, panelH, 12)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .strokeRoundedRect(panelX, panelY, panelW, panelH, 12);
+    chrome.add(panel);
+
+    const cx = layout.viewWidth / 2;
+    let y = panelY + 18;
+    const title = this.add
+      .text(cx, y, yapI18n.t('win.title'), textStyle(24, YAP_PALETTE['text-primary']))
+      .setOrigin(0.5, 0);
+    chrome.add(title);
+    y += title.height + 14;
+
+    // stats rows: label left, value right (14 px minimum body text)
+    const rows: readonly (readonly [string, string])[] = [
+      [yapI18n.t('win.attempts'), String(win.yapAttempts())],
+      [yapI18n.t('win.ticks'), String(win.yapTicks())],
+      [yapI18n.t('win.par'), String(win.yapPar())],
+      [yapI18n.t('win.stars'), win.yapStarsText()],
+    ];
+    for (const [label, value] of rows) {
+      chrome.add(
+        this.add
+          .text(panelX + 16, y, label, textStyle(16, YAP_PALETTE['text-secondary']))
+          .setOrigin(0, 0),
+      );
+      chrome.add(
+        this.add
+          .text(panelX + panelW - 16, y, value, textStyle(16, YAP_PALETTE['text-primary']))
+          .setOrigin(1, 0),
+      );
+      y += 26;
+    }
+    y += 8;
+
+    // the emoji line that will go into the share, as a preview
+    chrome.add(
+      this.add
+        .text(cx, y, yapI18n.t('winScreen.sharePreview'), textStyle(14, YAP_PALETTE['text-secondary']))
+        .setOrigin(0.5, 0),
+    );
+    y += 20;
+    const emoji = this.add
+      .text(cx, y, win.yapEmojiLine(), textStyle(20, YAP_PALETTE['text-primary']))
+      .setOrigin(0.5, 0);
+    chrome.add(emoji);
+
+    // Improve my score + Home, side by side, 44 px tall touch targets
+    const btnH = 44;
+    const gap = 8;
+    const halfW = (panelW - 32 - gap) / 2;
+    const btnY = panelY + panelH - 12 - btnH / 2;
+    const improveBtn = this.yapMakeButton(
+      panelX + 16 + halfW / 2,
+      btnY,
+      halfW,
+      btnH,
+      yapI18n.t('win.improve'),
+      'action-secondary',
+      YAP_PALETTE['text-primary'],
+      () => this.yapExitWin(),
+    );
+    chrome.add(improveBtn.container);
+    const homeBtn = this.yapMakeButton(
+      panelX + 16 + halfW + gap + halfW / 2,
+      btnY,
+      halfW,
+      btnH,
+      yapI18n.t('win.home'),
+      'action-secondary',
+      YAP_PALETTE['text-primary'],
+      () => this.yapOnWinHome(),
+    );
+    chrome.add(homeBtn.container);
+
+    // bottom action bar: the dominant Share action
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    const bar = this.add.graphics();
+    bar
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, barY, layout.viewWidth, YAP_BOTTOM_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
+    chrome.add(bar);
+    const shareW = Math.min(240, layout.viewWidth - 32);
+    const shareBtn = this.yapMakeButton(
+      cx,
+      barY + YAP_BOTTOM_BAR_HEIGHT - 6 - 22,
+      shareW,
+      44,
+      yapI18n.t('win.share'),
+      'action-primary',
+      YAP_PALETTE['path-light'],
+      () => this.yapOnWinShare(),
+    );
+    chrome.add(shareBtn.container);
+
+    // the planning/execution chrome refs do not exist in this mode
+    this.yapTicksText = null;
+    this.yapPausesText = null;
+    this.yapInstruction = null;
+    this.yapPlayButton = null;
+    this.yapExecTickText = null;
+    this.yapSpeedButton = null;
+  }
+
+  /** Improve my score: back to the intact plan (attempts stay at the win). */
+  private yapExitWin(): void {
+    this.yapWin = null;
+    this.yapWinFrame = null;
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const state = this.yapState;
+    if (level !== null && layout !== null) {
+      this.yapChrome?.destroy();
+      this.yapChrome = null;
+      this.yapBuildChrome(level, layout);
+    }
+    if (state !== null) this.yapDrawState(state); // tick 0, planning view
+    this.yapRedrawPath(); // the drawn path and its pauses are untouched
+    this.yapRedrawMarks();
+    this.yapUpdateChrome();
+  }
+
+  /** Share (stub until E2): emits the share payload as a scene event. */
+  private yapOnWinShare(): void {
+    const win = this.yapWin;
+    if (win === null) return;
+    this.events.emit(YAP_WIN_SHARE_EVENT, win.yapSharePayload());
+  }
+
+  /** Home (stub until D2): emits a scene event. */
+  private yapOnWinHome(): void {
+    this.events.emit(YAP_WIN_HOME_EVENT);
   }
 }
