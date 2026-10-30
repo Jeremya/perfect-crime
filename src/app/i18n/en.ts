@@ -114,7 +114,17 @@ export const en = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
-  // Story G2 — consent banner (first launch, non-blocking bottom strip).
+  // Story C4 — Failure screen (slow-motion replay, written cause, retry).
+  failureReplay: {
+    spottedByCamera: 'Spotted by the camera',
+    spottedByLaser: 'Caught in the laser beam',
+  },
+  // Story C6 — Ghost preview while drawing (behind the ?flag=ghost: switch):
+  // compact tick badge shown at the cell under the finger.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
+  // Story G2 — consent banner (first launch, non-blocking top strip).
   consentBanner: {
     learnMore: 'Learn more',
     detail:

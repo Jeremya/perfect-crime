@@ -17,9 +17,16 @@
 //   to zero;
 // - the plan is at most 64 steps, pauses included;
 // - reaching the exit once the diamond is picked up ends the drawing.
+//
+// Story C6 hook: while drawing, and when the ghost flag is on
+// (src/app/config.ts, `?flag=ghost:0/1`), the getters below expose the ghost
+// preview — the world (guards, cameras, lasers, cones) at the tick of the
+// cell under the finger — computed by YapGhostPreview (./ghost.ts) through
+// resolveTick only.
 import { YAP_MAX_TICKS, type YapCell, type YapLevel } from '../core/level';
 import type { YapMove } from '../core/sim';
 import type { YapBoardLayout } from './board';
+import { YapGhostPreview, yapResolveGhostFlag, type YapGhostState } from './ghost';
 
 /** Central zone of a cell: a cell is entered only inside the central 70%. */
 export const YAP_CENTRAL_ZONE = 0.7;
@@ -31,6 +38,12 @@ export const YAP_TAP_MAX_DURATION = 250;
 export interface YapPathInputOptions {
   /** Plan length bound, pauses included; defaults to the spec's 64 steps. */
   readonly maxSteps?: number;
+  /**
+   * The ghost preview flag (src/app/config.ts, `?flag=ghost:0/1`): while
+   * drawing, expose the world at the tick of the cell under the finger.
+   * Defaults to the config default (on).
+   */
+  readonly ghost?: boolean;
 }
 
 /** One in-progress stroke (pointer down, maybe moved, not yet released). */
@@ -53,6 +66,12 @@ export class YapPathInput {
   private yapPauses: number[];
   private yapFinished: boolean;
   private yapGesture: YapGesture | null = null;
+  /** The ghost flag (C6): when off, no preview is ever exposed. */
+  private readonly yapGhostEnabled: boolean;
+  /** The ghost preview of the level (null when the flag is off). */
+  private readonly yapGhost: YapGhostPreview | null;
+  /** The cell under the finger during a stroke (null when not drawing). */
+  private yapHoverCell: YapCell | null = null;
 
   constructor(level: YapLevel, layout: YapBoardLayout, options: YapPathInputOptions = {}) {
     this.yapLevel = level;
@@ -61,6 +80,8 @@ export class YapPathInput {
     this.yapCells = [{ x: level.start.x, y: level.start.y }];
     this.yapPauses = [0];
     this.yapFinished = false;
+    this.yapGhostEnabled = options.ghost ?? yapResolveGhostFlag();
+    this.yapGhost = this.yapGhostEnabled ? new YapGhostPreview(level) : null;
   }
 
   /** Rebinds the geometry after a resize; the drawn path is preserved. */
@@ -112,6 +133,49 @@ export class YapPathInput {
 
   yapIsDrawing(): boolean {
     return this.yapGesture !== null && this.yapGesture.drawing;
+  }
+
+  // -------------------------------------------------------------------------
+  // Ghost preview (C6) — the world at the tick of the cell under the finger
+  // -------------------------------------------------------------------------
+
+  /** True while drawing with the ghost flag on: the preview is visible. */
+  yapIsGhostVisible(): boolean {
+    return this.yapGhost !== null && this.yapIsDrawing();
+  }
+
+  /** The cell under the finger while drawing (null when the preview is hidden). */
+  yapGhostCell(): YapCell | null {
+    if (!this.yapIsGhostVisible()) return null;
+    const last = this.yapCells[this.yapCells.length - 1];
+    if (last === undefined) return null;
+    return this.yapHoverCell ?? last;
+  }
+
+  /**
+   * The tick of the cell under the finger while drawing: the tick at which the
+   * thief reaches that cell along the drawn plan (its index plus the pauses
+   * before it). Null when the preview is hidden.
+   */
+  yapGhostTick(): number | null {
+    const cell = this.yapGhostCell();
+    if (cell === null) return null;
+    const idx = this.yapIndexOf(cell);
+    if (idx < 0) return this.yapSteps(); // not on the path: the stroke's end
+    let tick = idx;
+    for (let i = 0; i < idx; i += 1) tick += this.yapPauses[i] ?? 0;
+    return tick;
+  }
+
+  /**
+   * The ghost preview: guards, cameras and lasers at the tick of the cell
+   * under the finger (cones included, exactly visibleCells for that tick).
+   * Null when not drawing or when the ghost flag is off.
+   */
+  yapGhostState(): YapGhostState | null {
+    const tick = this.yapGhostTick();
+    if (tick === null || this.yapGhost === null) return null;
+    return this.yapGhost.yapAt(tick);
   }
 
   /** The plan as moves/waits, ready for run() (src/core/sim.ts). */
@@ -166,6 +230,7 @@ export class YapPathInput {
     if (this.yapFinished) return;
     const c = this.yapCellAtPointLoose(x, y);
     if (c === null) return;
+    this.yapHoverCell = c;
     const idx = this.yapIndexOf(c);
     if (idx === this.yapCells.length - 1) {
       // drawing starts from the thief, or from the last cell to extend it
@@ -195,6 +260,7 @@ export class YapPathInput {
     const g = this.yapGesture;
     if (g === null || this.yapFinished) return;
     const target = this.yapCellAtPoint(x, y);
+    if (target !== null) this.yapHoverCell = target; // the cell under the finger
     if (target === null) return; // border strip: no stray jumps
     if (!g.drawing) {
       if (yapSameCell(target, g.downCell)) return;
@@ -212,6 +278,7 @@ export class YapPathInput {
     const g = this.yapGesture;
     if (g === null) return;
     this.yapGesture = null;
+    this.yapHoverCell = null;
     if (this.yapFinished) return;
     const dist = Math.hypot(x - g.downX, y - g.downY);
     const duration = now - g.downTime;
@@ -227,6 +294,7 @@ export class YapPathInput {
     this.yapPauses = [0];
     this.yapFinished = false;
     this.yapGesture = null;
+    this.yapHoverCell = null;
   }
 
   // -------------------------------------------------------------------------
