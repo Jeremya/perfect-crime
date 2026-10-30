@@ -115,4 +115,25 @@ export const fr: YapDictionary = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
+  // Story C4 — écran d'échec (rejeu au ralenti, cause écrite, réessayer).
+  failureReplay: {
+    spottedByCamera: 'Repéré par la caméra',
+    spottedByLaser: 'Pris dans le faisceau laser',
+  },
+  // Story C6 — aperçu fantôme pendant le tracé (derrière ?flag=ghost:) :
+  // badge de tick compact affiché sur la cellule sous le doigt.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
+  // Story C5 — panneau de l'écran de victoire (src/game/win.ts) : label de
+  // l'aperçu de la ligne d'emojis qui ira dans le partage.
+  winScreen: {
+    sharePreview: 'Aperçu du partage',
+  },
+  // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
+  consentBanner: {
+    learnMore: 'En savoir plus',
+    detail:
+      'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
+  },
 };

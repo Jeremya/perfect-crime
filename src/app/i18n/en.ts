@@ -114,6 +114,27 @@ export const en = {
   executionPlayback: {
     tick: 'Tick {tick}/{max}',
   },
+  // Story C4 — Failure screen (slow-motion replay, written cause, retry).
+  failureReplay: {
+    spottedByCamera: 'Spotted by the camera',
+    spottedByLaser: 'Caught in the laser beam',
+  },
+  // Story C6 — Ghost preview while drawing (behind the ?flag=ghost: switch):
+  // compact tick badge shown at the cell under the finger.
+  ghost: {
+    tickBadge: 't{tick}',
+  },
+  // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
+  // preview that will go into the share.
+  winScreen: {
+    sharePreview: 'Share preview',
+  },
+  // Story G2 — consent banner (first launch, non-blocking top strip).
+  consentBanner: {
+    learnMore: 'Learn more',
+    detail:
+      'Anonymous events only (random ID), hosted in the EU and deleted at the end of Gate 2. No ads, no resale.',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
