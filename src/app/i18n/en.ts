@@ -162,6 +162,22 @@ export const en = {
     yourTurn: 'Your turn: {link}',
     failed: 'Could not share',
   },
+  // Story E4 — link arrival (src/app/inbox.ts, src/game/challenge-scene.ts,
+  // src/app/router.ts): the challenge card of a received link, its score
+  // comparison and the friend's plan, hidden until the recipient has won or
+  // taken the second hint. The card line and the actions reuse challenge.*
+  // and comparison.* above.
+  challengeFlow: {
+    expressNote: 'New here? A quick 3-level tutorial comes first.',
+    you: 'You',
+    friend: 'Friend',
+    hints: 'Hints',
+    verdictBetter: 'You beat your friend!',
+    verdictWorse: 'Your friend is ahead — rematch?',
+    verdictTied: 'Dead heat!',
+    planLocked: 'Their plan stays hidden until you clear this heist — or take the second hint.',
+    planTitle: 'Their plan',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */

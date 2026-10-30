@@ -164,4 +164,21 @@ export const fr: YapDictionary = {
     yourTurn: 'À toi : {link}',
     failed: 'Partage impossible',
   },
+  // Story E4 — arrivée par un lien (src/app/inbox.ts, src/game/challenge-scene.ts,
+  // src/app/router.ts) : la carte de défi d'un lien reçu, sa comparaison de
+  // scores et le plan de l'ami, caché jusqu'à la victoire du destinataire ou
+  // jusqu'au deuxième indice. La ligne de la carte et les actions réutilisent
+  // challenge.* et comparison.* ci-dessus.
+  challengeFlow: {
+    expressNote: 'Nouveau ici ? Un tutoriel rapide en 3 niveaux d’abord.',
+    you: 'Toi',
+    friend: 'Ami',
+    hints: 'Indices',
+    verdictBetter: 'Tu as battu ton ami !',
+    verdictWorse: 'Ton ami est devant — revanche ?',
+    verdictTied: 'Égalité parfaite !',
+    planLocked:
+      'Son plan reste caché jusqu’à ce que tu réussisses cette casse — ou que tu prennes le deuxième indice.',
+    planTitle: 'Son plan',
+  },
 };
