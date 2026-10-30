@@ -15,10 +15,12 @@
 //     total; one light bulb per hint used.
 //
 // The whole contract is unit-tested in node (tests/unit/win.test.ts); the
-// scene (./level-scene.ts) draws from the getters. Share is a stub until E2:
-// the scene emits the payload of yapSharePayload() as a scene event.
+// scene (./level-scene.ts) draws from the getters. Share (E2): the scene
+// builds the share text from yapSharePayload() and the challenge link from
+// yapPayloadData() (the E1 payload), then shares through src/app/share.ts.
 import type { YapLevel } from '../core/level';
-import type { YapCause, YapSimOutcome } from '../core/sim';
+import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
+import { YAP_MAX_CAUSES, type YapPayloadData } from '../app/payload';
 
 /** 2 stars up to par x 1.2 rounded down (Gate 1 spec, "Score, stars"). */
 export const YAP_STAR_THRESHOLD = 1.2;
@@ -92,7 +94,7 @@ export class YapAttemptLog {
   }
 }
 
-/** The share payload emitted with the Share stub event (wired by E2). */
+/** The share summary of the Win screen: what the share text shows (E2). */
 export interface YapWinSharePayload {
   readonly attempts: number;
   readonly ticks: number;
@@ -168,7 +170,7 @@ export class YapWinScreen {
     return `${first}…✅ ${this.yapLog.yapAttempts()}${hints}`;
   }
 
-  /** The payload of the Share stub event (E2 wires the real share later). */
+  /** The share summary: attempts, ticks, par, stars and the emoji line (E2). */
   yapSharePayload(): YapWinSharePayload {
     return {
       attempts: this.yapAttempts(),
@@ -176,6 +178,30 @@ export class YapWinScreen {
       par: this.yapPar(),
       stars: this.yapStars(),
       emojiLine: this.yapEmojiLine(),
+    };
+  }
+
+  /**
+   * The E1 link payload of this win (story E2): the day of the heist, the
+   * winning attempt, ticks, stars, hints, the first 8 failure causes, the
+   * anonymous share ID and the winning plan. Counters are clamped to their
+   * payload fields (attempts one byte, hints two bits).
+   */
+  yapPayloadData(day: number, plan: YapPlan, shareId: number, nickname = ''): YapPayloadData {
+    const causes = this.yapLog
+      .yapAttemptEntries()
+      .filter((entry): entry is YapCause => entry !== 'won')
+      .slice(0, YAP_MAX_CAUSES);
+    return {
+      day,
+      attempts: Math.min(255, this.yapAttempts()),
+      ticks: this.yapTicks(),
+      stars: this.yapStars(),
+      hints: Math.min(3, this.yapHintsUsed),
+      causes,
+      shareId,
+      plan: [...plan],
+      nickname,
     };
   }
 }

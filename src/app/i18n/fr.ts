@@ -136,4 +136,18 @@ export const fr: YapDictionary = {
     detail:
       'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
   },
+  // Story E2 — le texte partagé (spec Gate 1, « Ce qui part ») : ligne titre,
+  // ligne score ({emoji} = la ligne d'emojis de l'écran de victoire, {stars} =
+  // une ⭐ par étoile), puis la ligne du lien. Une victoire de tutoriel n'a pas
+  // de numéro de casse du jour : elle partage une invitation au jeu
+  // (src/app/share.ts). « Copié » réutilise common.copied.
+  share: {
+    title: 'Casse du jour n°{day} 🕵️ réussi en {attempts} essais',
+    titleOne: 'Casse du jour n°{day} 🕵️ réussi en 1 essai',
+    tutorialTitle: '{game} 🕵️ tutoriel réussi en {attempts} essais',
+    tutorialTitleOne: '{game} 🕵️ tutoriel réussi en 1 essai',
+    score: '{emoji} · {ticks} ticks {stars}',
+    yourTurn: 'À toi : {link}',
+    failed: 'Partage impossible',
+  },
 };
