@@ -139,6 +139,57 @@ export function yapArchiveDays(now: Date, startDate: string = YAP_TEST_START_DAT
   return Array.from({ length: last }, (_, index) => index + 1);
 }
 
+// ---------------------------------------------------------------------------
+// Stars (story X2): the week total and the visible thresholds on Home
+// ---------------------------------------------------------------------------
+
+/** Stars of a cleared day at most (the 3★ rule, Gate 1 spec). */
+export const YAP_MAX_STARS_PER_DAY = 3;
+
+/** The week's star total at most: 7 daily heists × 3★ = 21 (tutorials never count). */
+export const YAP_MAX_WEEK_STARS = YAP_WEEK_DAYS * YAP_MAX_STARS_PER_DAY;
+
+/** The minimal shape of a per-day record for the star total (`yapcorp:days`). */
+export interface YapStarRecord {
+  readonly stars: number;
+}
+
+/**
+ * Total stars over the 7 daily heists, at most 21: the sum of the best stars
+ * of each day record. Only the 7 daily records count — tutorial wins are not
+ * day records and never enter the total. Pure: the caller reads the existing
+ * records from the storage (loadYapDays, src/app/router.ts) and passes them.
+ */
+export function yapTotalStars(records: ReadonlyMap<number, YapStarRecord>): number {
+  let total = 0;
+  for (const [day, record] of records) {
+    if (day < 1 || day > YAP_WEEK_DAYS) continue;
+    const stars = record?.stars;
+    if (typeof stars !== 'number' || !Number.isInteger(stars)) continue;
+    total += Math.min(YAP_MAX_STARS_PER_DAY, Math.max(0, stars));
+  }
+  return Math.min(YAP_MAX_WEEK_STARS, total);
+}
+
+/**
+ * The 2★ bound in ticks: floor(par × 1.2) — the Gate 1 star rule, identical to
+ * YapWinScreen.yapStars (src/game/win.ts, YAP_STAR_THRESHOLD; the app layer
+ * never imports the game layer, so the factor is restated here — the rule
+ * itself is unchanged and read-only there): 3★ at par, 2★ up to this bound,
+ * 1★ above.
+ */
+export function yapTwoStarMaxTicks(par: number): number {
+  return Math.floor(par * 1.2);
+}
+
+/**
+ * The star thresholds of a heist as ★ glyphs and digits only (story X2: no
+ * i18n key): "★3=22 ★2≤26" for par 22 — 3★ at par, 2★ up to floor(par × 1.2).
+ */
+export function yapStarThresholdText(par: number): string {
+  return `★3=${par} ★2≤${yapTwoStarMaxTicks(par)}`;
+}
+
 /** Today's heist: phase, clamped day and countdown to the next one. */
 export function yapDailyInfo(now: Date, startDate: string = YAP_TEST_START_DATE): YapDailyInfo {
   const rawDay = yapRawDay(now, startDate);

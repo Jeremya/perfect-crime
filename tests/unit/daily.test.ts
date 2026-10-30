@@ -11,6 +11,8 @@ import { YAP_CORP } from '../../src/app/brand';
 import { YAP_TEST_START_DATE } from '../../src/app/config';
 import {
   YapDaily,
+  YAP_MAX_STARS_PER_DAY,
+  YAP_MAX_WEEK_STARS,
   YAP_STREAK_KEY,
   YAP_WEEK_DAYS,
   loadYapStreak,
@@ -19,8 +21,14 @@ import {
   yapDailyInfo,
   yapMsUntilNextHeist,
   yapRawDay,
+  yapStarThresholdText,
+  yapTotalStars,
+  yapTwoStarMaxTicks,
 } from '../../src/app/daily';
+import { loadYapDays, recordYapDailyWin, type YapDailyWin } from '../../src/app/router';
 import { YapStorage, type YapStorageBackend } from '../../src/app/storage';
+import { parseLevel } from '../../src/core/level';
+import { YapAttemptLog, YapWinScreen, YAP_STAR_THRESHOLD } from '../../src/game/win';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -390,5 +398,127 @@ describe('archive (story O1) — past days stay playable', () => {
     daily.recordWin(at(2025, 11, 10, 8));
     expect(backend.entries.get(`${YAP_CORP.storagePrefix}streak`)).toBe(stored);
     expect(daily.streak(at(2025, 11, 10, 8))).toEqual({ current: 0, best: 2, lastDayWon: 2 });
+  });
+});
+
+describe('star total over the test week (story X2)', () => {
+  it('is 0 with no record and capped at 21 (7 daily heists × 3★)', () => {
+    expect(YAP_MAX_STARS_PER_DAY).toBe(3);
+    expect(YAP_MAX_WEEK_STARS).toBe(YAP_WEEK_DAYS * 3);
+    expect(YAP_MAX_WEEK_STARS).toBe(21);
+    expect(yapTotalStars(new Map())).toBe(0);
+    const full = new Map<number, { stars: number }>(
+      Array.from({ length: YAP_WEEK_DAYS }, (_, i) => [i + 1, { stars: 3 }]),
+    );
+    expect(yapTotalStars(full)).toBe(21);
+  });
+
+  it('sums the best stars of the 7 daily records only', () => {
+    const records = new Map<number, { stars: number }>([
+      [1, { stars: 3 }],
+      [2, { stars: 2 }],
+      [3, { stars: 1 }],
+    ]);
+    expect(yapTotalStars(records)).toBe(6);
+    // Days outside 1..7 never count (tutorials are not day records).
+    records.set(0, { stars: 3 });
+    records.set(8, { stars: 3 });
+    expect(yapTotalStars(records)).toBe(6);
+  });
+
+  it('clamps each day to 0..3★ and the total to 21★', () => {
+    const all = new Map<number, { stars: number }>();
+    for (let day = 1; day <= YAP_WEEK_DAYS; day += 1) all.set(day, { stars: 99 });
+    expect(yapTotalStars(all)).toBe(21); // never above 7 × 3
+    all.set(1, { stars: -4 });
+    expect(yapTotalStars(all)).toBe(18); // 6 × 3
+  });
+
+  it('ignores missing or non-integer star values', () => {
+    const records = new Map<number, { stars: number }>([
+      [1, { stars: 2.5 }],
+      [2, { stars: Number.NaN }],
+    ]);
+    expect(yapTotalStars(records)).toBe(0);
+    expect(yapTotalStars(new Map([[1, { stars: 2 }]]))).toBe(2);
+  });
+
+  it('reads the existing records from the storage (yapcorp:days) through loadYapDays', () => {
+    useTz('Europe/Paris');
+    const storage = new YapStorage(new FakeBackend());
+    const win = (stars: number, ticks: number): YapDailyWin => ({
+      attempts: 1,
+      ticks,
+      stars,
+      hints: 0,
+      causes: [],
+      par: ticks,
+      plan: [],
+    });
+    recordYapDailyWin(storage, 1, win(3, 20), at(2025, 11, 3, 12));
+    recordYapDailyWin(storage, 2, win(2, 24), at(2025, 11, 4, 12));
+    recordYapDailyWin(storage, 3, win(1, 30), at(2025, 11, 5, 12));
+    // A replay improves the stars of a day: the total follows the best.
+    recordYapDailyWin(storage, 3, win(3, 21), at(2025, 11, 5, 18));
+    expect(yapTotalStars(loadYapDays(storage))).toBe(3 + 2 + 3);
+    // A fresh storage (no daily won, tutorial only) totals 0.
+    expect(yapTotalStars(loadYapDays(new YapStorage(new FakeBackend())))).toBe(0);
+  });
+});
+
+describe('star thresholds (story X2) — the Gate 1 rule, made visible', () => {
+  it('2★ bound is floor(par × 1.2), exactly the Win screen rule (YAP_STAR_THRESHOLD)', () => {
+    expect(YAP_STAR_THRESHOLD).toBe(1.2);
+    for (const par of [1, 2, 3, 5, 10, 14, 20, 22, 25, 41, 100]) {
+      expect(yapTwoStarMaxTicks(par)).toBe(Math.floor(par * YAP_STAR_THRESHOLD));
+    }
+    expect(yapTwoStarMaxTicks(22)).toBe(26);
+    expect(yapTwoStarMaxTicks(10)).toBe(12);
+    expect(yapTwoStarMaxTicks(3)).toBe(3);
+  });
+
+  it('formats the thresholds as ★ glyphs and digits only: "★3=22 ★2≤26"', () => {
+    expect(yapStarThresholdText(22)).toBe('★3=22 ★2≤26');
+    expect(yapStarThresholdText(10)).toBe('★3=10 ★2≤12');
+    expect(yapStarThresholdText(5)).toBe('★3=5 ★2≤6');
+    expect(yapStarThresholdText(1)).toBe('★3=1 ★2≤1');
+    // No i18n word: only ★ glyphs, digits and the = / ≤ of the format.
+    expect(yapStarThresholdText(22)).toMatch(/^[★0-9=≤ ]+$/);
+  });
+
+  it('agrees with YapWinScreen.yapStars: 3★ at par, 2★ up to the bound, 1★ above', () => {
+    const src = [
+      'name: Test',
+      'type: tutorial',
+      'moment: ""',
+      'maxPauses: 3',
+      'par: 22',
+      'map: |',
+      '  ########',
+      '  #S.....#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #......#',
+      '  #..L..E#',
+      '  ########',
+    ].join('\n');
+    const level = parseLevel(src);
+    const log = new YapAttemptLog();
+    log.yapPressPlay();
+    log.yapRegisterWin();
+    const starsAt = (ticks: number): number =>
+      new YapWinScreen(level, { kind: 'won', tick: ticks }, log).yapStars();
+    const bound = yapTwoStarMaxTicks(level.par);
+    expect(bound).toBe(26);
+    expect(starsAt(22)).toBe(3); // ticks == par
+    expect(starsAt(26)).toBe(2); // ticks <= floor(par × 1.2)
+    expect(starsAt(27)).toBe(1); // above the bound
+    // The visible threshold is exactly the Win screen's 2★ bound.
+    expect(yapStarThresholdText(level.par)).toBe(`★3=${level.par} ★2≤${bound}`);
   });
 });
