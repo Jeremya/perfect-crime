@@ -52,6 +52,17 @@ describe('yapTextStyle — a style at the device resolution', () => {
     // consumed, never forwarded
     expect(style).not.toHaveProperty('family');
   });
+
+  // The @ts-expect-error below is enforced by `npm run typecheck`, which covers
+  // tests/; vitest itself does not typecheck.
+  it('refuses the font shorthand, which would override the stacks', () => {
+    // @ts-expect-error — `font` sets family, size and style at once: use `family`
+    yapTextStyle(16, '#000', { font: '16px serif' });
+    // the supported way to a 16 px serif, with no `font` riding along to override it
+    const style = yapTextStyle(16, '#000', { family: 'serif' });
+    expect(style).toMatchObject({ fontFamily: YAP_FONT_STACKS.serif, fontSize: '16px' });
+    expect(style).not.toHaveProperty('font');
+  });
 });
 
 describe('yapText — a Text created through the scene', () => {

@@ -33,14 +33,16 @@ export const YAP_FONT_STACKS: Readonly<Record<YapFontFamily, string>> = {
 };
 
 /**
- * What a caller may add to a style: everything Phaser accepts except the four
- * keys the factory owns. Size and color are arguments of yapTextStyle, `family`
+ * What a caller may add to a style: everything Phaser accepts except the keys
+ * the factory sets. Size and color are arguments of yapTextStyle, `family`
  * replaces `fontFamily` by picking one of the three stacks, and the resolution
- * is always the device's.
+ * is always the device's. `font`, Phaser's shorthand that sets style, size and
+ * family at once, is left out too: it would override the family and size the
+ * factory sets.
  */
 export interface YapTextExtra extends Omit<
   Phaser.Types.GameObjects.Text.TextStyle,
-  'fontFamily' | 'fontSize' | 'color' | 'resolution'
+  'fontFamily' | 'fontSize' | 'color' | 'resolution' | 'font'
 > {
   family?: YapFontFamily;
 }
