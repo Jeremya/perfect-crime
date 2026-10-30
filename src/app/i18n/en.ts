@@ -168,6 +168,13 @@ export const en = {
     yourTurn: 'Your turn: {link}',
     failed: 'Could not share',
   },
+  // Story C7 — hints after 3 then 6 failures (src/game/hints.ts): the Hint
+  // button of the planning bottom bar (shown only when a hint is available)
+  // and the compact badge at the end of the revealed ghost path.
+  hints: {
+    button: '💡 Hint',
+    badge: '💡 {shown}/{total}',
+  },
   // Story E4 — link arrival (src/app/inbox.ts, src/game/challenge-scene.ts,
   // src/app/router.ts): the challenge card of a received link, its score
   // comparison and the friend's plan, hidden until the recipient has won or

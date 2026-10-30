@@ -170,6 +170,13 @@ export const fr: YapDictionary = {
     yourTurn: 'À toi : {link}',
     failed: 'Partage impossible',
   },
+  // Story C7 — indices après 3 puis 6 échecs (src/game/hints.ts) : le bouton
+  // Indice de la barre du bas (affiché seulement quand un indice est
+  // disponible) et le badge compact à la fin du chemin fantôme révélé.
+  hints: {
+    button: '💡 Indice',
+    badge: '💡 {shown}/{total}',
+  },
   // Story E4 — arrivée par un lien (src/app/inbox.ts, src/game/challenge-scene.ts,
   // src/app/router.ts) : la carte de défi d'un lien reçu, sa comparaison de
   // scores et le plan de l'ami, caché jusqu'à la victoire du destinataire ou
