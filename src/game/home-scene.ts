@@ -27,7 +27,13 @@
 // whole screen is rebuilt when the local day changes at midnight.
 import Phaser from 'phaser';
 import { track } from '../app/analytics';
-import { YAP_WEEK_DAYS, yapArchiveDays } from '../app/daily';
+import {
+  YAP_MAX_WEEK_STARS,
+  YAP_WEEK_DAYS,
+  yapArchiveDays,
+  yapStarThresholdText,
+  yapTotalStars,
+} from '../app/daily';
 import { yapI18n } from '../app/i18n';
 import {
   loadYapDays,
@@ -306,6 +312,18 @@ export class YapHomeScene extends Phaser.Scene {
         textStyle(20, YAP_PALETTE['text-primary'], true),
       ).setOrigin(0, 0.5),
     );
+    // story X2: the week's star total in the header — "★ x/21", the sum of
+    // the best stars of the 7 daily records (tutorials never count)
+    const totalStars = yapTotalStars(loadYapDays(yapStorage));
+    root.add(
+      yapText(
+        this,
+        width - 16,
+        YAP_TOP_BAR_HEIGHT / 2,
+        `★ ${totalStars}/${YAP_MAX_WEEK_STARS}`,
+        textStyle(16, YAP_PALETTE['text-primary'], true),
+      ).setOrigin(1, 0.5),
+    );
 
     // Actions live in the bottom third; their top edge is needed by the
     // archive list, which must fit above them (O1).
@@ -369,7 +387,7 @@ export class YapHomeScene extends Phaser.Scene {
         const status =
           record === null
             ? yapI18n.t('home.statusToDo')
-            : `${yapI18n.t('home.statusCleared', { attempts: record.winningAttempt })} ${'★'.repeat(record.stars)}${'☆'.repeat(3 - record.stars)}`;
+            : yapI18n.t('home.statusCleared', { attempts: record.winningAttempt });
         root.add(
           this.yapMakeRow(
             innerX + innerW / 2,
@@ -378,6 +396,8 @@ export class YapHomeScene extends Phaser.Scene {
             metrics.height,
             yapI18n.t('home.dailyHeist', { day }),
             status,
+            // story X2: the stars of the day record, one row per past day
+            record === null ? null : record.stars,
             () => yapFlow.yapGo(this, yapArchiveRoute(day)),
           ),
         );
@@ -386,6 +406,10 @@ export class YapHomeScene extends Phaser.Scene {
       y -= metrics.gap; // no gap after the last row
     } else if (model.phase === 'week') {
       line(yapI18n.t('home.dailyHeist', { day: model.day }), 24, primary, true, 8);
+      // story X2: the star thresholds of today's heist, visible before the
+      // attempt — glyphs and digits only ("★3=22 ★2≤26"), no i18n key
+      const heist = yapLevelById(`daily/d${model.day}`);
+      if (heist !== null) line(yapStarThresholdText(heist.par), 14, secondary, false, 8);
       const record = model.record;
       if (record === null) {
         line(yapI18n.t('home.statusToDo'), 16, secondary, false, 0);
@@ -665,8 +689,10 @@ export class YapHomeScene extends Phaser.Scene {
 
   /**
    * A tappable archive row (story O1): heist number and status on the left,
-   * Play on the right. Drawn in code like the other buttons; 64 px tall, a
-   * comfortable touch target.
+   * Play on the right. Story X2 adds the stars of the day record as
+   * filled/empty glyphs, right-aligned just left of Play (null = no record).
+   * Drawn in code like the other buttons; 64 px tall, a comfortable touch
+   * target.
    */
   private yapMakeRow(
     x: number,
@@ -675,6 +701,7 @@ export class YapHomeScene extends Phaser.Scene {
     h: number,
     title: string,
     status: string,
+    stars: number | null,
     onPress: () => void,
   ): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
@@ -707,8 +734,22 @@ export class YapHomeScene extends Phaser.Scene {
       yapI18n.t('home.play'),
       yapTextStyle(16, YAP_PALETTE['text-primary']),
     ).setOrigin(1, 0.5);
+    const parts: Phaser.GameObjects.GameObject[] = [bg, zone, titleText, statusText, playText];
+    if (stars !== null) {
+      // the record's stars as a shape cue, not color alone (as on Win)
+      const clamped = Math.max(0, Math.min(3, stars));
+      parts.push(
+        yapText(
+          this,
+          w / 2 - 16 - playText.width - 12,
+          0,
+          '★'.repeat(clamped) + '☆'.repeat(3 - clamped),
+          yapTextStyle(16, YAP_PALETTE['text-primary']),
+        ).setOrigin(1, 0.5),
+      );
+    }
     zone.on('pointerdown', onPress);
-    container.add([bg, zone, titleText, statusText, playText]);
+    container.add(parts);
     return container;
   }
 }
