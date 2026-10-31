@@ -227,7 +227,9 @@ export class YapPathInput {
   // -------------------------------------------------------------------------
 
   yapPointerDown(x: number, y: number, now: number): void {
-    if (this.yapFinished) return;
+    // A completed route can still receive pause taps. This matters for levels
+    // such as T4: the player should be able to draw the full route first, then
+    // add the required wait without having to know where to stop mid-drawing.
     const c = this.yapCellAtPointLoose(x, y);
     if (c === null) return;
     this.yapHoverCell = c;
@@ -279,7 +281,6 @@ export class YapPathInput {
     if (g === null) return;
     this.yapGesture = null;
     this.yapHoverCell = null;
-    if (this.yapFinished) return;
     const dist = Math.hypot(x - g.downX, y - g.downY);
     const duration = now - g.downTime;
     const isTap = dist < YAP_TAP_MAX_DISTANCE && duration < YAP_TAP_MAX_DURATION;
