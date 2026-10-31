@@ -12,6 +12,7 @@ import {
 import { yapStorage } from './app/storage';
 import { YAP_CHALLENGE_SCENE_KEY, YapChallengeScene } from './game/challenge-scene';
 import { YapConsentScene } from './game/consent-scene';
+import { YAP_DPR, yapDeviceSize, yapInstallResize } from './game/hidpi';
 import { YapHomeScene, yapFlow } from './game/home-scene';
 import { YapLevelScene } from './game/level-scene';
 import { YapViewerScene } from './game/viewer-scene';
@@ -114,12 +115,20 @@ const config: Phaser.Types.Core.GameConfig = {
   version: YAP_CORP.version,
   backgroundColor: '#F4F2ED',
   scale: {
-    // Resize to the actual phone viewport so 44 px controls remain 44 CSS px.
-    // The parent above caps desktop width and height while staying centered.
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 480,
-    height: 853,
+    // C1 (crisp HiDPI): the game size is the frame's CSS size in device
+    // pixels, i.e. the canvas backing store, displayed at the CSS size through
+    // a zoom of 1/ratio. Scenes lay out in CSS px (src/game/hidpi.ts), so 44 px
+    // controls remain 44 CSS px. Mode NONE because RESIZE ignores the zoom:
+    // yapInstallResize, below, follows the frame instead. The frame above caps
+    // desktop width and height while staying centered.
+    mode: Phaser.Scale.NONE,
+    // No Phaser centring: #game is already centred by the body flex and has
+    // the canvas size. CENTER_BOTH floors a negative half-pixel gap to -1 px
+    // when the backing store rounds up at a fractional ratio (2.625, 2.75),
+    // cropping one CSS px row or column of the game.
+    autoCenter: Phaser.Scale.NO_CENTER,
+    ...yapDeviceSize(yapGameFrame?.clientWidth ?? 480, yapGameFrame?.clientHeight ?? 853, YAP_DPR),
+    zoom: 1 / YAP_DPR,
   },
   // YapConsentScene last: launched as an overlay, it must render on top of
   // the level and Home scenes (scene render order follows the config array order).
@@ -133,4 +142,5 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-new Phaser.Game(config);
+const yapGame = new Phaser.Game(config);
+if (yapGameFrame !== null) yapInstallResize(yapGame, yapGameFrame);

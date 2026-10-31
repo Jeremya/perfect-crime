@@ -11,122 +11,58 @@
 //     included — to the clipboard instead.
 //
 // The plan that wins T1 comes from the same solver the game ships with
-// (src/core/solver.ts), and the board geometry from src/game/board.ts, so the
-// pointer strokes land on the exact cells of the grid.
+// (src/core/solver.ts). The dist/ server, the level catalog, the plan cells,
+// the stroke and the PLAY tap are shared with the other specs (./support.ts),
+// whose board geometry comes from src/game/board.ts so the strokes land on the
+// exact cells of the grid; only the Share tap's geometry lives here.
 //
 // Run against the built app (npm run build first):
 //   npx playwright test tests/e2e/share.spec.ts
 import { expect, test, type Page } from '@playwright/test';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { readFileSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { YapCell, YapDir, YapLevel } from '../../src/core/level';
+import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
-import type { YapMove } from '../../src/core/sim';
-import { yapCellCenter, yapComputeLayout, type YapBoardLayout, type YapPoint } from '../../src/game/board';
+import {
+  YAP_MOBILE_UA as MOBILE_UA,
+  yapCanvasView,
+  yapCatalogLevel,
+  yapDraw,
+  yapPlanCells,
+  yapPressPlay,
+  yapStartDistServer,
+  yapWaitPhase,
+  type YapCanvasView,
+  type YapDistServer,
+} from './support';
 
 // ---------------------------------------------------------------------------
-// Static server for dist/ (no playwright.config in this repo: the spec is
-// self-contained and serves the build itself on an ephemeral port)
+// Static server for dist/ (./support.ts): one per spec file, ephemeral port
 // ---------------------------------------------------------------------------
 
-const DIST_DIR = fileURLToPath(new URL('../../dist/', import.meta.url));
-const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.wav': 'audio/wav',
-  '.mp3': 'audio/mpeg',
-  '.ico': 'image/x-icon',
-};
-
-let server: Server | null = null;
+let server: YapDistServer | null = null;
 let baseUrl = '';
 
-async function yapServe(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  try {
-    const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-    let pathname = decodeURIComponent(url.pathname);
-    if (pathname === '/') pathname = '/index.html';
-    // Static hosts serve /c/<day>/index.html for /c/<day> (Cloudflare Pages).
-    else if (/^\/c\/\d+$/.test(pathname)) pathname = `${pathname}/index.html`;
-    const filePath = normalize(join(DIST_DIR, pathname));
-    if (!filePath.startsWith(DIST_DIR)) {
-      res.writeHead(403).end();
-      return;
-    }
-    const body = await readFile(filePath);
-    res.writeHead(200, { 'content-type': MIME[extname(filePath)] ?? 'application/octet-stream' });
-    res.end(body);
-  } catch {
-    res.writeHead(404).end('not found');
-  }
-}
-
 test.beforeAll(async () => {
-  const created = createServer((req, res) => {
-    void yapServe(req, res);
-  });
-  server = created;
-  await new Promise<void>((resolve) => created.listen(0, '127.0.0.1', resolve));
-  const address = created.address();
-  if (address === null || typeof address === 'string') throw new Error('no ephemeral port');
-  baseUrl = `http://127.0.0.1:${address.port}`;
+  server = await yapStartDistServer();
+  baseUrl = server.baseUrl;
 });
 
 test.afterAll(async () => {
   const closing = server;
   server = null;
-  if (closing !== null) await new Promise<void>((resolve) => closing.close(() => resolve()));
+  if (closing !== null) await closing.close();
 });
 
 // ---------------------------------------------------------------------------
 // The level that is played: tutorial T1 from the generated levels.json
 // ---------------------------------------------------------------------------
 
-interface YapLevelsJson {
-  readonly levels: readonly { readonly id: string; readonly level: YapLevel }[];
-}
-
-const LEVELS = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../levels/levels.json', import.meta.url)), 'utf8'),
-) as unknown as YapLevelsJson;
-const T1_ENTRY = LEVELS.levels.find((entry) => entry.id === 'tutorial/t1');
-if (T1_ENTRY === undefined) throw new Error('tutorial/t1 missing from levels/levels.json');
-const T1: YapLevel = T1_ENTRY.level;
+const T1: YapLevel = yapCatalogLevel('tutorial/t1');
 const T1_SOLUTION: YapSolveResult = solveLevel(T1);
 
-const DIR_VECTORS: Record<YapDir, YapCell> = {
-  N: { x: 0, y: -1 },
-  E: { x: 1, y: 0 },
-  S: { x: 0, y: 1 },
-  W: { x: -1, y: 0 },
-};
-
-/** The cells of the winning plan, start cell first. */
-function yapPlanCells(level: YapLevel, plan: readonly YapMove[]): YapCell[] {
-  const cells: YapCell[] = [{ x: level.start.x, y: level.start.y }];
-  let current = level.start;
-  for (const move of plan) {
-    if (move === 'wait') continue;
-    const delta = DIR_VECTORS[move];
-    current = { x: current.x + delta.x, y: current.y + delta.y };
-    cells.push(current);
-  }
-  return cells;
-}
-
 // ---------------------------------------------------------------------------
-// Page helpers: geometry, the T1 win, and the Share tap
+// Page helpers: the T1 win and the Share tap
 // ---------------------------------------------------------------------------
 
-const MOBILE_UA =
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const DESKTOP_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
@@ -155,80 +91,36 @@ async function yapCopiedTexts(page: Page): Promise<string[]> {
   });
 }
 
-interface YapView {
-  readonly box: { readonly x: number; readonly y: number };
-  readonly viewWidth: number;
-  readonly viewHeight: number;
-  readonly layout: YapBoardLayout;
-}
-
-/** Canvas box + the board layout the scene computed for that size. */
-async function yapView(page: Page): Promise<YapView> {
-  const box = await page.locator('canvas').first().boundingBox();
-  if (box === null) throw new Error('the app canvas never appeared');
-  const viewWidth = Math.round(box.width);
-  const viewHeight = Math.round(box.height);
-  return {
-    box,
-    viewWidth,
-    viewHeight,
-    layout: yapComputeLayout(viewWidth, viewHeight, T1.width, T1.height),
-  };
-}
-
-function yapToPage(view: YapView, point: YapPoint): { x: number; y: number } {
-  return { x: view.box.x + point.x, y: view.box.y + point.y };
-}
-
-/** Open `path`, draw the winning plan on the board and press PLAY. */
-async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapView> {
+/**
+ * Open `path`, draw the winning plan on the board and press PLAY (the phase
+ * wait, the stroke and the PLAY tap of ./support.ts). Returns the canvas the
+ * Share tap aims at.
+ */
+async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapCanvasView> {
   await page.goto(`${baseUrl}${path}`);
-  await page.locator('canvas').first().waitFor({ state: 'attached' });
-  // deterministic instead of a sleep: the level scene exposes its phase
-  // (`__yapPhase`) once the board is built and input is wired
-  await page.waitForFunction(
-    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'planning',
-    undefined,
-    { timeout: 15_000 },
-  );
-  const view = await yapView(page);
-  const cells = yapPlanCells(T1, T1_SOLUTION.plan);
-  const points = cells.map((cell) => yapCellCenter(view.layout, cell));
-  const first = points[0];
-  if (first === undefined) throw new Error('empty plan');
-  const start = yapToPage(view, first);
-  await page.mouse.move(start.x, start.y);
-  await page.mouse.down();
-  for (const point of points.slice(1)) {
-    const at = yapToPage(view, point);
-    await page.mouse.move(at.x, at.y);
-  }
-  await page.mouse.up();
-  // PLAY: bottom bar, centred at (viewWidth/2 + 42, viewHeight - 30)
-  const play = yapToPage(view, { x: view.viewWidth / 2 + 42, y: view.viewHeight - 30 });
-  await page.mouse.click(play.x, play.y);
-  return view;
+  await yapWaitPhase(page, 'planning');
+  await yapDraw(page, T1, yapPlanCells(T1, T1_SOLUTION.plan));
+  await yapPressPlay(page);
+  return yapCanvasView(page);
 }
 
 /**
- * Tap the Win-screen Share button (centred at (viewWidth/2, viewHeight - 28))
- * until `done` reports the share ended. Before the Win screen the same point
- * is harmless (empty bottom bar, or PLAY while planning).
+ * Tap the Win-screen Share button until `done` reports the share ended. The
+ * 56 px button closes the result card, 16 px above its bottom edge (itself
+ * 16 px above the page bottom): centred at (viewWidth/2, viewHeight - 60).
+ * Before the Win screen the same point is harmless (empty bottom bar, or PLAY
+ * while planning).
  */
 async function yapTapShareUntil(
   page: Page,
-  view: YapView,
+  view: YapCanvasView,
   done: () => Promise<boolean>,
   timeoutMs = 30_000,
 ): Promise<void> {
   // wait for the Win screen itself before tapping: the Share button only
   // exists there, and a tap during the playback does nothing
-  await page.waitForFunction(
-    () => (window as unknown as { __yapPhase?: string }).__yapPhase === 'win',
-    undefined,
-    { timeout: timeoutMs },
-  );
-  const share = yapToPage(view, { x: view.viewWidth / 2, y: view.viewHeight - 28 });
+  await yapWaitPhase(page, 'win', timeoutMs);
+  const share = { x: view.x + view.width / 2, y: view.y + view.height - 60 };
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await done()) return;

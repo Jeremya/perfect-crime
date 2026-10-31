@@ -14,7 +14,6 @@
 // laser state comes from the pure sim frames (src/core/sim.ts); drawing
 // reuses ./board.ts and ./render.ts of the C1 level scene.
 import Phaser from 'phaser';
-import { yapText } from './ui';
 import { parseLevel, YAP_GRID_HEIGHT, YAP_GRID_WIDTH, YAP_MAX_TICKS, type YapLevel } from '../core/level';
 import { createInitialState, run, type YapSimState } from '../core/sim';
 import { solveLevel, YapSolverError, type YapSolveResult } from '../core/solver';
@@ -29,6 +28,7 @@ import {
   yapLaserCells,
   type YapBoardLayout,
 } from './board';
+import { yapBakeTexture, yapBakedImage, yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import {
   yapDrawCamera,
   yapDrawCone,
@@ -41,12 +41,13 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
+import { yapText, yapTextStyle } from './text';
 
 /** Scene key (docs/NAMING.md: yap-<name>). */
 export const YAP_VIEWER_SCENE_KEY = 'yap-viewer';
 /** Texture key of the baked static grid. */
 const YAP_VIEWER_GRID_TEXTURE = 'yap-viewer-grid';
-/** Height of the bottom control panel, in game px (a DOM overlay sits on it). */
+/** Height of the bottom control panel, in CSS px (a DOM overlay sits on it). */
 const YAP_VIEWER_BOTTOM_BAR = 132;
 /** Replay period, in ms. */
 const YAP_VIEWER_TICK_MS = 400;
@@ -105,14 +106,20 @@ export class YapViewerScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
     this.yapBuildPanel();
     this.yapLoadInitial();
+    // A new view size rebuilds the screen (C1). Every RESIZE places the DOM
+    // panel again: the canvas also moves at an unchanged size, when a desktop
+    // window is resized around the 480 px frame.
+    const rebuild = yapOnViewResize(this, () => this.yapBuildAll());
+    this.yapOnResize = (): void => {
+      rebuild();
+      this.yapPositionPanel();
+    };
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuildAll();
-    this.yapPositionPanel();
-  };
+  /** RESIZE handler made by create(). */
+  private yapOnResize: () => void = () => undefined;
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
@@ -191,6 +198,7 @@ export class YapViewerScene extends Phaser.Scene {
 
   /** (Re)builds the whole screen: board, chrome, current tick, DOM panel data. */
   private yapBuildAll(): void {
+    yapFitCamera(this); // CSS px on a device-pixel canvas (C1)
     this.yapBoard?.destroy();
     this.yapChrome?.destroy();
     this.yapBoard = null;
@@ -201,9 +209,10 @@ export class YapViewerScene extends Phaser.Scene {
 
     const model = this.yapModel;
     const level = model?.level;
+    const view = yapViewSize(this);
     const layout = yapComputeLayout(
-      this.scale.width,
-      this.scale.height,
+      view.width,
+      view.height,
       level?.width ?? YAP_GRID_WIDTH,
       level?.height ?? YAP_GRID_HEIGHT,
       YAP_TOP_BAR_HEIGHT,
@@ -214,18 +223,13 @@ export class YapViewerScene extends Phaser.Scene {
     if (level !== undefined) {
       const board = this.add.container(0, 0);
       this.yapBoard = board;
-      // Static grid, baked once into a texture (same technique as C1).
+      // Static grid, baked once into a texture at device resolution (same
+      // technique as C1).
       const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
-      const grid = this.make.graphics({ x: 0, y: 0 }, false);
-      yapDrawStaticGrid(grid, level, bakeLayout);
-      if (this.textures.exists(YAP_VIEWER_GRID_TEXTURE)) {
-        this.textures.remove(YAP_VIEWER_GRID_TEXTURE);
-      }
-      grid.generateTexture(YAP_VIEWER_GRID_TEXTURE, layout.boardWidth, layout.boardHeight);
-      grid.destroy();
-      board.add(
-        this.add.image(layout.originX, layout.originY, YAP_VIEWER_GRID_TEXTURE).setOrigin(0, 0),
+      yapBakeTexture(this, YAP_VIEWER_GRID_TEXTURE, layout.boardWidth, layout.boardHeight, (g) =>
+        yapDrawStaticGrid(g, level, bakeLayout),
       );
+      board.add(yapBakedImage(this, layout.originX, layout.originY, YAP_VIEWER_GRID_TEXTURE));
       this.yapDynamic = this.add.container(0, 0);
       board.add(this.yapDynamic);
     }
@@ -240,24 +244,32 @@ export class YapViewerScene extends Phaser.Scene {
   private yapBuildChrome(): void {
     const chrome = this.add.container(0, 0);
     this.yapChrome = chrome;
-    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle => ({
-      fontFamily: 'sans-serif',
-      fontSize: `${size}px`,
-      color: YAP_PALETTE['text-primary'],
-    });
-    this.yapNameText = yapText(this, 16, YAP_TOP_BAR_HEIGHT / 2, this.yapModel?.level.name ?? yapI18n.t('viewer.title'), textStyle(20))
-      .setOrigin(0, 0.5);
-    this.yapTickText = yapText(this, this.scale.width - 16, YAP_TOP_BAR_HEIGHT / 2, '', textStyle(16))
-      .setOrigin(1, 0.5);
+    const textStyle = (size: number): Phaser.Types.GameObjects.Text.TextStyle =>
+      yapTextStyle(size, YAP_PALETTE['text-primary']);
+    this.yapNameText = yapText(
+      this,
+      16,
+      YAP_TOP_BAR_HEIGHT / 2,
+      this.yapModel?.level.name ?? yapI18n.t('viewer.title'),
+      textStyle(20),
+    ).setOrigin(0, 0.5);
+    const view = yapViewSize(this);
+    this.yapTickText = yapText(
+      this,
+      view.width - 16,
+      YAP_TOP_BAR_HEIGHT / 2,
+      '',
+      textStyle(16),
+    ).setOrigin(1, 0.5);
     chrome.add([this.yapNameText, this.yapTickText]);
 
-    const barY = this.scale.height - YAP_VIEWER_BOTTOM_BAR;
+    const barY = view.height - YAP_VIEWER_BOTTOM_BAR;
     const bar = this.add.graphics();
     bar
       .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, barY, this.scale.width, YAP_VIEWER_BOTTOM_BAR)
+      .fillRect(0, barY, view.width, YAP_VIEWER_BOTTOM_BAR)
       .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, barY + 0.5, this.scale.width, barY + 0.5);
+      .lineBetween(0, barY + 0.5, view.width, barY + 0.5);
     chrome.add(bar);
   }
 
@@ -332,12 +344,13 @@ export class YapViewerScene extends Phaser.Scene {
           .strokeCircle(bx, by, r);
         dyn.add(badge);
         dyn.add(
-          yapText(this, bx, by, String(pauses), {
-              fontFamily: 'sans-serif',
-              fontSize: `${Math.max(10, Math.floor(layout.cell * 0.28))}px`,
-              color: YAP_PALETTE['path-light'],
-            })
-            .setOrigin(0.5),
+          yapText(
+            this,
+            bx,
+            by,
+            String(pauses),
+            yapTextStyle(Math.max(10, Math.floor(layout.cell * 0.28)), YAP_PALETTE['path-light']),
+          ).setOrigin(0.5),
         );
       });
     }
@@ -538,7 +551,7 @@ export class YapViewerScene extends Phaser.Scene {
     const panel = this.yapPanel;
     if (panel === null) return;
     const canvas = this.game.canvas;
-    const ratioY = canvas.clientHeight / this.scale.height;
+    const ratioY = canvas.clientHeight / yapViewSize(this).height;
     const height = Math.round(YAP_VIEWER_BOTTOM_BAR * ratioY);
     panel.style.left = `${canvas.offsetLeft}px`;
     panel.style.top = `${canvas.offsetTop + canvas.clientHeight - height}px`;
