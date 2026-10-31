@@ -14,7 +14,10 @@
 //     also across resizes, one of them in the middle of the replay;
 //   - a page frame resized without a window resize: the canvas follows it,
 //     the plan is drawn once for it, and PLAY is under the finger again;
-//   - a tap on the consent banner, an overlay scene with a camera of its own.
+//   - a tap on the consent banner, an overlay scene with a camera of its own;
+//   - the level chrome of the component kit (src/game/kit.ts): a disabled
+//     PLAY ("Draw your route") ignores taps, and the header names the
+//     tutorial lesson, as drawn (`window.__yapHeader`).
 //
 // Run against the built app (npm run build first):
 //   npx playwright test tests/e2e/hidpi.spec.ts
@@ -161,6 +164,16 @@ async function yapPlanningHeaders(page: Page): Promise<number> {
   return page.evaluate(
     () => (window as unknown as { __yapPlanningHeaders: number }).__yapPlanningHeaders,
   );
+}
+
+/** The phase the level scene shows, from its e2e hook `window.__yapPhase`. */
+async function yapPhase(page: Page): Promise<unknown> {
+  return page.evaluate(() => (window as unknown as { __yapPhase?: unknown }).__yapPhase);
+}
+
+/** The kicker and the title of the level header as drawn, from `window.__yapHeader`. */
+async function yapHeaderShown(page: Page): Promise<unknown> {
+  return page.evaluate(() => (window as unknown as { __yapHeader?: unknown }).__yapHeader);
 }
 
 test('backs the canvas with device pixels', async ({ browser }) => {
@@ -320,6 +333,39 @@ test.describe('on a 390×844 phone at 3x', () => {
     await yapDraw(page, T1, yapPlanCells(T1, solveLevel(T1).plan));
     await yapPressPlay(page);
     await yapWaitPhase(page, 'win', 30_000);
+    expect(errors).toEqual([]);
+  });
+
+  test('a disabled PLAY ignores taps', async ({ context, page }) => {
+    const errors = yapPageErrors(page);
+    await yapSeedStorage(context, CONSENT_REFUSED);
+    await page.goto(`${baseUrl}/`);
+    await yapWaitPhase(page, 'planning');
+    // a route that stops short of the diamond: PLAY stays disabled
+    await yapDraw(page, T1, [
+      { x: 1, y: 1 },
+      { x: 2, y: 1 },
+      { x: 3, y: 1 },
+    ]);
+    await yapPressPlay(page);
+    // nothing starts: the planning screen stays for a whole second
+    for (let check = 0; check < 10; check += 1) {
+      expect(await yapPhase(page)).toBe('planning');
+      await page.waitForTimeout(100);
+    }
+    expect(await yapPhase(page)).toBe('planning');
+    expect(errors).toEqual([]);
+  });
+
+  test('the header names the tutorial lesson', async ({ context, page }) => {
+    const errors = yapPageErrors(page);
+    await yapSeedStorage(context, CONSENT_REFUSED);
+    await page.goto(`${baseUrl}/`);
+    await yapWaitPhase(page, 'planning');
+    // the kicker in capitals and the lesson's name, whole: nothing is cut at 390
+    await expect
+      .poll(() => yapHeaderShown(page))
+      .toEqual({ kicker: 'TUTORIAL · 1 / 5', title: 'The plan' });
     expect(errors).toEqual([]);
   });
 

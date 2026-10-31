@@ -188,6 +188,15 @@ function yapRoleContent(role: YapTextRole, content: string): string {
   return YAP_TEXT_ROLES[role].upper === true ? content.toUpperCase() : content;
 }
 
+/**
+ * Whether `content` can be drawn with letter spacing. Phaser draws a spaced
+ * Text one UTF-16 unit at a time, so a character beyond them (an emoji, as in
+ * "💡 Hint") would be split into two halves drawn as two broken glyphs.
+ */
+function yapCanTrack(content: string): boolean {
+  return !/[\uD800-\uDFFF]/.test(content);
+}
+
 /** A measure for yapEllipsize: the width `text` takes once it shows `candidate`. */
 function yapMeasureText(text: Phaser.GameObjects.Text): (candidate: string) => number {
   return (candidate) => {
@@ -378,7 +387,8 @@ function yapButtonLook(kind: 'primary' | 'secondary', enabled: boolean): YapButt
  * which PLAY's action emits): emitted first, the tap would sound as well.
  *
  * A label wider than the button less 24 px loses its letter spacing; if it is
- * still too wide, it wraps at the width less 16 px, centred.
+ * still too wide, it wraps at the width less 16 px, centred. A label with an
+ * emoji never takes letter spacing (yapCanTrack).
  */
 export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapButton {
   const { kind, onPress } = options;
@@ -430,7 +440,7 @@ export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapBu
   let spacing = yapRoleTracking(role);
   let wrapped = false;
   const fitLabel = (): void => {
-    const natural = yapRoleTracking(role);
+    const natural = yapCanTrack(current) ? yapRoleTracking(role) : 0;
     if (spacing !== natural) {
       label.setLetterSpacing(natural);
       spacing = natural;
@@ -530,11 +540,23 @@ export interface YapHeaderOptions {
   rightLarge?: boolean;
 }
 
+/** The kicker and the title a header shows, as they are drawn. */
+export interface YapHeaderShown {
+  readonly kicker: string;
+  readonly title: string;
+}
+
 export interface YapHeader {
   /** The band, at (0, 0): a scene adds it to its own container. */
   readonly container: Phaser.GameObjects.Container;
   /** Shows other right lines, re-stacked, and refits the kicker and the title. */
   setRight(lines: readonly string[]): void;
+  /**
+   * The kicker and the title as drawn right now: the kicker in capitals, and
+   * either one cut with an ellipsis where it did not fit. `setRight` refits
+   * them, so ask again after it.
+   */
+  shown(): YapHeaderShown;
 }
 
 /**
@@ -642,7 +664,11 @@ export function yapHeader(
   };
 
   setRight(options.right ?? []);
-  return { container, setRight };
+  return {
+    container,
+    setRight,
+    shown: () => ({ kicker: kicker.text, title: title.text }),
+  };
 }
 
 // ---------------------------------------------------------------------------

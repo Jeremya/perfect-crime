@@ -912,6 +912,25 @@ describe('yapButton — a label that must fit its width', () => {
     expect(spacing).not.toHaveBeenCalled();
     expect(label.wrapWidth).toBe(104);
   });
+
+  it('draws a label with an emoji untracked, whatever the room', () => {
+    // Phaser spaces a Text one UTF-16 unit at a time: tracked, 💡 (two units)
+    // would be drawn as two broken halves
+    const { label, button } = yapMakeTestButton({
+      width: 300,
+      kind: 'secondary',
+      label: '💡 Hint',
+    });
+
+    expect(label.letterSpacing).toBe(0);
+    expect(label.wrapWidth).toBeNull();
+
+    button.setLabel('Hint');
+    expect(label.letterSpacing).toBe(tracking);
+
+    button.setLabel('💡 Indice');
+    expect(label.letterSpacing).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1130,6 +1149,28 @@ describe('yapHeader — kicker, title and right block in a 64 px band', () => {
 
     expect(header.container).toBe(containers[0]);
     expect([containers[0]?.x, containers[0]?.y]).toEqual([0, 0]);
+  });
+
+  it('reports the kicker and the title as drawn: in capitals, and cut when cut', () => {
+    const whole = yapMakeTestHeader(390, { kicker: 'Heist No. 5', title: 'Pink Panther' });
+    expect(whole.header.shown()).toEqual({ kicker: 'HEIST NO. 5', title: 'Pink Panther' });
+
+    const { header, kicker, title } = yapMakeTestHeader(360, {
+      kicker: 'Challenge · heist No. 12',
+      title: 'Changing of the Guard',
+      right: ['10 ticks · par 12', '3 pauses · ★3=12 ★2≤16'],
+    });
+    const cut = header.shown();
+    expect(cut).toEqual({ kicker: kicker.text, title: title.text });
+    expect(cut.kicker.endsWith('…')).toBe(true);
+    expect(cut.title.endsWith('…')).toBe(true);
+
+    // the right block goes: both are refitted, whole, and reported so
+    header.setRight([]);
+    expect(header.shown()).toEqual({
+      kicker: 'CHALLENGE · HEIST NO. 12',
+      title: 'Changing of the Guard',
+    });
   });
 });
 
