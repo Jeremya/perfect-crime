@@ -453,7 +453,7 @@ describe('auto-finish at the exit', () => {
     expect(input.yapCanPlay()).toBe(false);
   });
 
-  it('ends the drawing on the exit once the diamond is picked up, and ignores further input', () => {
+  it('ends drawing at the exit; later drags do not extend the route', () => {
     const input = new YapPathInput(level, layout);
     // down the x=1 column to the loot row, through the loot (3,10), then to the exit (6,10)
     const route: YapCell[] = [S];
@@ -474,7 +474,7 @@ describe('auto-finish at the exit', () => {
     expect(input.yapHasLoot()).toBe(true);
     expect(input.yapIsFinished()).toBe(true);
     expect(input.yapCanPlay()).toBe(true);
-    // the drawing has ended: further moves are ignored
+    // the drawing has ended: dragging cannot extend the route
     const len = input.yapPath().length;
     const p = center(cell(5, 10));
     input.yapPointerMove(p.x, p.y);
@@ -492,6 +492,23 @@ describe('auto-finish at the exit', () => {
     expect(input.yapCanPlay()).toBe(true);
     const result = run(level, input.yapPlan());
     expect(result.outcome.kind).toBe('won');
+  });
+
+  it('allows adding a pause to a completed route, then keeps PLAY enabled', () => {
+    const input = new YapPathInput(level, layout);
+    const route: YapCell[] = [S];
+    for (let y = 2; y <= 10; y += 1) route.push(cell(1, y));
+    for (let x = 2; x <= 6; x += 1) route.push(cell(x, 10));
+    draw(input, route);
+    expect(input.yapCanPlay()).toBe(true);
+
+    // Players can finish drawing first, then tap the cell where the thief
+    // needs to wait (the same interaction required by Tutorial 4).
+    tap(input, cell(1, 4));
+    expect(input.yapPauseCounts()[3]).toBe(1);
+    expect(input.yapCanPlay()).toBe(true);
+    expect(input.yapPlan()[3]).toBe('wait');
+    expect(run(level, input.yapPlan()).outcome.kind).toBe('won');
   });
 });
 
