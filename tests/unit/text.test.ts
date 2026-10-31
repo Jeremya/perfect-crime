@@ -117,7 +117,7 @@ describe('YAP_TEXT_ROLES — the type roles of the plan style', () => {
       caption: { family: 'serif', size: 15, italic: true },
       kicker: { family: 'mono', size: 12, upper: true, tracking: 0.12 },
       stat: { family: 'mono', size: 14, upper: true, tracking: 0.12 },
-      statLarge: { family: 'mono', size: 22, bold: true },
+      statLarge: { family: 'mono', size: 22, bold: true, tracking: 0.12 },
       button: { family: 'mono', size: 14, upper: true, tracking: 0.14 },
       buttonPrimary: { family: 'mono', size: 15, bold: true, upper: true, tracking: 0.18 },
     });
@@ -194,12 +194,13 @@ describe('yapRoleTracking — the letter spacing of a role, in px', () => {
   it('is the tracking in em times the size, to 0.1 px', () => {
     expect(yapRoleTracking('kicker')).toBe(1.4); // 12 × 0.12 = 1.44
     expect(yapRoleTracking('stat')).toBe(1.7); // 14 × 0.12 = 1.68
+    expect(yapRoleTracking('statLarge')).toBe(2.6); // 22 × 0.12 = 2.64
     expect(yapRoleTracking('button')).toBe(2); // 14 × 0.14 = 1.96
     expect(yapRoleTracking('buttonPrimary')).toBe(2.7); // 15 × 0.18 = 2.7
   });
 
   it('is 0 for a role without tracking', () => {
-    for (const role of ['screenTitle', 'cardTitle', 'body', 'caption', 'statLarge'] as const) {
+    for (const role of ['screenTitle', 'cardTitle', 'body', 'caption'] as const) {
       expect(yapRoleTracking(role)).toBe(0);
     }
   });

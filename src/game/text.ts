@@ -138,7 +138,7 @@ export const YAP_TEXT_ROLES: Readonly<Record<YapTextRole, YapTextRoleSpec>> = {
   caption: { family: 'serif', size: 15, italic: true },
   kicker: { family: 'mono', size: 12, upper: true, tracking: 0.12 },
   stat: { family: 'mono', size: 14, upper: true, tracking: 0.12 },
-  statLarge: { family: 'mono', size: 22, bold: true },
+  statLarge: { family: 'mono', size: 22, bold: true, tracking: 0.12 },
   button: { family: 'mono', size: 14, upper: true, tracking: 0.14 },
   buttonPrimary: { family: 'mono', size: 15, bold: true, upper: true, tracking: 0.18 },
 };
