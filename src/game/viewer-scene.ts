@@ -28,7 +28,7 @@ import {
   yapLaserCells,
   type YapBoardLayout,
 } from './board';
-import { yapBakeTexture, yapBakedImage, yapFitCamera, yapViewSize } from './hidpi';
+import { yapBakeTexture, yapBakedImage, yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import {
   yapDrawCamera,
   yapDrawCone,
@@ -106,14 +106,20 @@ export class YapViewerScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
     this.yapBuildPanel();
     this.yapLoadInitial();
+    // A new view size rebuilds the screen (C1). Every RESIZE places the DOM
+    // panel again: the canvas also moves at an unchanged size, when a desktop
+    // window is resized around the 480 px frame.
+    const rebuild = yapOnViewResize(this, () => this.yapBuildAll());
+    this.yapOnResize = (): void => {
+      rebuild();
+      this.yapPositionPanel();
+    };
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuildAll();
-    this.yapPositionPanel();
-  };
+  /** RESIZE handler made by create(). */
+  private yapOnResize: () => void = () => undefined;
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);

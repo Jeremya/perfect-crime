@@ -11,11 +11,19 @@
 //   - the failure replay (board camera zoomed by the ratio, unzoomed UI
 //     camera) and the tap back to the plan at 3x, also across resizes, one of
 //     them in the middle of the replay;
+//   - a page frame resized without a window resize: the canvas follows it,
+//     the plan is drawn once for it, and PLAY is under the finger again;
 //   - a tap on the consent banner, an overlay scene with a camera of its own.
 //
 // Run against the built app (npm run build first):
 //   npx playwright test tests/e2e/hidpi.spec.ts
-import { expect, test, type BrowserContextOptions, type Page } from '@playwright/test';
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type BrowserContextOptions,
+  type Page,
+} from '@playwright/test';
 import type { YapCell } from '../../src/core/level';
 import { solveLevel } from '../../src/core/solver';
 import {
@@ -111,6 +119,47 @@ async function yapCanvasSizes(
 async function yapTapCentre(page: Page): Promise<void> {
   const view = await yapCanvasView(page);
   await yapTap(page, { x: view.width / 2, y: view.height / 2 });
+}
+
+/** The page frame #game that holds the canvas: its top-left corner and CSS size. */
+async function yapFrameBox(
+  page: Page,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const box = await page.locator('#game').boundingBox();
+  if (box === null) throw new Error('the #game frame never appeared');
+  return box;
+}
+
+/**
+ * Counts the planning headers the level scene draws, through its e2e hook:
+ * each build of the planning chrome (top bar and action bar) sets
+ * `window.__yapPhase` to 'planning', once, and nothing else does while the
+ * plan is only looked at. Read the count with yapPlanningHeaders. Installed
+ * before any page script, like yapSeedStorage.
+ */
+async function yapCountPlanningHeaders(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    let phase: unknown;
+    let headers = 0;
+    Object.defineProperty(window, '__yapPhase', {
+      configurable: true,
+      get: () => phase,
+      set: (value: unknown) => {
+        phase = value;
+        if (value === 'planning') headers += 1;
+      },
+    });
+    Object.defineProperty(window, '__yapPlanningHeaders', {
+      configurable: true,
+      get: () => headers,
+    });
+  });
+}
+
+async function yapPlanningHeaders(page: Page): Promise<number> {
+  return page.evaluate(
+    () => (window as unknown as { __yapPlanningHeaders: number }).__yapPlanningHeaders,
+  );
 }
 
 test('backs the canvas with device pixels', async ({ browser }) => {
@@ -217,6 +266,48 @@ test.describe('on a 390×844 phone at 3x', () => {
     await yapWaitPhase(page, 'planning');
     await yapPressPlay(page);
     await yapWaitPhase(page, 'failure');
+    expect(errors).toEqual([]);
+  });
+
+  test('follows a frame size change without a window resize', async ({ context, page }) => {
+    const errors = yapPageErrors(page);
+    await yapSeedStorage(context, CONSENT_REFUSED);
+    await yapCountPlanningHeaders(context);
+    await page.goto(`${baseUrl}/`);
+    await yapWaitPhase(page, 'planning');
+    const headers = await yapPlanningHeaders(page);
+
+    // the page shortens #game, the window keeps its size: no resize event
+    await page.evaluate(() => {
+      const frame = document.getElementById('game');
+      if (frame === null) throw new Error('no #game frame');
+      frame.style.height = '700px';
+    });
+    await expect
+      .poll(() => yapCanvasSizes(page))
+      .toEqual({
+        width: 1170,
+        height: 2100,
+        clientWidth: 390,
+        clientHeight: 700,
+      });
+    // the canvas ends where the frame ends: overflow: hidden clips no action bar
+    const canvas = await yapCanvasView(page);
+    const frame = await yapFrameBox(page);
+    expect(canvas.y + canvas.height).toBe(frame.y + frame.height);
+
+    // one new size, one planning header...
+    expect(await yapPlanningHeaders(page)).toBe(headers + 1);
+    // ... and none for Phaser's own refresh at the unchanged size, which its
+    // window listener (here) and its parent poll emit as RESIZE in mode NONE
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+    expect(await yapPlanningHeaders(page)).toBe(headers + 1);
+
+    // PLAY is under the finger at its new place
+    await yapWaitPhase(page, 'planning');
+    await yapDraw(page, T1, yapPlanCells(T1, solveLevel(T1).plan));
+    await yapPressPlay(page);
+    await yapWaitPhase(page, 'win', 30_000);
     expect(errors).toEqual([]);
   });
 

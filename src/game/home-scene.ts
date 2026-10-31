@@ -50,7 +50,7 @@ import {
   yapFitRows,
   yapHexToInt,
 } from './board';
-import { yapFitCamera, yapViewSize } from './hidpi';
+import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
@@ -219,14 +219,14 @@ export class YapHomeScene extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
     this.yapBuild();
+    this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
     this.yapTimer = this.time.addEvent({ delay: 1000, loop: true, callback: this.yapOnSecond });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuild();
-  };
+  /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
+  private yapOnResize: () => void = () => undefined;
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize);

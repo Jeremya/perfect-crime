@@ -53,7 +53,7 @@ import {
   yapDirVector,
   yapHexToInt,
 } from './board';
-import { yapFitCamera, yapViewSize } from './hidpi';
+import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapFlow } from './home-scene';
 import { yapDrawDiamond, yapDrawExit, yapDrawStart, yapDrawStaticGrid } from './render';
 import { yapText, yapTextStyle } from './text';
@@ -114,13 +114,13 @@ export class YapChallengeScene extends Phaser.Scene {
       is_self: this.yapEntry.shareId === yapLoadShareId(),
     });
     this.yapBuild();
+    this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuild();
-  };
+  /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
+  private yapOnResize: () => void = () => undefined;
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);

@@ -68,6 +68,7 @@ import {
   yapBakedImage,
   yapDeviceViewport,
   yapFitCamera,
+  yapOnViewResize,
   yapPointerView,
   yapViewSize,
 } from './hidpi';
@@ -237,13 +238,13 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
     this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
     yapAttachSound(this); // C8: sounds + vibration on this scene's events
+    this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuild();
-  };
+  /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
+  private yapOnResize: () => void = () => undefined;
 
   /**
    * End-to-end hook (tests/e2e/share.spec.ts): the phase currently on screen,

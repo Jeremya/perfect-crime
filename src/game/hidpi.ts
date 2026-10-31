@@ -132,15 +132,42 @@ export function yapBakedImage(
     .setScale(1 / YAP_DPR);
 }
 
+// ---------------------------------------------------------------------------
+// Resizing: the game follows its page frame, a scene rebuilds once per size
+// ---------------------------------------------------------------------------
+
 /**
- * Keeps the game at the size of its page frame. Scale mode NONE does not
- * follow the page by itself, so every window resize (a rotation included)
- * resizes the game to the frame's CSS size in device pixels, which emits
- * RESIZE to the scenes.
+ * A RESIZE handler for `scene` that calls `rebuild` only when the view size
+ * differs from the one at its previous call; the first call compares with
+ * the size when the handler is made, the size the scene was just built at.
+ * In mode NONE, Phaser's own listeners (a window resize, its 500 ms poll of
+ * the parent) only refresh, which emits RESIZE at an unchanged size: a scene
+ * rebuilding on every RESIZE would draw twice per resize, three times per
+ * rotation. Register and remove the handler like any other.
+ */
+export function yapOnViewResize(scene: Phaser.Scene, rebuild: () => void): () => void {
+  let last = yapViewSize(scene);
+  return () => {
+    const view = yapViewSize(scene);
+    if (view.width === last.width && view.height === last.height) return;
+    last = view;
+    rebuild();
+  };
+}
+
+/**
+ * Keeps the game at the size of its page frame, in device pixels. Scale mode
+ * NONE does not follow the page by itself, so the game follows the frame on
+ * every window resize (a rotation included) and, through a ResizeObserver, on
+ * a frame resized without one. A resize emits RESIZE to the scenes; a frame
+ * whose size the game already has changes nothing.
  */
 export function yapInstallResize(game: Phaser.Game, frame: HTMLElement): void {
-  window.addEventListener('resize', () => {
+  const follow = (): void => {
     const size = yapDeviceSize(frame.clientWidth, frame.clientHeight, YAP_DPR);
+    if (size.width === game.scale.width && size.height === game.scale.height) return;
     game.scale.resize(size.width, size.height);
-  });
+  };
+  window.addEventListener('resize', follow);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(follow).observe(frame);
 }

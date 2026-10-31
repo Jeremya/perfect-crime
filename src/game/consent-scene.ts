@@ -20,7 +20,7 @@ import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
-import { yapFitCamera, yapViewSize } from './hidpi';
+import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapText, yapTextStyle } from './text';
 
 /** Minimum height of the banner strip: exactly the top bar zone. */
@@ -48,13 +48,13 @@ export class YapConsentScene extends Phaser.Scene {
       return;
     }
     this.yapBuild();
+    this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
   }
 
-  private readonly yapOnResize = (): void => {
-    this.yapBuild();
-  };
+  /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
+  private yapOnResize: () => void = () => undefined;
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
