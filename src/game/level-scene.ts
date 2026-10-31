@@ -198,7 +198,10 @@ export class YapLevelScene extends Phaser.Scene {
   private yapWinFrame: YapSimState | null = null;
   /** Layer above the entities: red detector cone + fatal-cell marker. */
   private yapMarksLayer: Phaser.GameObjects.Graphics | null = null;
-  /** Unzoomed camera drawing the chrome while the Failure zoom is on. */
+  /**
+   * Camera drawing the chrome while the Failure zoom is on: zoomed by the
+   * ratio like every camera (C1), but without the failure zoom.
+   */
   private yapUiCamera: Phaser.Cameras.Scene2D.Camera | null = null;
   /** D2: the data the scene was started with (route of the app flow). */
   private yapSceneData: YapLevelSceneData = {};

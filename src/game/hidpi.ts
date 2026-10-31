@@ -10,6 +10,7 @@
 // no devicePixelRatio and YAP_DPR is 1. It is also the only module that
 // touches the device pixels of a scene (its game size, a pointer position, a
 // baked texture): tests/unit/hidpi-guard.test.ts keeps the scenes off them.
+// Camera viewports are in device pixels too: level-scene.ts's failure zoom.
 import type Phaser from 'phaser';
 
 /**

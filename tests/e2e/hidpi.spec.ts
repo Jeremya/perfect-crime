@@ -6,11 +6,12 @@
 // (src/game/hidpi.ts); the unit guards (tests/unit/hidpi-guard.test.ts) keep
 // those conversions in one module. This spec drives the real bundle on
 // emulated phones and checks what the guards cannot:
-//   - the backing store at 390×844 @3, 360×640 @2 and on a DPR 1 desktop;
+//   - the backing store at 390×844 @3, 393×852 @2.75, 360×640 @2 and on a
+//     DPR 1 desktop, with the canvas at the frame's corner (no centring);
 //   - a stroke and PLAY at 3x, up to the Win screen;
-//   - the failure replay (board camera zoomed by the ratio, unzoomed UI
-//     camera) and the tap back to the plan at 3x, also across resizes, one of
-//     them in the middle of the replay;
+//   - the failure replay (board camera zoomed by the failure zoom times the
+//     ratio, UI camera by the ratio alone) and the tap back to the plan at 3x,
+//     also across resizes, one of them in the middle of the replay;
 //   - a page frame resized without a window resize: the canvas follows it,
 //     the plan is drawn once for it, and PLAY is under the finger again;
 //   - a tap on the consent banner, an overlay scene with a camera of its own.
@@ -174,6 +175,12 @@ test('backs the canvas with device pixels', async ({ browser }) => {
       expected: { width: 1170, height: 2532, clientWidth: 390, clientHeight: 844 },
     },
     {
+      // a fractional ratio: 393 × 2.75 = 1080.75, rounded to 1081 device px
+      name: 'phone 393×852 @2.75',
+      options: yapPhone(393, 852, 2.75),
+      expected: { width: 1081, height: 2343, clientWidth: 393, clientHeight: 852 },
+    },
+    {
       name: 'phone 360×640 @2',
       options: yapPhone(360, 640, 2),
       expected: { width: 720, height: 1280, clientWidth: 360, clientHeight: 640 },
@@ -194,6 +201,11 @@ test('backs the canvas with device pixels', async ({ browser }) => {
       await page.goto(`${baseUrl}/`);
       await yapWaitPhase(page, 'planning');
       expect(await yapCanvasSizes(page), name).toEqual(expected);
+      // no Phaser centring: the canvas sits at the frame's corner, also when
+      // the rounded backing store makes it a fraction of a CSS px wider
+      const canvas = await yapCanvasView(page);
+      const frame = await yapFrameBox(page);
+      expect({ x: canvas.x, y: canvas.y }, name).toEqual({ x: frame.x, y: frame.y });
       expect(errors, name).toEqual([]);
     } finally {
       await context.close();
