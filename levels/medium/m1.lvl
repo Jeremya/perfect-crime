@@ -1,0 +1,32 @@
+# Medium 1 — "Pingpong", teach: read a back-and-forth patrol and cross right
+# behind it. The left column is walled, so the route must cross the swept row
+# inside the patrol's span. 2 pingpong guards, no camera, no laser.
+name: "Pingpong"
+type: normal
+moment: ""
+maxPauses: 2
+par: 16
+map: |
+  ########
+  #S.....#
+  #......#
+  ##.....#
+  ##.....#
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,4],[3,4],[4,4],[5,4],[6,4]]
+    mode: pingpong
+    phase: 3
+    range: 2
+  - id: g2
+    route: [[6,9],[5,9]]
+    mode: pingpong
+    phase: 1
+    range: 2

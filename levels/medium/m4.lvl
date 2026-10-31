@@ -1,0 +1,32 @@
+# Medium 4 — "Roundabout", practice: a loop patrol (no turn-around at the
+# ends, the guard keeps circling the pillar). Read the loop direction and
+# slip through the cell it just left. 2 guards.
+name: "Roundabout"
+type: normal
+moment: ""
+maxPauses: 2
+par: 17
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #..#...#
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,3],[3,3],[4,3],[4,4],[4,5],[3,5],[2,5],[2,4]]
+    mode: loop
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[1,8],[2,8],[3,8]]
+    mode: pingpong
+    phase: 2
+    range: 2
