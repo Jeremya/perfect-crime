@@ -1,6 +1,13 @@
 # Daily heist 4 — normal, 1 guard + 1 laser, target par 18-24.
 # Intent: introduce the laser (first-encounter help bubble is UI-side).
 # The laser gates the only gap in the wall; cross it on the off beat.
+#
+# Tuning (2026-10-31): the beam is off at ticks 0-1 and 8-13, and the natural
+# route — down the left corridor, through the gap, up to the diamond, then
+# down and around the guard — reaches the gap at tick 8, i.e. while it is open.
+# Keep that true when editing: the first version opened only at 14-19 while the
+# gap could be reached at 8 with at most 2 pauses, so every human route was
+# caught and the level felt unsolvable. The par must stay 20 (18-24 target).
 name: "Red Line"
 type: normal
 moment: ""
@@ -11,11 +18,11 @@ map: |
   #S..#..#
   #...#..#
   #...#..#
-  #...#..#
+  #...#.L#
   #...#..#
   #......#
   #...#..#
-  #...#L.#
+  #...#..#
   #...#..#
   #...#.E#
   ########
@@ -30,4 +37,4 @@ lasers:
     cells: [[4,6]]
     on: 6
     off: 6
-    phase: 4
+    phase: 10
