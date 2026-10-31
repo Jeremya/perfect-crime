@@ -79,8 +79,11 @@ See `docs/PARALLEL.md` for the full playbook. The short version:
 ## 6. Parallel agents
 
 - Spawn role-specific subagents with `config_name` `yap-core`, `yap-game`,
-  `yap-app` or `yap-content` (profiles in `.vibe/agents/`), or run several
-  independent Vibe sessions, each in its own worktree.
+  `yap-app`, `yap-content` or `yap-game-design` (profiles in `.vibe/agents/`),
+  or run several independent Vibe sessions, each in its own worktree.
+  `yap-game-design` is design-only (docs/design, docs/feel, tasks/X*): it loads
+  the `game-level-design` skill (`.vibe/skills/game-level-design/`) and never
+  touches `src/`.
 - Each agent works only on its own task file and its own branch/worktree.
 - Coordinate through `tasks/README.md` (status column), not through shared
   files.
