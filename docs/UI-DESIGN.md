@@ -124,6 +124,12 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
   visible between a 64 px top bar and a 96 px bottom action bar where the
   viewport allows; adapt cell size and safe areas without hiding essential
   state on the smaller viewport.
+- Rendering density: the canvas renders at the device pixel ratio, capped at 3,
+  read once at boot: a later change (browser zoom, another screen) applies on
+  reload. Scenes lay out in CSS px through `yapViewSize` and read pointers
+  through `yapPointerView`. Create texts with `yapText`/`yapTextStyle` and bake
+  textures with `yapBakeTexture`; the source guards `hidpi-guard.test.ts` and
+  `text-guard.test.ts` enforce this.
 - Top bar: level name, ticks/par, pauses remaining.
 - Bottom bar: Clear, the largest primary PLAY action, and Hint only when
   available. Put primary actions in the bottom third for one-thumb use.
