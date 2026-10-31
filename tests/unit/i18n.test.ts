@@ -240,15 +240,16 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
   // are developer-facing diagnostics. Typed Yap* diagnostics in app modules
   // are excluded below for the same reason. Technical literals — scene keys
   // ('yap-boot'), colours ('#0b0e14'), event names ('yap.win'), storage
-  // prefixes — are lowercase/kebab/hex and never match. src/app/i18n and
-  // src/app/brand.ts are excluded, as is src/main.ts whose Phaser config title
-  // is never rendered.
+  // prefixes — are lowercase/kebab/hex and never match. src/app/i18n,
+  // src/app/brand.ts and src/game/text.ts (CSS font stacks: quoted family names
+  // like "Segoe UI" are never rendered) are excluded, as is src/main.ts whose
+  // Phaser config title is never rendered.
   const SRC_ROOT = new URL('../../src/', import.meta.url);
   // Core modules contain developer-facing diagnostics (for example parser
   // errors), not UI copy. Displayed text belongs to the game and app layers.
   const SCAN_DIRS = ['game', 'app'];
   const SKIP_DIRS = new Set(['i18n']);
-  const SKIP_FILES = new Set(['brand.ts']);
+  const SKIP_FILES = new Set(['brand.ts', 'text.ts']);
 
   function listSources(dir: URL): string[] {
     const out: string[] = [];
