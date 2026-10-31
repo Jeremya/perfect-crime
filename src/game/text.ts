@@ -137,7 +137,7 @@ export const YAP_TEXT_ROLES: Readonly<Record<YapTextRole, YapTextRoleSpec>> = {
   body: { family: 'serif', size: 16 },
   caption: { family: 'serif', size: 15, italic: true },
   kicker: { family: 'mono', size: 12, upper: true, tracking: 0.12 },
-  stat: { family: 'mono', size: 14, upper: true, tracking: 0.06 },
+  stat: { family: 'mono', size: 14, upper: true, tracking: 0.12 },
   statLarge: { family: 'mono', size: 22, bold: true },
   button: { family: 'mono', size: 14, upper: true, tracking: 0.14 },
   buttonPrimary: { family: 'mono', size: 15, bold: true, upper: true, tracking: 0.18 },
@@ -193,7 +193,8 @@ export function yapRoleText(
   color: string,
   extra: YapTextExtra = {},
 ): Phaser.GameObjects.Text {
-  const shown = YAP_TEXT_ROLES[role].upper ? content.toLocaleUpperCase() : content;
+  // toUpperCase, not toLocaleUpperCase: on a Turkish device the latter turns an i into İ
+  const shown = YAP_TEXT_ROLES[role].upper ? content.toUpperCase() : content;
   const text = yapText(scene, x, y, shown, yapRoleStyle(role, color, extra));
   const spacing = yapRoleTracking(role);
   if (spacing !== 0) text.setLetterSpacing(spacing);

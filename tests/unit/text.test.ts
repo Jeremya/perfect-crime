@@ -116,7 +116,7 @@ describe('YAP_TEXT_ROLES — the type roles of the plan style', () => {
       body: { family: 'serif', size: 16 },
       caption: { family: 'serif', size: 15, italic: true },
       kicker: { family: 'mono', size: 12, upper: true, tracking: 0.12 },
-      stat: { family: 'mono', size: 14, upper: true, tracking: 0.06 },
+      stat: { family: 'mono', size: 14, upper: true, tracking: 0.12 },
       statLarge: { family: 'mono', size: 22, bold: true },
       button: { family: 'mono', size: 14, upper: true, tracking: 0.14 },
       buttonPrimary: { family: 'mono', size: 15, bold: true, upper: true, tracking: 0.18 },
@@ -193,7 +193,7 @@ describe('yapRoleStyle — the style of a role', () => {
 describe('yapRoleTracking — the letter spacing of a role, in px', () => {
   it('is the tracking in em times the size, to 0.1 px', () => {
     expect(yapRoleTracking('kicker')).toBe(1.4); // 12 × 0.12 = 1.44
-    expect(yapRoleTracking('stat')).toBe(0.8); // 14 × 0.06 = 0.84
+    expect(yapRoleTracking('stat')).toBe(1.7); // 14 × 0.12 = 1.68
     expect(yapRoleTracking('button')).toBe(2); // 14 × 0.14 = 1.96
     expect(yapRoleTracking('buttonPrimary')).toBe(2.7); // 15 × 0.18 = 2.7
   });
@@ -236,6 +236,24 @@ describe('yapRoleText — a Text made from a role', () => {
     expect(setLetterSpacing).toHaveBeenCalledWith(1.4);
     // and the caller gets back the Text the scene created
     expect(created).toBe(text.mock.results[0]?.value);
+  });
+
+  it('capitalises the same way on every device locale', () => {
+    const { scene, text } = yapFakeScene();
+    // On a Turkish device toLocaleUpperCase turns i into İ, which an EN or FR
+    // text must not get: simulate that device (node does not take it from the
+    // environment), so that a role using toLocaleUpperCase fails here.
+    const toLocaleUpperCase = vi.spyOn(String.prototype, 'toLocaleUpperCase');
+    toLocaleUpperCase.mockImplementation(function (this: string) {
+      return this.toUpperCase().replaceAll('I', 'İ');
+    });
+    try {
+      yapRoleText(scene, 0, 0, 'Timide', 'kicker', '#111');
+
+      expect(text).toHaveBeenCalledWith(0, 0, 'TIMIDE', yapRoleStyle('kicker', '#111'));
+    } finally {
+      toLocaleUpperCase.mockRestore();
+    }
   });
 
   it('serif roles keep case and spacing', () => {
