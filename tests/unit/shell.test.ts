@@ -18,15 +18,15 @@ const viteConfig = readFileSync(`${ROOT}vite.config.ts`, 'utf8');
 const mainEntry = readFileSync(`${ROOT}src/main.ts`, 'utf8');
 
 describe('HTML shell and build base', () => {
-  it('paints the app background with the surface-page token', () => {
-    const surfacePage = YAP_PALETTE['surface-page'].toLowerCase();
-    expect(shell.toLowerCase()).toContain(`background: ${surfacePage};`);
+  it('paints the app background with the paper-page token', () => {
+    const paperPage = YAP_PALETTE['paper-page'].toLowerCase();
+    expect(shell.toLowerCase()).toContain(`background: ${paperPage};`);
   });
 
-  it('declares a theme-color that matches the light surface', () => {
+  it('declares a theme-color that matches the paper page', () => {
     const meta = /<meta name="theme-color" content="([^"]+)" \/>/.exec(shell);
     expect(meta).not.toBeNull();
-    expect(meta?.[1]?.toLowerCase()).toBe(YAP_PALETTE['surface-page'].toLowerCase());
+    expect(meta?.[1]?.toLowerCase()).toBe(YAP_PALETTE['paper-page'].toLowerCase());
   });
 
   it('has no trace of the retired dark background', () => {
@@ -50,6 +50,14 @@ describe('app shell wiring', () => {
 
   it('reports entry: link when the URL carries a payload', () => {
     expect(mainEntry).toMatch(/entry: link === null \? 'direct' : 'link'/);
+  });
+
+  it('paints the body and the game background with the paper-page token, not a literal', () => {
+    // The shell, the body and the game's clear colour must agree on the page
+    // colour, or the boot flashes the wrong tint. One token feeds all three.
+    expect(mainEntry).toContain("document.body.style.background = YAP_PALETTE['paper-page'];");
+    expect(mainEntry).toContain("backgroundColor: YAP_PALETTE['paper-page'],");
+    expect(mainEntry.toLowerCase()).not.toContain('#f4f2ed');
   });
 });
 

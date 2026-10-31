@@ -83,6 +83,26 @@ describe('palette — gameplay information is readable', () => {
   });
 });
 
+describe('plan style tokens — paper and ink', () => {
+  it('ink text reads on paper', () => {
+    expect(contrast(YAP_PALETTE.ink, YAP_PALETTE.paper)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['paper-page'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('muted text reads on paper', () => {
+    expect(contrast(YAP_PALETTE['ink-muted'], YAP_PALETTE.paper)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(YAP_PALETTE['ink-muted'], YAP_PALETTE['paper-page'])).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
+
+  it('primary labels read in both states', () => {
+    // enabled: a paper label on the ink fill; disabled: an ink label on ink at 28%
+    expect(contrast(YAP_PALETTE.paper, YAP_PALETTE.ink)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['ink-disabled'])).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe('yapFitRows — the archive fits above the actions', () => {
   it('keeps full-height rows when there is room', () => {
     const m = yapFitRows(600, 7);

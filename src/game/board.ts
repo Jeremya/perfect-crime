@@ -36,6 +36,19 @@ export const YAP_PALETTE = {
   'objective-exit': '#32865A',
   'path-light': '#FFFFFF',
   'path-outline': '#26313B',
+  // Plan style tokens (docs/design/2026-10-30-plan-style-design.md §5). The keys
+  // above keep serving the board and the dev viewer until the board renderer
+  // moves to paper and ink (plan style 3/6).
+  /** Page background: `index.html` shell, `theme-color`, the body and the canvas clear colour. */
+  'paper-page': '#F2EFE6',
+  /** Floor, cards, secondary buttons and the light parts of tokens. */
+  paper: '#FCFBF6',
+  /** Text, outlines, wall edges and primary buttons. */
+  ink: '#1E3A5F',
+  /** Secondary text, at least 4.5:1 on paper and on the page. */
+  'ink-muted': '#4E6480',
+  /** Disabled primary button: ink at 28% over paper. */
+  'ink-disabled': '#BEC5CC',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
