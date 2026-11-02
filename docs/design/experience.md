@@ -111,6 +111,18 @@ Risk: could reduce the sting of failure — mitigate by making preview a
 
 ### 3.2 Slingshot undo
 
+> **Status: implemented (task X4, branch `x4-slingshot-undo`, PR `[X4] Slingshot undo: drag back erases the route`).**
+> Pure input change in `src/game/path-input.ts` (`yapUndoDrag`, threshold
+> `YAP_UNDO_MAX_DISTANCE` = half a cell): while drawing (not finished), a
+> pointer that pulls back along the last drawn segment — behind the last cell
+> and within the threshold of the segment — pops the last cell, one segment
+> per crossed midpoint, even in the border strips where no cell resolves. The
+> start cell S is never popped; pushing forward redraws. A tap stays a tap; no
+> undo after the auto-finish at the exit; pause taps on a completed route
+> still work (fix #52). `yapCanPlay`/`yapPlan` follow naturally. Unit-tested in
+> `tests/unit/path-input.test.ts`; `level-scene.ts` needed no change
+> (`yapAfterPathChange` already redraws on every pointer event).
+
 Dragging the finger back over the last drawn segments erases them one by one
 (the path shrinks from the end), like pulling the bird back in the slingshot.
 Pure input change in `path-input.ts`; no rule change.
@@ -161,7 +173,7 @@ archive decoration). No spec change, pure UX.
 | X1 | Star thresholds on Home card + planning top bar | `src/game/home-scene.ts`, `src/game/level-scene.ts`, `src/app/i18n/*`, tests | S |
 | X2 | ★ total on Home + stars in archive rows | `src/game/home-scene.ts`, `src/app/daily.ts`, i18n, tests | S |
 | X3 | Plan preview ("dotted arc") behind `?flag=preview:` — **implemented, PR open** | `src/game/level-scene.ts`, `src/game/execution.ts`, `src/game/ghost.ts`, i18n, tests | M |
-| X4 | Slingshot undo gesture (drag back erases) | `src/game/path-input.ts`, `src/game/level-scene.ts`, tests | M |
+| X4 | Slingshot undo gesture (drag back erases) — **implemented, PR open** | `src/game/path-input.ts`, tests (`level-scene.ts` unchanged) | M |
 | X5 | Star gain animation on Win screen | `src/game/level-scene.ts` (win overlay), `src/game/win.ts` (pure timing model), tests | S |
 
 Order: X1 + X2 first (cheap, high visibility), then X3 (the Angry Birds
