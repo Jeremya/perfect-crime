@@ -1,4 +1,15 @@
-# X8 — Intégration des sprites Kenney UI Pack (plan X8b)
+# X8 — Kenney UI Pack : décision produit actée — **NON retenu (100% code)**
+
+> **Décision du product owner (Jeremy), 2026-10-30 : 100% code.** La direction
+> approuvée le 2026-10-30 (`docs/design/2026-10-30-plan-style-design.md` §2, §11)
+> est **confirmée** : les contrôles (boutons, étoiles, toasts, sceau) restent
+> **dessinés en code**, aucun sprite du Kenney UI Pack n'est intégré. Le kit
+> "fancy" de X8b se limite au **style tile** (couleurs, typo, glow, ombres,
+> états pressés dessinés) appliqué aux composants code existants.
+>
+> Le reste de ce document (liste des sprites, tailles, licence CC0) est conservé
+> **à titre d'archive** : si la décision produit est réouverte plus tard, la
+> liste ci-dessous est prête. Ne pas la traiter comme un plan actif.
 
 - **Pack** : Kenney **UI Pack** (v2), CC0 — https://kenney-assets.itch.io/ui-pack
   (430+ sprites, 5 familles de couleur, PNG en deux tailles `Default` 64 px et
@@ -9,13 +20,12 @@
   actions primaires (PLAY, Share), une famille neutre pour les secondaires.
   Le plateau et les menaces restent dessinés en code.
 
-## 0. Point de décision produit (bloquant pour X8b)
+## 0. Point de décision produit — TRANCHÉ
 
-La direction approuvée le 2026-10-30 (`docs/design/2026-10-30-plan-style-design.md`
-§2, §11) avait décidé de **ne pas** utiliser le Kenney UI Pack ("controls are
-drawn in code instead of the Kenney UI Pack"). X8 "fancy" propose de le
-réintégrer pour le chrome. **X8b ne démarre que si le product owner tranche en
-faveur de "fancy"** (ou d'un mix : plateau "plan d'architecte", chrome "fancy").
+Décision : **100% code** (voir en-tête). Conséquence pour X8b : pas de dossier
+`public/assets/kenney/ui/`, pas de sprites UI ; le "fancy" vient du style tile
+(dégradés, glow, ombres portées, états pressés) appliqué aux contrôles dessinés
+en code.
 
 ## 1. Sprites exacts à récupérer et où les poser
 
@@ -59,42 +69,34 @@ tester. Recommandation : (a), la cohérence "une famille" prime
 utilisable pour la main du premier lancement (voir `first-launch-hand.md`) ;
 sinon la main est dessinée en code (recommandé, cohérent avec le plateau).
 
-## 2. Plan X8b — fichiers `src/` touchés, dans l'ordre
+## 2. Plan X8b — style tile 100% code (décision actée ci-dessus)
 
-> **Conflit X3** : X3 (plan preview, `docs/design/experience.md` §5) touche
-> `src/game/level-scene.ts`, `src/game/execution.ts`, `src/game/ghost.ts`.
-> **X8b passe APRÈS le merge de X3** pour ne pas réécrire les mêmes lignes de
-> `level-scene.ts`. Ne jamais merger X8b avant X3.
+> X3 (plan preview) est **mergé** sur main : plus de conflit, X8b peut toucher
+> `src/game/level-scene.ts` librement.
 
-Ordre proposé (un PR par étape, chaque PR green sur les 5 checks) :
+Aucun sprite UI n'est posé. X8b applique le **style tile** (`style-tile.md` +
+`public/design/style-tile.svg`) aux composants **dessinés en code** existants :
 
-1. **Assets + loader** : poser les sprites dans `public/assets/kenney/ui/`,
-   charger dans le boot (`src/game/level-scene.ts` `preload`, là où
-   `yap-thief`/`yap-guard` sont chargés — ou mieux, un loader commun si le boot
-   existe, à vérifier en X8b) + `tests/` snapshot des clés de texture.
-2. **Kit de composants UI** (nouveau module, ex. `src/game/ui-kit.ts`) :
-   `yapButton(scene, {x, y, w, h, label, variant: 'primary'|'secondary', onTap})`
-   qui pose le sprite Kenney (9-slice via `add.nineslice`) + glow (ombre
-   colorée Phaser) + press 120 ms + cible ≥ 44 px. Remplace les helpers
-   boutons dispersés (audit C1 : 4 helpers `level`/`home`/`challenge`/`consent`).
-   Fichiers : `src/game/ui-kit.ts` (new), puis un consommateur par scène.
-3. **Home** : `src/game/home-scene.ts` — boutons Play/Share/Tutorial/Archive via
-   `yapButton`, pills streak/étoiles, carte du jour avec ombre douce + rayon 18.
-4. **Level scene (planning + exécution + failure)** : `src/game/level-scene.ts`
-   — top bar pills, bottom bar Clear/PLAY/Hint via `yapButton`, badge 💡
-   (`src/game/hints.ts` pour la pose), pause badges. **Après X3.**
-5. **Win** : `src/game/level-scene.ts` (overlay win) + `src/game/win.ts` (modèle
-   de timing des étoiles, X5) — étoiles `star.png` animées + Share primary.
-6. **Challenge E4** : `src/game/challenge-scene.ts` — carte mémo remplie,
-   comparaison, sceau `seal.png`, boutons via `yapButton`.
-7. **Consent / toasts** : `src/game/consent-scene.ts` — note papier + boutons
-   `yapButton` + icônes check/cross.
-8. **Settings** : sliders via `slider-track.png`/`slider-handle.png`.
-9. **Board** : **inchangé** — cones, lasers, route, sprites thief/guard restent
-   tels quels (règles de lisibilité). Seul le *cadre* de la carte board reçoit
-   l'ombre douce + rayon 18.
-10. **Nettoyage** : si la direction "fancy" est confirmée, `docs/UI-DESIGN.md`
-    est mis à jour (section asset guidance) dans une PR doc à part.
+1. **Tokens** : faire évoluer `YAP_PALETTE` selon le style tile (dégradés sur
+   les primaires, glow doux sur les cones actifs, ombres portées sur les cartes),
+   en gardant les règles de lisibilité non-négociables de `docs/UI-DESIGN.md`.
+2. **Kit de composants code** (ex. `src/game/ui-kit.ts`) : `yapButton(...)` en
+   dessin code (rectangle arrondi + dégradé + ombre + état pressé 120 ms +
+   cible ≥ 44 px), unifiant les 4 helpers boutons dispersés (level / home /
+   challenge / consent).
+3. **Home** : `src/game/home-scene.ts` — boutons via `yapButton`, pills
+   streak/étoiles, carte du jour avec ombre douce + rayon 18.
+4. **Level scene** : `src/game/level-scene.ts` — top bar pills, bottom bar
+   Clear/Preview/Hint/PLAY via `yapButton`, badge 💡, overlay win (étoiles
+   dessinées animées = X5).
+5. **Challenge E4** : `src/game/challenge-scene.ts` — carte remplie (combler le
+   vide central), comparaison, sceau dessiné en code.
+6. **Consent / toasts / settings** : mêmes composants code, icônes check/cross
+   dessinées.
+7. **Board** : inchangé (règles de lisibilité) — seul le cadre de la carte
+   reçoit ombre douce + rayon 18.
+8. **Doc** : `docs/UI-DESIGN.md` section asset guidance reste "100% code",
+   aucune mise à jour nécessaire.
 
 ## 3. Garde-fous X8b
 
