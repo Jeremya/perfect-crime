@@ -1,0 +1,41 @@
+# Medium 7 — "Hold", test: pause + camera. The only way down is a one-cell
+# corridor whose exit is watched by the camera for 6 ticks out of 12; the
+# natural arrival falls inside the watched window, so one pause before the
+# gap is mandatory (no detour can replace it: the corridor is one cell wide).
+# 2 guards + 1 camera.
+name: "Hold"
+type: normal
+moment: ""
+maxPauses: 2
+par: 20
+map: |
+  ########
+  #S.....#
+  #.######
+  #.######
+  #.######
+  #.######
+  #......#
+  #......#
+  #......#
+  #..L...#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[3,7],[4,7],[5,7]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[6,9],[5,9]]
+    mode: pingpong
+    phase: 1
+    range: 2
+cameras:
+  - id: c1
+    at: [0,6]
+    dirs: [E, S]
+    hold: 6
+    phase: 0
+    range: 6

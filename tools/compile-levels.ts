@@ -12,7 +12,11 @@ import { pathToFileURL } from 'node:url';
 import { parseLevel, YAP_TICK_PERIOD, YapLevelError, type YapLevel } from '../src/core/level';
 
 /** Directories scanned for .lvl files, relative to the repository root. */
-export const YAP_LEVEL_DIRS: readonly string[] = ['levels/tutorial', 'levels/daily'];
+export const YAP_LEVEL_DIRS: readonly string[] = [
+  'levels/tutorial',
+  'levels/daily',
+  'levels/medium',
+];
 /** Where the compiled bundle is written. */
 export const YAP_LEVELS_JSON_PATH = 'levels/levels.json';
 /** Bump when the shape of the compiled JSON changes. */

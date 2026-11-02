@@ -1,0 +1,39 @@
+# Medium 3 — "Blinds", test: camera timing. The camera on the left wall
+# watches the whole middle row for 6 ticks, then looks away for 6 (period 12).
+# Cross row 6 only while it looks away. 2 guards + 1 camera. Target par 18-20.
+name: "Blinds"
+type: normal
+moment: ""
+maxPauses: 2
+par: 19
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[1,3],[2,3],[3,3],[4,3]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[5,9],[6,9]]
+    mode: pingpong
+    phase: 1
+    range: 2
+cameras:
+  - id: c1
+    at: [0,6]
+    dirs: [E, S]
+    hold: 6
+    phase: 0
+    range: 6

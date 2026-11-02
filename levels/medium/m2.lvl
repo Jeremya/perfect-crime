@@ -1,0 +1,32 @@
+# Medium 2 — "The Wait", practice: one pause is mandatory. The only gap in
+# the middle wall is swept by a vertical patrol; arriving on the natural tick
+# is caught, waiting one tick is the optimal plan. 2 guards.
+name: "The Wait"
+type: normal
+moment: ""
+maxPauses: 2
+par: 19
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  ####.###
+  #......#
+  #......#
+  #..L...#
+  #......#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[4,2],[4,3],[4,4]]
+    mode: pingpong
+    phase: 2
+    range: 2
+  - id: g2
+    route: [[1,8],[2,8],[3,8]]
+    mode: pingpong
+    phase: 1
+    range: 2

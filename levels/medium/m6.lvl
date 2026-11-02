@@ -1,0 +1,32 @@
+# Medium 6 — "The Dash", test: a one-cell-wide corridor between two walls,
+# swept end to end by a patrolling cone. Cross it at the west or east gap on
+# the tick the sweep is at the far end. 2 guards.
+name: "The Dash"
+type: normal
+moment: ""
+maxPauses: 2
+par: 20
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #.####.#
+  #......#
+  #.####.#
+  #......#
+  #..L...#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,6],[3,6],[4,6],[5,6]]
+    mode: pingpong
+    phase: 0
+    range: 3
+  - id: g2
+    route: [[1,2],[2,2],[3,2]]
+    mode: pingpong
+    phase: 1
+    range: 2

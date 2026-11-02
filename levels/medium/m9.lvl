@@ -1,0 +1,32 @@
+# Medium 9 — "Long Way Round", test: a long forced route (two full walls with
+# single gaps on opposite sides) and a tight par; every tick counts.
+# 2 guards. Target par 23.
+name: "Long Way Round"
+type: normal
+moment: ""
+maxPauses: 2
+par: 23
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #.######
+  #......#
+  #......#
+  ######.#
+  #.L....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,7],[3,7],[4,7]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[2,10],[3,10],[4,10]]
+    mode: pingpong
+    phase: 2
+    range: 2
