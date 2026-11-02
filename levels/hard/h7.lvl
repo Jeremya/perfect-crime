@@ -1,0 +1,43 @@
+# Hard heist 7 — "Roundabout Redux", practice: a loop patrol combined with pingpong
+# patrols sharing its cells; read the loop direction and slip through. 3 guards + 1 camera.
+name: "Roundabout Redux"
+type: normal
+moment: ""
+maxPauses: 3
+par: 29
+map: |
+  ########
+  #S....E#
+  #......#
+  #......#
+  #..##..#
+  #..##..#
+  #......#
+  #......#
+  #......#
+  #......#
+  #.....L#
+  ########
+guards:
+  - id: g1
+    route: [[3,3],[4,3],[5,3],[5,4],[5,5],[5,6],[4,6],[3,6],[2,6],[2,5],[2,4],[2,3]]
+    mode: loop
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[1,6],[2,6],[3,6],[4,6],[5,6]]
+    mode: pingpong
+    phase: 3
+    range: 2
+  - id: g3
+    route: [[1,8],[1,9],[1,10]]
+    mode: pingpong
+    phase: 1
+    range: 2
+cameras:
+  - id: c1
+    at: [4,4]
+    dirs: [N, E]
+    hold: 12
+    phase: 0
+    range: 2

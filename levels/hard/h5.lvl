@@ -1,0 +1,50 @@
+# Hard heist 5 — "Gauntlet", test: one-cell corridor under a sweep + laser in the
+# corridor; dash it on the tick the sweep is at the far end and the beam is off.
+# 3 guards + 1 camera + 1 laser.
+name: "Gauntlet"
+type: normal
+moment: ""
+maxPauses: 3
+par: 27
+map: |
+  ########
+  #S.....#
+  #......#
+  #.####.#
+  #......#
+  #.####.#
+  #......#
+  #......#
+  ######.#
+  #L.....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,4],[3,4],[4,4],[5,4]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g2
+    route: [[1,2],[2,2],[3,2]]
+    mode: pingpong
+    phase: 0
+    range: 2
+  - id: g3
+    route: [[2,10],[3,10],[4,10]]
+    mode: pingpong
+    phase: 1
+    range: 2
+cameras:
+  - id: c1
+    at: [7,3]
+    dirs: [W, S]
+    hold: 6
+    phase: 1
+    range: 3
+lasers:
+  - id: l1
+    cells: [[3,4],[4,4]]
+    on: 4
+    off: 8
+    phase: 0

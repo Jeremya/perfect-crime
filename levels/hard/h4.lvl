@@ -1,0 +1,43 @@
+# Hard heist 4 — "Chain Reaction", test: a chain of pauses — the corridor sweep and
+# the camera force three waits (minPauses 3). 3 guards + 1 camera.
+name: "Chain Reaction"
+type: normal
+moment: ""
+maxPauses: 3
+par: 29
+map: |
+  ########
+  #S.....#
+  #......#
+  #.####.#
+  #......#
+  #.####.#
+  #......#
+  #......#
+  ######.#
+  #L.....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,4],[3,4],[4,4],[5,4]]
+    mode: pingpong
+    phase: 2
+    range: 2
+  - id: g2
+    route: [[1,2],[2,2],[3,2]]
+    mode: pingpong
+    phase: 3
+    range: 2
+  - id: g3
+    route: [[2,10],[3,10],[4,10]]
+    mode: pingpong
+    phase: 3
+    range: 2
+cameras:
+  - id: c1
+    at: [7,3]
+    dirs: [W, S]
+    hold: 6
+    phase: 1
+    range: 3

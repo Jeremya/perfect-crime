@@ -1,0 +1,49 @@
+# Hard heist 9 — "Long Haul", test: long forced route (two walls, opposite gaps) with
+# a laser on the second gap. 3 guards + 1 camera + 1 laser.
+name: "Long Haul"
+type: normal
+moment: ""
+maxPauses: 3
+par: 31
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #.######
+  #......#
+  #......#
+  ######.#
+  #.L....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,7],[3,7],[4,7]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[2,10],[3,10],[4,10]]
+    mode: pingpong
+    phase: 2
+    range: 2
+  - id: g3
+    route: [[2,3],[3,3],[4,3]]
+    mode: pingpong
+    phase: 0
+    range: 2
+cameras:
+  - id: c1
+    at: [7,6]
+    dirs: [W, N]
+    hold: 6
+    phase: 3
+    range: 2
+lasers:
+  - id: l1
+    cells: [[6,8]]
+    on: 4
+    off: 8
+    phase: 0

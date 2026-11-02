@@ -1,0 +1,55 @@
+# Hard heist 10 — "The Vault", signature hard (type stays normal, moment set): laser gap
+# + two cameras + three patrols; cross on the off beat while both cameras look away.
+name: "The Vault"
+type: normal
+moment: "Cross the laser gap on the off beat while both cameras look away, then thread the patrols to the loot."
+maxPauses: 3
+par: 31
+map: |
+  ########
+  #S.....#
+  #......#
+  #......#
+  #......#
+  #.######
+  #......#
+  #......#
+  ######.#
+  #.L....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,7],[3,7],[4,7]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[2,10],[3,10],[4,10]]
+    mode: pingpong
+    phase: 2
+    range: 2
+  - id: g3
+    route: [[2,3],[3,3],[4,3]]
+    mode: pingpong
+    phase: 0
+    range: 2
+cameras:
+  - id: c1
+    at: [0,5]
+    dirs: [E, S]
+    hold: 6
+    phase: 7
+    range: 3
+  - id: c2
+    at: [7,7]
+    dirs: [W, N]
+    hold: 6
+    phase: 4
+    range: 2
+lasers:
+  - id: l1
+    cells: [[6,8]]
+    on: 4
+    off: 8
+    phase: 0
