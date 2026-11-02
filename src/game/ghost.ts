@@ -19,6 +19,8 @@ import {
   type YapCameraView,
   type YapGuardView,
   type YapLaserView,
+  type YapPlan,
+  type YapSimOutcome,
 } from '../core/sim';
 import { parseFlagsFromSearch, YAP_DEFAULT_FLAGS, type YapFlags } from '../app/config';
 
@@ -107,14 +109,14 @@ export function yapGhostCones(level: YapLevel, ghost: YapGhostState): YapGhostCo
 }
 
 /** The scene modes of YapLevelScene, as far as the ghost layer is concerned. */
-export type YapGhostRenderMode = 'planning' | 'execution' | 'failure' | 'win';
+export type YapGhostRenderMode = 'planning' | 'execution' | 'failure' | 'win' | 'preview';
 
 /**
  * Whether the scene draws the ghost layer: only in planning mode, and only
  * when the path-input exposes a ghost state (drawing in progress + the ghost
- * flag on). Every other case — drawing stopped, execution/failure/win running,
- * flag off — clears the layer. This is the visibility rule of the C6 render in
- * ./level-scene.ts, kept pure here so it is unit-tested in node.
+ * flag on). Every other case — drawing stopped, execution/failure/win/preview
+ * running, flag off — clears the layer. This is the visibility rule of the
+ * C6 render in ./level-scene.ts, kept pure here so it is unit-tested in node.
  */
 export function yapGhostLayerVisible(
   mode: YapGhostRenderMode,
@@ -135,4 +137,75 @@ export function yapResolveGhostFlag(search = '', stored?: Partial<YapFlags>): bo
     ...parseFlagsFromSearch(search),
   };
   return flags.ghost;
+}
+
+// ---------------------------------------------------------------------------
+// Plan preview (X3) — the Angry Birds "dotted arc"
+// (docs/design/experience.md §3.1): replay the whole drawn plan as a ghost
+// ---------------------------------------------------------------------------
+
+/**
+ * One state of the plan preview (X3): the ghost world at one tick of the plan
+ * (exactly a YapGhostState, so yapGhostCones applies unchanged) plus the
+ * thief's cell and the outcome at that tick, so the scene can move the ghost
+ * thief along the route and stop on the win/caught tick.
+ */
+export interface YapPreviewState extends YapGhostState {
+  readonly thief: YapCell;
+  readonly hasLoot: boolean;
+  readonly outcome: YapSimOutcome;
+}
+
+/**
+ * The plan preview of X3: one state per tick of the plan, computed only
+ * through resolveTick — the single rule entry point, never re-implemented.
+ * Like YapGhostPreview.yapAt, the chain keeps advancing past a detection (the
+ * outcome is forced back to running) so the whole plan is always previewable;
+ * each state still records the outcome of its own tick, so the last state of
+ * a plan that ends on its last step carries exactly the outcome of
+ * run(level, plan).
+ */
+export function yapPreviewStates(level: YapLevel, plan: YapPlan): YapPreviewState[] {
+  if (plan.length > YAP_MAX_TICKS) {
+    throw new YapGhostError(
+      `YapPreview: a plan is at most ${YAP_MAX_TICKS} steps (pauses included), got ${plan.length}`,
+    );
+  }
+  let state = createInitialState(level);
+  const states: YapPreviewState[] = [];
+  for (const step of plan) {
+    const next = resolveTick(state, step);
+    states.push({
+      tick: next.tick,
+      thief: next.thief,
+      hasLoot: next.hasLoot,
+      guards: next.guards,
+      cameras: next.cameras,
+      lasers: next.lasers,
+      outcome: next.outcome,
+    });
+    // keep advancing past a detection, like YapGhostPreview.yapAt: the preview
+    // replays the whole plan; the outcome of each tick is kept on its state
+    state = next.outcome.kind === 'running' ? next : { ...next, outcome: { kind: 'running' } };
+  }
+  return states;
+}
+
+/**
+ * Resolve the `preview` flag (X3) read-only: default ON, then the URL
+ * override `?flag=preview:0/1` (repeatable, comma-separated, last one wins) —
+ * the same URL syntax as the ghost flag. src/app/config.ts is owned by A2 and
+ * its YapFlags has no `preview` key, so the flag is parsed here rather than
+ * through parseFlagsFromSearch.
+ */
+export function yapResolvePreviewFlag(search = ''): boolean {
+  let value = true; // default on, like the ghost flag
+  for (const raw of new URLSearchParams(search).getAll('flag')) {
+    for (const part of raw.split(',')) {
+      const match = /^preview:(?<value>[01])$/.exec(part.trim());
+      const v = match?.groups?.value;
+      if (v !== undefined) value = v === '1';
+    }
+  }
+  return value;
 }

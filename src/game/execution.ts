@@ -22,6 +22,11 @@ import {
 
 /** Execution speed of the Gate 1 spec: 4 ticks per second. */
 export const YAP_TICKS_PER_SECOND = 4;
+/**
+ * Preview speed (X3, docs/design/experience.md §3.1): twice the playback —
+ * the plan replays as a fast ghost before PLAY commits it for real.
+ */
+export const YAP_PREVIEW_TICKS_PER_SECOND = YAP_TICKS_PER_SECOND * 2;
 /** The optional ×2 of the Execution screen. */
 export const YAP_EXECUTION_SPEEDS = [1, 2] as const;
 export type YapExecutionSpeed = (typeof YAP_EXECUTION_SPEEDS)[number];

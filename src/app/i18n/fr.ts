@@ -194,4 +194,12 @@ export const fr: YapDictionary = {
       'Son plan reste caché jusqu’à ce que tu réussisses cette casse — ou que tu prennes le deuxième indice.',
     planTitle: 'Son plan',
   },
+  // Story X3 — aperçu du plan, l’« arc en pointillés » d’Angry Birds
+  // (docs/design/experience.md §3.1), derrière le commutateur ?flag=preview:
+  // le bouton Aperçu de la barre du bas, affiché quand la route tracée est
+  // complète, et l’indicateur de la barre du bas pendant le rejeu fantôme.
+  preview: {
+    button: '👁 Aperçu',
+    running: 'Aperçu de ton plan…',
+  },
 };

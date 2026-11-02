@@ -77,6 +77,18 @@ Five mechanics, in order of importance:
 
 ### 3.1 The Angry Birds mechanic to port: plan preview ("dotted arc")
 
+> **Status: implemented (task X3, branch `x3-plan-preview`, PR `[X3] Plan preview (Angry Birds dotted arc) behind ?flag=preview:`).**
+> Behind `?flag=preview:` (default on): once the drawn route is complete, a
+> Preview button (👁) appears in the planning bottom bar next to PLAY. It
+> replays the plan as a fast ghost (8 ticks/s, twice the playback): the ghost
+> thief advances along the route and at each tick the guards/cameras/lasers
+> and their exact cones are drawn at that tick, at reduced opacity (the C6
+> ghost treatment). At the end (win or caught) — or on one tap — the scene
+> returns automatically to planning with the route kept and PLAY available.
+> Pure logic: `yapPreviewStates(level, plan)` in `src/game/ghost.ts`
+> (one `YapGhostState` per plan tick via `resolveTick`, tested in
+> `tests/unit/preview.test.ts`).
+
 In Angry Birds the dotted arc is *the* core pleasure: you see the entire
 consequence of your aim before committing. In Perfect Crime the equivalent is
 the drawn plan — but its *consequences* (where the guards will be at each tick)
@@ -148,7 +160,7 @@ archive decoration). No spec change, pure UX.
 |---|---|---|---|
 | X1 | Star thresholds on Home card + planning top bar | `src/game/home-scene.ts`, `src/game/level-scene.ts`, `src/app/i18n/*`, tests | S |
 | X2 | ★ total on Home + stars in archive rows | `src/game/home-scene.ts`, `src/app/daily.ts`, i18n, tests | S |
-| X3 | Plan preview ("dotted arc") behind `?flag=preview:` | `src/game/level-scene.ts`, `src/game/execution.ts`, `src/game/ghost.ts`, i18n, tests | M |
+| X3 | Plan preview ("dotted arc") behind `?flag=preview:` — **implemented, PR open** | `src/game/level-scene.ts`, `src/game/execution.ts`, `src/game/ghost.ts`, i18n, tests | M |
 | X4 | Slingshot undo gesture (drag back erases) | `src/game/path-input.ts`, `src/game/level-scene.ts`, tests | M |
 | X5 | Star gain animation on Win screen | `src/game/level-scene.ts` (win overlay), `src/game/win.ts` (pure timing model), tests | S |
 

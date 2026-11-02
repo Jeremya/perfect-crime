@@ -191,6 +191,15 @@ export const en = {
     planLocked: 'Their plan stays hidden until you clear this heist — or take the second hint.',
     planTitle: 'Their plan',
   },
+  // Story X3 — plan preview, the Angry Birds "dotted arc"
+  // (docs/design/experience.md §3.1), behind the ?flag=preview: switch
+  // (default on): the Preview button of the planning bottom bar, shown once
+  // the drawn route is complete, and the bottom-bar indicator while the ghost
+  // replays the plan.
+  preview: {
+    button: '👁 Preview',
+    running: 'Previewing your plan…',
+  },
 } as const;
 
 /** The dictionary contract: same shape as `en`, every leaf widened to string. */
