@@ -16,6 +16,7 @@ export const YAP_LEVEL_DIRS: readonly string[] = [
   'levels/tutorial',
   'levels/daily',
   'levels/medium',
+  'levels/hard',
 ];
 /** Where the compiled bundle is written. */
 export const YAP_LEVELS_JSON_PATH = 'levels/levels.json';

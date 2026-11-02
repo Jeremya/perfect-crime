@@ -1,0 +1,49 @@
+# Hard heist 1 — "Laser Gate", teach: the laser gates the only gap in the wall;
+# cross it on the off beat (laser off) while the camera looks away. 3 guards + 1 camera + 1 laser.
+name: "Laser Gate"
+type: normal
+moment: ""
+maxPauses: 3
+par: 29
+map: |
+  ########
+  #S.#..E#
+  #..#...#
+  #..#...#
+  #..#...#
+  #..#...#
+  #......#
+  #..#...#
+  #..#...#
+  #..#...#
+  #..#..L#
+  ########
+guards:
+  - id: g1
+    route: [[2,2],[2,3],[2,4]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[1,7],[2,7],[2,8]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g3
+    route: [[6,2],[6,3],[6,4]]
+    mode: pingpong
+    phase: 0
+    range: 2
+cameras:
+  - id: c1
+    at: [3,5]
+    dirs: [E, W]
+    hold: 6
+    phase: 7
+    range: 2
+lasers:
+  - id: l1
+    cells: [[3,6]]
+    on: 4
+    off: 8
+    phase: 0

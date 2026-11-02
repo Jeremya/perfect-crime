@@ -1,0 +1,43 @@
+# Hard heist 6 — "The Longest Night", test: serpentine route (three walls, alternating
+# gaps) with the tightest par of the set (34). 3 guards + 1 camera.
+name: "The Longest Night"
+type: normal
+moment: ""
+maxPauses: 3
+par: 34
+map: |
+  ########
+  #S.....#
+  ######.#
+  #......#
+  #......#
+  #.######
+  #......#
+  #......#
+  ######.#
+  #.L....#
+  #.....E#
+  ########
+guards:
+  - id: g1
+    route: [[2,3],[3,3],[4,3]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g2
+    route: [[2,7],[3,7],[4,7]]
+    mode: pingpong
+    phase: 1
+    range: 2
+  - id: g3
+    route: [[1,3],[2,3],[2,4]]
+    mode: pingpong
+    phase: 2
+    range: 2
+cameras:
+  - id: c1
+    at: [7,3]
+    dirs: [W, N]
+    hold: 6
+    phase: 9
+    range: 2
