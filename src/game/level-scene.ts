@@ -56,10 +56,8 @@ import {
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
   yapComputeLayout,
-  yapConeCells,
   yapDirVector,
   yapHexToInt,
-  yapLaserCells,
   type YapBoardLayout,
 } from './board';
 import {
@@ -76,10 +74,14 @@ import { YapPathInput } from './path-input';
 import {
   yapGhostCones,
   yapGhostLayerVisible,
-  type YapGhostRenderMode,
+  yapPreviewStates,
   yapResolveGhostFlag,
+  yapResolvePreviewFlag,
+  type YapGhostRenderMode,
+  type YapGhostState,
+  type YapPreviewState,
 } from './ghost';
-import { YapExecution, type YapDisplayedSnapshot } from './execution';
+import { YapExecution, YAP_PREVIEW_TICKS_PER_SECOND, type YapDisplayedSnapshot } from './execution';
 import { YapFailureReplay } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
@@ -120,6 +122,18 @@ const YAP_WIN_HOME_EVENT = 'yap-win-home';
  * uses reduced opacity so it can never be confused with the tick-0 state.
  */
 const YAP_GHOST_ALPHA = 0.5;
+/**
+ * X3: hold of the final preview frame (win or caught) before the automatic
+ * return to planning.
+ */
+const YAP_PREVIEW_END_HOLD_MS = 700;
+/**
+ * X3: width of the Preview button in the bottom row. 80 px keeps the PLAY
+ * button (and its known tap geometry) reachable on a 360 px viewport.
+ */
+const YAP_PREVIEW_BUTTON_W = 80;
+/** What yapDrawState needs: the world at a tick plus the thief (real or ghost). */
+type YapDrawableState = YapGhostState & Pick<YapSimState, 'thief' | 'hasLoot'>;
 
 export interface YapLevelSceneData {
   /** .lvl source to render; defaults to the tutorial heist. */
@@ -215,6 +229,17 @@ export class YapLevelScene extends Phaser.Scene {
   private yapHintBadge: Phaser.GameObjects.Container | null = null;
   /** The bottom-bar Hint button (visible only while a hint is available). */
   private yapHintButton: YapChromeButton | null = null;
+  // --- Plan preview (X3) ---
+  /** The preview flag (?flag=preview:0/1, default on), resolved at build. */
+  private yapPreviewEnabled = true;
+  /** The ghost replay of the plan while Preview runs (null = not previewing). */
+  private yapPreview: { states: readonly YapPreviewState[]; index: number } | null = null;
+  /** The preview timer (one ghost tick every 1000 / YAP_PREVIEW_TICKS_PER_SECOND ms). */
+  private yapPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  /** The bottom-bar Preview button (visible only when the route is complete). */
+  private yapPreviewButton: YapChromeButton | null = null;
+  /** Top-bar tick line while the preview runs. */
+  private yapPreviewTickText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('yap-level');
@@ -256,7 +281,7 @@ export class YapLevelScene extends Phaser.Scene {
    * instead of sleeping. Read-only, no gameplay effect, absent outside a
    * browser.
    */
-  private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win'): void {
+  private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win' | 'preview'): void {
     try {
       if (typeof window !== 'undefined') {
         (window as unknown as Record<string, unknown>)['__yapPhase'] = phase;
@@ -284,6 +309,9 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapWinFrame = null;
     this.yapHints = null; // rebuilt per run in create()
     this.yapHintButton = null;
+    this.yapPreview = null;
+    this.yapPreviewButton = null;
+    this.yapPreviewTickText = null;
   }
 
   private readonly yapOnShutdown = (): void => {
@@ -294,6 +322,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.yapOnPointerUp, this);
     this.yapRemoveTickTimer();
     this.yapRemoveFailureTimer();
+    this.yapRemovePreviewTimer();
     // the camera manager has already torn its cameras down on shutdown (and
     // builds a fresh main camera on the next start): only forget the UI one
     this.yapUiCamera = null;
@@ -319,6 +348,11 @@ export class YapLevelScene extends Phaser.Scene {
       return;
     }
     if (this.yapWin !== null) return; // the Win screen buttons handle their own taps
+    if (this.yapPreview !== null) {
+      // X3: one tap ends the preview early, back to the intact plan.
+      this.yapEndPreview();
+      return;
+    }
     if (this.yapPointerId !== null) return; // a single finger draws
     if (this.yapExecution !== null) return; // no drawing during playback
     const layout = this.yapLayout;
@@ -334,7 +368,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnPointerMove = (pointer: Phaser.Input.Pointer): void => {
     if (pointer.id !== this.yapPointerId) return;
-    if (this.yapExecution !== null) return; // no drawing during playback
+    if (this.yapExecution !== null || this.yapPreview !== null) return; // no drawing during playback/preview
     const input = this.yapPathInput;
     if (input === null) return;
     const before = input.yapPath().length;
@@ -345,7 +379,7 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnPointerUp = (pointer: Phaser.Input.Pointer): void => {
     if (pointer.id !== this.yapPointerId) return;
-    if (this.yapExecution !== null) return; // no drawing during playback
+    if (this.yapExecution !== null || this.yapPreview !== null) return; // no drawing during playback/preview
     this.yapPointerId = null;
     const input = this.yapPathInput;
     if (input === null) return;
@@ -407,6 +441,8 @@ export class YapLevelScene extends Phaser.Scene {
       YAP_BOTTOM_BAR_HEIGHT,
     );
     this.yapLayout = layout;
+    // X3: the plan preview obeys its own flag (`?flag=preview:0`, default on)
+    this.yapPreviewEnabled = yapResolvePreviewFlag(window.location.search);
     if (this.yapPathInput === null) {
       // C6: the ghost preview obeys the flag (`?flag=ghost:0`, stored profile)
       this.yapPathInput = new YapPathInput(level, layout, {
@@ -520,6 +556,13 @@ export class YapLevelScene extends Phaser.Scene {
     } else if (win !== null) {
       this.yapBuildWinChrome(level, layout);
       if (this.yapWinFrame !== null) this.yapDrawState(this.yapWinFrame);
+    } else if (this.yapPreview !== null) {
+      // X3: rebuild while the preview runs (resize): same ghost frame on screen
+      this.yapBuildPreviewChrome(level, layout);
+      const preview = this.yapPreview;
+      const frame = preview.index >= 0 ? preview.states[preview.index] : undefined;
+      this.yapDrawState(frame ?? state, YAP_GHOST_ALPHA);
+      this.yapUpdatePreviewChrome();
     } else {
       this.yapBuildChrome(level, layout);
       this.yapDrawState(state);
@@ -533,9 +576,11 @@ export class YapLevelScene extends Phaser.Scene {
   /**
    * Redraws the dynamic layers for `state` (cones, lasers, entities) and
    * records what is on screen, so the playback can assert in dev that the
-   * displayed positions equal the simulated ones at every tick.
+   * displayed positions equal the simulated ones at every tick. `alpha`
+   * renders the whole frame as a ghost (X3 plan preview: the same reduced
+   * opacity as the C6 ghost layer, so it cannot be confused with a real tick).
    */
-  private yapDrawState(state: YapSimState): void {
+  private yapDrawState(state: YapDrawableState, alpha = 1): void {
     const dyn = this.yapDynamic;
     const ents = this.yapEntities;
     const layout = this.yapLayout;
@@ -545,18 +590,20 @@ export class YapLevelScene extends Phaser.Scene {
     ents.removeAll(true);
 
     // Vision cones: exactly the cells of visibleCells for this tick.
-    const cones = yapConeCells(level, state);
+    const cones = yapGhostCones(level, state);
     const g = this.add.graphics();
+    g.setAlpha(alpha);
     for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
     for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
     // Lasers: solid red while on, gray dashed while off.
-    for (const laser of yapLaserCells(state)) {
+    for (const laser of state.lasers) {
       yapDrawLaser(g, layout, laser.cells, laser.active);
     }
     dyn.add(g);
 
     // Entities: exit, diamond (until picked up), cameras, guards, thief on top.
     const ent = this.add.graphics();
+    ent.setAlpha(alpha);
     yapDrawExit(ent, layout, level.exit);
     if (!state.hasLoot) yapDrawDiamond(ent, layout, level.loot);
     yapDrawStart(ent, layout, level.start);
@@ -570,17 +617,20 @@ export class YapLevelScene extends Phaser.Scene {
     for (const guard of state.guards) {
       const p = yapCellCenter(layout, guard.pos);
       const marker = this.add.graphics();
+      marker.setAlpha(alpha);
       this.yapDrawGuardMarker(marker, layout, guard.pos, guard.facing);
       const sprite = this.add
         .image(p.x, p.y, 'yap-guard')
-        .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82);
+        .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82)
+        .setAlpha(alpha);
       ents.add([marker, sprite]);
     }
     const thiefAt = yapCellCenter(layout, state.thief);
     ents.add(
       this.add
         .image(thiefAt.x, thiefAt.y, 'yap-thief')
-        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9),
+        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9)
+        .setAlpha(alpha),
     );
 
     // What is on screen right now (input of the dev assertion).
@@ -652,7 +702,9 @@ export class YapLevelScene extends Phaser.Scene {
           ? 'failure'
           : this.yapWin !== null
             ? 'win'
-            : 'planning';
+            : this.yapPreview !== null
+              ? 'preview'
+              : 'planning';
     const ghost = input === null ? null : input.yapGhostState();
     if (ghost === null || !yapGhostLayerVisible(mode, ghost)) return;
 
@@ -816,17 +868,32 @@ export class YapLevelScene extends Phaser.Scene {
   }
 
   /**
-   * Bottom row geometry: Clear on the left, the Hint slot only while a hint is
-   * available (C7) and PLAY taking the rest, so the primary action is always
-   * the widest thing on the row.
+   * Bottom row geometry: Clear on the left, the Hint slot (C7) and the
+   * Preview slot (X3) only while they are shown, and PLAY taking the rest, so
+   * the primary action is always the widest thing on the row. When the route
+   * is complete, Preview takes the slot next to PLAY and the Hint button
+   * yields (its ghost stays drawn on the board).
    */
-  private yapPlayRow(hasHint: boolean): { readonly x: number; readonly w: number } {
+  private yapPlayRow(
+    hasHint: boolean,
+    hasPreview: boolean,
+  ): { readonly x: number; readonly w: number } {
     const width = this.yapLayout?.viewWidth ?? yapViewSize(this).width;
     const clearW = 96;
     const hintW = hasHint ? 96 : 0;
+    const previewW = hasPreview ? YAP_PREVIEW_BUTTON_W : 0;
     const gap = 8;
-    const playX = 16 + clearW + gap + (hasHint ? hintW + gap : 0);
+    const playX =
+      16 + clearW + gap + (hasHint ? hintW + gap : 0) + (hasPreview ? previewW + gap : 0);
     return { x: playX, w: width - 16 - playX };
+  }
+
+  /** X3: x centre of the Preview button in the bottom row. */
+  private yapPreviewX(hasHint: boolean): number {
+    const clearW = 96;
+    const hintW = hasHint ? 96 : 0;
+    const gap = 8;
+    return 16 + clearW + gap + (hasHint ? hintW + gap : 0) + YAP_PREVIEW_BUTTON_W / 2;
   }
 
   /** Top bar (level name, plan ticks/par/pauses) and bottom action bar. */
@@ -867,11 +934,16 @@ export class YapLevelScene extends Phaser.Scene {
     ).setOrigin(0.5, 0);
     chrome.add(this.yapInstruction);
 
-    // One 56 px row: Clear, the Hint slot (C7, only when available) and PLAY.
+    // One 56 px row: Clear, the Hint slot (C7, only when available), the
+    // Preview slot (X3, only when the route is complete and the flag is on)
+    // and PLAY.
     const rowY = barY + YAP_BOTTOM_BAR_HEIGHT - 10 - 28;
-    const hasHint = this.yapHints?.yapHintAvailable() ?? false;
+    const canPlay = input?.yapCanPlay() ?? false;
+    const hasPreview = canPlay && this.yapPreviewEnabled && this.yapPreview === null;
+    const hasHint = (this.yapHints?.yapHintAvailable() ?? false) && !hasPreview;
     const clearW = 96;
     const hintW = 96;
+    const previewW = YAP_PREVIEW_BUTTON_W;
     const gap = 8;
     const clearBtn = this.yapMakeButton(
       16 + clearW / 2,
@@ -905,7 +977,24 @@ export class YapLevelScene extends Phaser.Scene {
     chrome.add(hintBtn.container);
     this.yapHintButton = hintBtn;
 
-    const playRow = this.yapPlayRow(hasHint);
+    // X3: the Preview button, next to PLAY, only when the drawn route is
+    // complete (canPlay) and the preview flag is on.
+    const previewBtn = this.yapMakeButton(
+      this.yapPreviewX(hasHint),
+      rowY,
+      previewW,
+      56,
+      yapI18n.t('preview.button'),
+      'action-secondary',
+      YAP_PALETTE['text-primary'],
+      () => this.yapStartPreview(),
+    );
+    previewBtn.label.setFontSize(14);
+    previewBtn.container.setVisible(hasPreview);
+    chrome.add(previewBtn.container);
+    this.yapPreviewButton = previewBtn;
+
+    const playRow = this.yapPlayRow(hasHint, hasPreview);
     const playBtn = this.yapMakeButton(
       playRow.x + playRow.w / 2,
       rowY,
@@ -1016,25 +1105,37 @@ export class YapLevelScene extends Phaser.Scene {
     );
     const canPlay = input.yapCanPlay();
     this.yapInstruction?.setVisible(!canPlay);
-    // C7: the Hint button appears only while a hint is available, and PLAY
+    // C7 + X3: the Hint button appears only while a hint is available; when
+    // the route is complete, the Preview button (X3) takes the slot next to
+    // PLAY and the Hint button yields (its ghost stays on the board). PLAY
     // takes the freed width back — the primary action stays the widest.
+    const hasPreview = canPlay && this.yapPreviewEnabled && this.yapPreview === null;
+    const hasHint = (this.yapHints?.yapHintAvailable() ?? false) && !hasPreview;
+    const row = this.yapPlayRow(hasHint, hasPreview);
     const hintBtn = this.yapHintButton;
     if (hintBtn !== null) {
-      const available = this.yapHints?.yapHintAvailable() ?? false;
-      hintBtn.container.setVisible(available);
+      hintBtn.container.setVisible(hasHint);
       const zone = hintBtn.container.list.find(
         (child): child is Phaser.GameObjects.Zone => child instanceof Phaser.GameObjects.Zone,
       );
-      if (available) zone?.setInteractive({ useHandCursor: true });
+      if (hasHint) zone?.setInteractive({ useHandCursor: true });
       else zone?.disableInteractive();
-      const row = this.yapPlayRow(available);
-      const play = this.yapPlayButton;
-      if (play !== null && this.yapPlaySize !== null) {
-        play.container.x = row.x + row.w / 2;
-        this.yapPlaySize = { w: row.w, h: this.yapPlaySize.h };
-      }
+    }
+    const previewBtn = this.yapPreviewButton;
+    if (previewBtn !== null) {
+      previewBtn.container.setVisible(hasPreview);
+      previewBtn.container.x = this.yapPreviewX(hasHint);
+      const zone = previewBtn.container.list.find(
+        (child): child is Phaser.GameObjects.Zone => child instanceof Phaser.GameObjects.Zone,
+      );
+      if (hasPreview) zone?.setInteractive({ useHandCursor: true });
+      else zone?.disableInteractive();
     }
     const play = this.yapPlayButton;
+    if (play !== null) {
+      play.container.x = row.x + row.w / 2;
+      this.yapPlaySize = { w: row.w, h: 56 };
+    }
     const size = this.yapPlaySize;
     if (play === null || size === null) return;
     // The primary action always carries the brand hue: solid teal once the
@@ -1043,10 +1144,7 @@ export class YapLevelScene extends Phaser.Scene {
     const halfH = size.h / 2;
     play.bg
       .clear()
-      .fillStyle(
-        yapHexToInt(YAP_PALETTE[canPlay ? 'action-primary' : 'action-primary-soft']),
-        1,
-      )
+      .fillStyle(yapHexToInt(YAP_PALETTE[canPlay ? 'action-primary' : 'action-primary-soft']), 1)
       .fillRoundedRect(-halfW, -halfH, size.w, size.h, 10)
       .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
       .strokeRoundedRect(-halfW, -halfH, size.w, size.h, 10);
@@ -1251,6 +1349,155 @@ export class YapLevelScene extends Phaser.Scene {
     if (this.yapTickTimer !== null) {
       this.yapTickTimer.remove();
       this.yapTickTimer = null;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Plan preview (X3): the Angry Birds "dotted arc" — replay the drawn plan
+  // as a fast ghost (thief + threats at each tick, reduced opacity), then
+  // back to planning with the route kept and PLAY still available.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Preview button: replays the complete drawn plan in ghost mode. The states
+   * come from yapPreviewStates (./ghost.ts), computed only through
+   * resolveTick; the scene just draws them one by one at
+   * YAP_PREVIEW_TICKS_PER_SECOND with the C6 ghost treatment (YAP_GHOST_ALPHA).
+   */
+  private yapStartPreview(): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const input = this.yapPathInput;
+    if (level === null || layout === null || input === null) return;
+    if (!input.yapCanPlay() || !this.yapPreviewEnabled || this.yapPreview !== null) return;
+    const plan: YapPlan = input.yapPlan();
+    if (plan.length === 0) return;
+    const states = yapPreviewStates(level, plan);
+    this.yapPreview = { states, index: -1 }; // -1 = tick 0, drawn right below
+    // the PLAY pulse targets the planning chrome destroyed below
+    if (this.yapPlayPulse !== null) {
+      this.yapPlayPulse.stop();
+      this.yapPlayPulse = null;
+    }
+    this.yapChrome?.destroy();
+    this.yapChrome = null;
+    this.yapBuildPreviewChrome(level, layout);
+    if (this.yapState !== null) this.yapDrawState(this.yapState, YAP_GHOST_ALPHA); // tick 0
+    this.yapUpdatePreviewChrome();
+    this.yapSchedulePreviewTick();
+  }
+
+  /** One preview tick: draw the next ghost state; stop on win/caught. */
+  private readonly yapOnPreviewTick = (): void => {
+    const preview = this.yapPreview;
+    if (preview === null) return;
+    preview.index += 1;
+    const state = preview.states[preview.index];
+    if (state === undefined) {
+      this.yapEndPreview();
+      return;
+    }
+    this.yapDrawState(state, YAP_GHOST_ALPHA);
+    this.yapUpdatePreviewChrome();
+    if (state.outcome.kind !== 'running') {
+      // win or caught: hold the final frame, then back to planning
+      this.yapRemovePreviewTimer();
+      this.time.delayedCall(YAP_PREVIEW_END_HOLD_MS, () => this.yapEndPreview());
+    }
+  };
+
+  /**
+   * End of the preview (finished, or one tap): back to planning — tick 0 at
+   * full opacity, the route kept, PLAY available again.
+   */
+  private yapEndPreview(): void {
+    if (this.yapPreview === null) return;
+    this.yapRemovePreviewTimer();
+    this.yapPreview = null;
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const state = this.yapState;
+    if (level !== null && layout !== null) {
+      this.yapChrome?.destroy();
+      this.yapChrome = null;
+      this.yapBuildChrome(level, layout);
+    }
+    if (state !== null) this.yapDrawState(state); // tick 0, planning view
+    this.yapRedrawPath(); // the drawn route and its pauses are untouched
+    this.yapRedrawMarks();
+    this.yapRedrawGhost(); // C6: no stroke in progress after the preview
+    this.yapUpdateChrome();
+  }
+
+  /**
+   * Preview chrome: top bar with the level name and the tick counter, bottom
+   * bar with the localized running indicator (preview.running). No button:
+   * one tap anywhere ends the preview early.
+   */
+  private yapBuildPreviewChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('preview');
+    const chrome = this.add.container(0, 0);
+    this.yapChrome = chrome;
+    this.yapPreviewTickText = this.yapBuildTopBar(chrome, layout, level.name, '');
+
+    // bottom action bar: 96 px strip with the running indicator
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    const bar = this.add.graphics();
+    bar
+      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
+      .fillRect(0, barY, layout.viewWidth, YAP_BOTTOM_BAR_HEIGHT)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
+      .lineBetween(0, barY + 0.5, layout.viewWidth, barY + 0.5);
+    chrome.add(bar);
+    chrome.add(
+      yapText(
+        this,
+        layout.viewWidth / 2,
+        barY + YAP_BOTTOM_BAR_HEIGHT / 2,
+        yapI18n.t('preview.running'),
+        yapTextStyle(16, YAP_PALETTE['text-secondary']),
+      ).setOrigin(0.5),
+    );
+    // the planning chrome refs do not exist in this mode
+    this.yapStatsText = null;
+    this.yapInstruction = null;
+    this.yapPlayButton = null;
+    this.yapPlaySize = null;
+    this.yapHintButton = null;
+    this.yapPreviewButton = null;
+    this.yapExecTickText = null;
+    this.yapSpeedButton = null;
+  }
+
+  /** Refreshes the preview chrome: the tick counter of the top bar. */
+  private yapUpdatePreviewChrome(): void {
+    const preview = this.yapPreview;
+    const level = this.yapLevel;
+    if (preview === null || level === null) return;
+    // states are ticks 1..N; index -1 is tick 0
+    const tick = Math.max(0, preview.index + 1);
+    this.yapPreviewTickText?.setText(
+      [
+        yapI18n.t('executionPlayback.tick', { tick, max: preview.states.length }),
+        yapI18n.t('planning.statsPar', { par: level.par }),
+      ].join(yapI18n.t('planning.statsSeparator')),
+    );
+  }
+
+  /** (Re)starts the preview timer: one ghost tick every preview tick ms. */
+  private yapSchedulePreviewTick(): void {
+    this.yapRemovePreviewTimer();
+    this.yapPreviewTimer = this.time.addEvent({
+      delay: Math.round(1000 / YAP_PREVIEW_TICKS_PER_SECOND),
+      loop: true,
+      callback: this.yapOnPreviewTick,
+    });
+  }
+
+  private yapRemovePreviewTimer(): void {
+    if (this.yapPreviewTimer !== null) {
+      this.yapPreviewTimer.remove();
+      this.yapPreviewTimer = null;
     }
   }
 
