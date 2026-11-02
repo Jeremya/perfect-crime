@@ -10,7 +10,11 @@ repo:
 2. **Isolation** — one git worktree + one branch per agent. Never two agents
    in the same checkout.
 3. **Role profiles** — `.vibe/agents/yap-*.toml` subagents so each worker
-   starts with the right rules (core determinism, i18n, storage prefix…).
+   starts with the right rules (core determinism, i18n, storage prefix…):
+   `yap-core` (src/core), `yap-game` (Phaser scenes), `yap-app` (router, i18n,
+   storage, share), `yap-content` (levels, docs), and `yap-game-design`
+   (design docs + playtests only, loads the `game-level-design` skill from
+   `.vibe/skills/`).
 
 ## Option A — several Vibe sessions, one worktree each (recommended)
 
