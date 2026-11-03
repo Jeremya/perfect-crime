@@ -12,6 +12,7 @@ import {
   YAP_CENTRAL_ZONE,
   YAP_TAP_MAX_DISTANCE,
   YAP_TAP_MAX_DURATION,
+  YAP_UNDO_MAX_DISTANCE,
 } from '../../src/game/path-input';
 
 // ---------------------------------------------------------------------------
@@ -77,6 +78,13 @@ const centerWide = (c: YapCell): { x: number; y: number } => yapCellCenter(layou
 function borderPoint(c: YapCell): { x: number; y: number } {
   const p = center(c);
   return { x: p.x + layout.cell * 0.4, y: p.y };
+}
+
+/** A point on the segment between two cell centres, at parameter t (0 = a, 1 = b). */
+function segPoint(a: YapCell, b: YapCell, t: number): { x: number; y: number } {
+  const pa = center(a);
+  const pb = center(b);
+  return { x: pa.x + (pb.x - pa.x) * t, y: pa.y + (pb.y - pa.y) * t };
 }
 
 const pathOf = (input: YapPathInput): string[] => input.yapPath().map((c) => `${c.x},${c.y}`);
@@ -601,5 +609,156 @@ describe('20 fast drawings without an accidental erase', () => {
         input.yapPointerUp(p.x, p.y, 10);
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// X4 — Slingshot undo: dragging back along the drawn route erases it
+// ---------------------------------------------------------------------------
+
+describe('X4 slingshot undo (drag back erases the last segments)', () => {
+  const level = lvl(MAP);
+
+  it('exposes the undo distance threshold (a fraction of a cell)', () => {
+    expect(YAP_UNDO_MAX_DISTANCE).toBe(0.5);
+  });
+
+  it('one continuous stroke: draw forward, then drag back erases segment by segment', () => {
+    const input = new YapPathInput(level, layout);
+    const p0 = center(S);
+    input.yapPointerDown(p0.x, p0.y, 0);
+    for (const c of [cell(2, 1), cell(3, 1), cell(4, 1), cell(4, 2), cell(4, 3)]) {
+      const p = center(c);
+      input.yapPointerMove(p.x, p.y);
+    }
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1', '4,1', '4,2', '4,3']);
+    // drag back along the drawn line, through the border strips (no cell resolves)
+    const backs: { p: { x: number; y: number }; expected: string[] }[] = [
+      { p: segPoint(cell(4, 2), cell(4, 3), 0.5), expected: ['1,1', '2,1', '3,1', '4,1', '4,2'] },
+      { p: segPoint(cell(4, 1), cell(4, 2), 0.5), expected: ['1,1', '2,1', '3,1', '4,1'] },
+      { p: segPoint(cell(3, 1), cell(4, 1), 0.5), expected: ['1,1', '2,1', '3,1'] },
+      { p: segPoint(cell(2, 1), cell(3, 1), 0.5), expected: ['1,1', '2,1'] },
+      { p: segPoint(S, cell(2, 1), 0.5), expected: ['1,1'] },
+    ];
+    for (const b of backs) {
+      input.yapPointerMove(b.p.x, b.p.y);
+      expect(pathOf(input)).toEqual(b.expected);
+    }
+    // never below the start cell S
+    const pS = center(S);
+    input.yapPointerMove(pS.x, pS.y);
+    expect(pathOf(input)).toEqual(['1,1']);
+    const behind = segPoint(S, cell(2, 1), -0.5); // west of S, still on the board
+    input.yapPointerMove(behind.x, behind.y);
+    expect(pathOf(input)).toEqual(['1,1']);
+    const pl = center(cell(4, 3));
+    input.yapPointerUp(pl.x, pl.y, 10);
+    expect(pathOf(input)).toEqual(['1,1']);
+  });
+
+  it('a fast backward swipe pops one segment per crossed midpoint, down to S', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(3, 1), cell(4, 1), cell(5, 1)]);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1', '4,1', '5,1']);
+    const p0 = center(cell(5, 1));
+    input.yapPointerDown(p0.x, p0.y, 0);
+    // one single event straight back to (2,1): pops (5,1), (4,1), (3,1)
+    const back = center(cell(2, 1));
+    input.yapPointerMove(back.x, back.y);
+    expect(pathOf(input)).toEqual(['1,1', '2,1']);
+    // one single event straight back to S: pops (2,1), stops at S
+    const toS = center(S);
+    input.yapPointerMove(toS.x, toS.y);
+    expect(pathOf(input)).toEqual(['1,1']);
+  });
+
+  it('does not erase when the pointer is off the segment or ahead of the last cell', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(3, 1), cell(4, 1)]);
+    const p0 = center(cell(4, 1));
+    input.yapPointerDown(p0.x, p0.y, 0);
+    // sideways: 0.6 cell away from the last segment, in a border strip
+    const mid = segPoint(cell(3, 1), cell(4, 1), 0.5);
+    input.yapPointerMove(mid.x, mid.y - layout.cell * 0.6);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1', '4,1']);
+    // ahead of the last cell along the segment: no erase
+    const fwd = segPoint(cell(3, 1), cell(4, 1), 1.2);
+    input.yapPointerMove(fwd.x, fwd.y);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1', '4,1']);
+  });
+
+  it('pull back then push forward redraws the erased segment (slingshot feel)', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(3, 1), cell(4, 1)]);
+    const p0 = center(cell(4, 1));
+    input.yapPointerDown(p0.x, p0.y, 0);
+    const mid = segPoint(cell(3, 1), cell(4, 1), 0.5);
+    input.yapPointerMove(mid.x, mid.y);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1']);
+    const fwd = center(cell(4, 1));
+    input.yapPointerMove(fwd.x, fwd.y);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1', '4,1']);
+  });
+
+  it('a tap still works: pause on a path cell, nothing on the last cell, jitter does not erase', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(3, 1)]);
+    tap(input, cell(2, 1));
+    expect(input.yapPauseCounts()).toEqual([0, 1, 0]);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1']);
+    // press on the last cell, jitter 3 px back (still inside its central zone), release
+    const p = center(cell(3, 1));
+    input.yapPointerDown(p.x, p.y, 1000);
+    input.yapPointerMove(p.x - 3, p.y);
+    input.yapPointerUp(p.x - 3, p.y, 1100);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '3,1']);
+    expect(input.yapTotalPauses()).toBe(1); // the press was on the last cell: no pause
+  });
+
+  it('after an undo, yapPlan / yapSteps / pauses follow naturally', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(3, 1)]);
+    tap(input, cell(2, 1)); // one wait on (2,1), after the move into it
+    expect(input.yapPlan()).toEqual(['E', 'wait', 'E']);
+    expect(input.yapSteps()).toBe(3);
+    const p0 = center(cell(3, 1));
+    input.yapPointerDown(p0.x, p0.y, 0);
+    const mid = segPoint(cell(2, 1), cell(3, 1), 0.5);
+    input.yapPointerMove(mid.x, mid.y);
+    expect(pathOf(input)).toEqual(['1,1', '2,1']);
+    // the pause sits on the new last cell now: counted in steps, not in the plan
+    expect(input.yapPlan()).toEqual(['E']);
+    expect(input.yapSteps()).toBe(2);
+    expect(input.yapPauseCounts()).toEqual([0, 1]);
+    // pop the last segment too: the pause goes away with its cell
+    const mid2 = segPoint(S, cell(2, 1), 0.5);
+    input.yapPointerMove(mid2.x, mid2.y);
+    expect(pathOf(input)).toEqual(['1,1']);
+    expect(input.yapPlan()).toEqual([]);
+    expect(input.yapSteps()).toBe(0);
+    expect(input.yapPauseCounts()).toEqual([0]);
+  });
+
+  it('no undo once the route auto-finished at the exit; pause after finished still works', () => {
+    const input = new YapPathInput(level, layout);
+    const route: YapCell[] = [S];
+    for (let y = 2; y <= 10; y += 1) route.push(cell(1, y));
+    for (let x = 2; x <= 6; x += 1) route.push(cell(x, 10));
+    draw(input, route);
+    expect(input.yapIsFinished()).toBe(true);
+    expect(input.yapCanPlay()).toBe(true);
+    const len = input.yapPath().length;
+    // pressing the exit and dragging back does not erase: the drawing has ended
+    const p = center(cell(6, 10));
+    input.yapPointerDown(p.x, p.y, 500);
+    input.yapPointerMove(center(cell(5, 10)).x, center(cell(5, 10)).y);
+    expect(input.yapPath().length).toBe(len);
+    input.yapPointerUp(center(cell(5, 10)).x, center(cell(5, 10)).y, 600);
+    // pause taps on a completed route still work (fix #52) and keep PLAY enabled
+    tap(input, cell(1, 4));
+    expect(input.yapPauseCounts()[3]).toBe(1);
+    expect(input.yapCanPlay()).toBe(true);
+    expect(input.yapPlan()[3]).toBe('wait');
+    expect(run(level, input.yapPlan()).outcome.kind).toBe('won');
   });
 });

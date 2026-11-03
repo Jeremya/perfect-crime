@@ -12,6 +12,8 @@
 //   line, up to the first wall;
 // - moving back onto the second-to-last cell erases the last one; touching
 //   another cell of the path cuts it there and continues from that cell;
+// - X4 slingshot undo: while drawing, pulling the finger back along the last
+//   drawn segments erases them one by one (never below the start cell);
 // - a tap (< 8 px, < 250 ms) on a path cell except the last adds a one-tick
 //   pause; once the level's maximum is reached in total, the cell goes back
 //   to zero;
@@ -25,7 +27,7 @@
 // resolveTick only.
 import { YAP_MAX_TICKS, type YapCell, type YapLevel } from '../core/level';
 import type { YapMove } from '../core/sim';
-import type { YapBoardLayout } from './board';
+import { yapCellCenter, type YapBoardLayout } from './board';
 import { YapGhostPreview, yapResolveGhostFlag, type YapGhostState } from './ghost';
 
 /** Central zone of a cell: a cell is entered only inside the central 70%. */
@@ -34,6 +36,13 @@ export const YAP_CENTRAL_ZONE = 0.7;
 export const YAP_TAP_MAX_DISTANCE = 8;
 /** A tap lasts less than 250 ms (spec: tunable threshold). */
 export const YAP_TAP_MAX_DURATION = 250;
+/**
+ * X4 slingshot undo: while drawing, a pointer that is behind the last cell of
+ * the path and within this fraction of a cell of the last drawn segment pops
+ * that segment — pulling the finger back erases the route, one segment at a
+ * time, like pulling the bird back in the slingshot.
+ */
+export const YAP_UNDO_MAX_DISTANCE = 0.5;
 
 export interface YapPathInputOptions {
   /** Plan length bound, pauses included; defaults to the spec's 64 steps. */
@@ -263,6 +272,11 @@ export class YapPathInput {
     if (g === null || this.yapFinished) return;
     const target = this.yapCellAtPoint(x, y);
     if (target !== null) this.yapHoverCell = target; // the cell under the finger
+    if (g.drawing) {
+      // X4 slingshot undo: pulling back along the last drawn segments erases
+      // them one by one — even in the border strips, where no cell resolves
+      this.yapUndoDrag(x, y);
+    }
     if (target === null) return; // border strip: no stray jumps
     if (!g.drawing) {
       if (yapSameCell(target, g.downCell)) return;
@@ -317,6 +331,34 @@ export class YapPathInput {
   private yapTruncate(n: number): void {
     this.yapCells.length = Math.min(n, this.yapCells.length);
     this.yapPauses.length = this.yapCells.length;
+  }
+
+  /**
+   * X4 slingshot undo: while the pointer pulls back along the last drawn
+   * segment — behind the last cell (projection t < 1) and within
+   * YAP_UNDO_MAX_DISTANCE of the segment — pop the last cell, one segment per
+   * crossed midpoint, like pulling the bird back. Never pops the start cell.
+   */
+  private yapUndoDrag(x: number, y: number): void {
+    while (this.yapCells.length > 1) {
+      const last = this.yapCells[this.yapCells.length - 1];
+      const prev = this.yapCells[this.yapCells.length - 2];
+      if (last === undefined || prev === undefined) break;
+      const a = yapCellCenter(this.yapLayout, prev);
+      const b = yapCellCenter(this.yapLayout, last);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) break;
+      // projection of the pointer on the segment [prev, last]
+      const t = ((x - a.x) * dx + (y - a.y) * dy) / len2;
+      if (t >= 1) break; // not behind the last cell: not pulling back
+      const ox = x - a.x - t * dx;
+      const oy = y - a.y - t * dy;
+      if (Math.hypot(ox, oy) >= this.yapLayout.cell * YAP_UNDO_MAX_DISTANCE) break;
+      this.yapCells.pop();
+      this.yapPauses.pop();
+    }
   }
 
   /** Appends a cell if it is floor and the step limit allows it. */
