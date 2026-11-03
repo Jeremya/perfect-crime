@@ -1,21 +1,27 @@
-# X8 — Kit visuel "fancy" (Perfect Crime, Gate 1)
+# X8 — Kit visuel "fancy" (Perfect Crime, Gate 1) — statut d'intégration
 
-> **Status: proposal (HYPOTHESIS partout sauf mention OBSERVED).** Design only —
-> aucun changement de code dans ce kit. L'intégration est la tâche **X8b**, à lancer
-> après le merge de **X3** (conflit sur `src/game/level-scene.ts`).
-> Branche `x8-visual-kit`, tâche `tasks/X8.md`.
+> Le kit design (style tile, mockups, component sheet, plan Kenney archivé) est
+> sur `main` (`docs/design/visual-kit/*.md`, `public/design/*.svg`). Ce README
+> trace l'implémentation côté code (tâche **X8b**, `tasks/X8b.md`).
+
+## Décision produit actée (2026-10-30) — 100% code
+
+Aucun sprite du **Kenney UI Pack** n'est intégré
+(`kenney-ui-integration.md` §0/§2, « TRANCHÉ ») : les contrôles restent
+**dessinés en code**, habillés du style tile (dégradés, ombres douces, glow
+chrome, états pressés). Le plateau et les menaces restent dessinés en code
+(règle absolue `docs/UI-DESIGN.md`). Aucun asset ajouté.
 
 ## Lecture préalable
 
 - `AGENTS.md`, `docs/NAMING.md` (nomenclature Yap)
 - `docs/UI-DESIGN.md` — règles de lisibilité non négociables (cones = cellules
   exactes, jamais de dégradé/flou/glow sur les cones), tokens visuels, asset
-  guidance (Kenney UI Pack autorisé, une famille de couleur pour le primaire),
-  exclusions, checklist des 10 écrans ("First launch" = main animée sur T1)
+  guidance, exclusions, checklist des 10 écrans ("First launch" = main animée
+  sur T1)
 - `docs/design/experience.md` — audit d'expérience, X5 (étoiles animées au win)
 - `docs/design/2026-10-30-plan-style-design.md` + `docs/design/plan-style/` —
-  direction "Plan d'architecte" approuvée le 2026-10-30, qui avait écarté les
-  sprites Kenney au profit de symboles dessinés en code
+  direction "Plan d'architecte" approuvée le 2026-10-30
 - `src/app/brand.ts` (`YAP_CORP`) et `YAP_PALETTE` (`src/game/board.ts`)
 - `public/assets/kenney/` — `thief-hitman-stand.png`, `guard-man-brown-stand.png`
   déjà présents (Kenney Top-down Shooter, CC0)
@@ -29,26 +35,31 @@
 | `public/design/mockup-planning.svg` | Maquette Planning (level scene) à 390×844 |
 | `public/design/mockup-win.svg` | Maquette Win (étoiles animées X5) à 390×844 |
 | `public/design/mockup-challenge.svg` | Maquette carte défi E4 (vide central comblé) à 390×844 |
-| `component-sheet.md` | Boutons primary/secondary, pills top bar, badges 💡, carte défi E4, écran win — mapping sprite Kenney ou "drawn in code" |
-| `kenney-ui-integration.md` | Liste exacte des sprites Kenney UI Pack à récupérer, destination `public/assets/kenney/ui/`, plan X8b (fichiers `src/`, ordre, conflit X3) |
+| `component-sheet.md` | Boutons primary/secondary, pills top bar, badges 💡, carte défi E4, écran win — 100% dessinés en code |
+| `kenney-ui-integration.md` | Archivé : liste des sprites Kenney UI Pack (décision produit: non retenus) + plan X8b révisé "100% code" |
 | `first-launch-hand.md` | Storyboard de la main animée au premier lancement de T1 |
-
-## Point de décision produit (à trancher avant X8b)
-
-La direction approuvée le 2026-10-30 ("Plan d'architecte") avait décidé de
-**retirer** le Kenney UI Pack et les sprites personnages au profit de symboles
-dessinés en code (`2026-10-30-plan-style-design.md` §2, §11). Le kit X8 "fancy"
-propose au contraire de **réintégrer le Kenney UI Pack pour le chrome** (boutons,
-pills, badges, étoiles) tout en gardant le plateau et les menaces dessinés en
-code (règles de lisibilité). C'est un changement de direction : il doit être
-validé par le product owner. Tant que la décision n'est pas prise, X8b ne démarre
-pas.
 
 ## Règles non négociables conservées (docs/UI-DESIGN.md)
 
-- Cones de garde/caméra = **cellules exactes** de `visibleCells`, teinte + contour
-  net. Jamais de dégradé, flou, ombre ou **glow** sur les cones.
+- Cones de garde/caméra = **cellules exactes** de `visibleCells`, teinte +
+  contour net. Jamais de dégradé, flou, ombre ou **glow** sur les cones.
 - Danger jamais par la couleur seule (contour + icône).
 - Thème clair uniquement, polices système uniquement, cibles tactiles ≥ 44 px,
   texte essentiel ≥ 14 px, WCAG AA, `prefers-reduced-motion`, budget 3 Mo.
+- Tout texte affiché reste dans les dictionnaires FR/EN.
 - Périmètre Gate 1 inchangé (pas de dark theme, éditeur, achats, etc.).
+
+## Statut d'implémentation (X8b)
+
+| Tâche     | Périmètre                                                                                                                                                                        | Statut                                                                                                                                     |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **X8b-1** | `YAP_PALETTE` (tokens présentation style tile) + `src/game/ui-kit.ts` (nouveau : `yapButton` + composants code, 100% code) + `home-scene.ts` migré + `tests/unit/ui-kit.test.ts` | **FAIT** — branche `x8b-style-tile`, PR `[X8b-1] Style tile 100% code: tokens + ui-kit + Home` (CI green, en revue humaine, ne pas merger) |
+| X8b-2     | `src/game/level-scene.ts` : top bar pills, bottom bar via `yapButton`, badge 💡, overlay win ; cadre du plateau (ombre + rayon 18)                                               | À faire (réservé)                                                                                                                          |
+| X8b-3     | `challenge-scene.ts` (carte défi remplie, sceau en code), consent/toasts/settings                                                                                                | À faire (réservé)                                                                                                                          |
+
+Détail X8b-1 : tokens sémantiques de `YAP_PALETTE` inchangés (cones exacts,
+contraste lisibilité), ajout des tokens de présentation
+(`surface-page-grad-*`, `action-primary-grad-*`, `action-primary-outline`,
+`glow-primary`, `accent-gold`, `shadow-soft`) ; `action-secondary` évolue
+#E6E8E6 → #EDEFEA (style tile). Le glow n'existe que sur le bouton primary
+idle — jamais sur les cones (pinned par `tests/unit/ui-kit.test.ts`).

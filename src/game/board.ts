@@ -23,7 +23,9 @@ export const YAP_PALETTE = {
   'text-primary': '#202A33',
   'text-secondary': '#56616B',
   'action-primary': '#176B78',
-  'action-secondary': '#E6E8E6',
+  // X8b style tile: the secondary fill lightens one step (#E6E8E6 → #EDEFEA)
+  // and gains a 1.5 px ink outline at 25% (drawn by ui-kit, outlineAlpha).
+  'action-secondary': '#EDEFEA',
   /** Disabled primary action: keeps the brand hue instead of a dead grey. */
   'action-primary-soft': '#D7E6E8',
   'danger-guard': '#D99B32',
@@ -36,6 +38,27 @@ export const YAP_PALETTE = {
   'objective-exit': '#32865A',
   'path-light': '#FFFFFF',
   'path-outline': '#26313B',
+  // -----------------------------------------------------------------------
+  // X8b style tile (docs/design/visual-kit/style-tile.md): presentation tokens
+  // derived from the semantic ones above. The semantic tokens keep their
+  // values — the exact-cell danger overlays are gameplay information and stay
+  // exactly as readable as docs/UI-DESIGN.md requires. The tokens below only
+  // dress the chrome (page, buttons, cards): gradients, glow, shadow, gold.
+  // -----------------------------------------------------------------------
+  /** Page background gradient, top stop (vertical #F7F5F0 → #ECE8DD). */
+  'surface-page-grad-start': '#F7F5F0',
+  'surface-page-grad-end': '#ECE8DD',
+  /** Primary button gradient, top / bottom stops (#1E8296 → #125862). */
+  'action-primary-grad-start': '#1E8296',
+  'action-primary-grad-end': '#125862',
+  /** 2 px outline of the primary button. */
+  'action-primary-outline': '#0E4750',
+  /** Glow color of the idle primary button (alpha lives in ui-kit YAP_TILE). */
+  'glow-primary': '#176B78',
+  /** Stars / hint badge accent (chrome only). */
+  'accent-gold': '#E8B23A',
+  /** Soft shadow color of cards and panels (alpha lives in ui-kit YAP_TILE). */
+  'shadow-soft': '#202A33',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
