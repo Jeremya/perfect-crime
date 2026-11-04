@@ -84,7 +84,7 @@
 - `yapHeistFacts(level): ('guard' | 'camera' | 'laser')[]`: the kinds present, in that order.
 - `yapTelegram(emoji: string, ticks: number, room: number, measure: (s: string) => number): string`: the telegram line, with the emoji line trimmed whole-glyph by glyph plus "…" when it does not fit `room`.
 - `yapFitStamp(textWidth: number, max: number): number`: the font scale (1 down to 0.7) that keeps a stamp's text within `max`.
-- `yapWinActions(viewHeight: number): { shareY: number; rowY: number; top: number }`: Share's centre at `viewHeight − 16 − 52 − 12 − 26`, the 48 px secondary row's centre at `viewHeight − 16 − 24`, and `top` above Share. This reorders the actions.
+- `yapWinActions(viewHeight: number): { shareY: number; rowY: number; top: number }`: Share's centre at `viewHeight − 16 − 48 − 12 − 26`, the 48 px secondary row's centre at `viewHeight − 16 − 24`, and `top` above Share. This reorders the actions.
 - `yapHandPose(t: number, segments: number): { index: number; along: number; visible: boolean }`:
   - t in ms within a 2400 ms loop;
   - the hand draws `segments` cells in 1600 ms, then pauses 800 ms at the end;

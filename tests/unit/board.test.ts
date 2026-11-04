@@ -239,6 +239,16 @@ describe('plan style tokens — the board', () => {
   });
 });
 
+describe('plan style tokens — the folder and the stars', () => {
+  it('the folder ink reads on kraft', () => {
+    expect(contrast(YAP_PALETTE['kraft-ink'], YAP_PALETTE.kraft)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('stars read on paper', () => {
+    expect(contrast(YAP_PALETTE.star, YAP_PALETTE.paper)).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe('yapMixHex — a colour laid over another at an opacity', () => {
   it('mixes the faint route on paper without overlap artefacts', () => {
     // marker at 30% over paper: what the route's unwalked part shows, drawn opaque

@@ -75,6 +75,15 @@ export const YAP_PALETTE = {
   'thief-token': '#1B1F24',
   /** Pencil treatment of the ghost preview and the hint. */
   graphite: '#5B6470',
+  // Plan style screen tokens (spec §5, plan style 4/6).
+  /** Home's folder of the day. */
+  kraft: '#E4D4AE',
+  /** The folder's edge and tab outline. */
+  'kraft-edge': '#B99E66',
+  /** Text on the folder (its tab). */
+  'kraft-ink': '#5C4A24',
+  /** Stars on the win report, Home and the archive. */
+  star: '#B8860B',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
