@@ -115,11 +115,26 @@ export const YAP_BOTTOM_BAR_HEIGHT = 96;
  */
 export const YAP_BOARD_INSET = 6;
 
+/**
+ * Thickness in px of the border walls on the level board (spec §7, plan
+ * style 3/6): the outer ring of walls renders as a thin frame and the
+ * interior cells take the rest of the room.
+ */
+export const YAP_BOARD_FRAME = 10;
+
 export interface YapBoardLayout {
   readonly viewWidth: number;
   readonly viewHeight: number;
-  /** Square cell size in px: the largest integer that fits both axes. */
+  /** Size in px of an interior cell: the largest integer that fits both axes. */
   readonly cell: number;
+  /**
+   * Thickness in px of the border row and column, the thin wall frame; 0 when
+   * every cell, border included, is `cell` wide (uniform cells).
+   */
+  readonly frame: number;
+  /** Grid size in cells. */
+  readonly columns: number;
+  readonly rows: number;
   /** Pixel position of the top-left corner of cell (0, 0). */
   readonly originX: number;
   readonly originY: number;
@@ -130,8 +145,9 @@ export interface YapBoardLayout {
 /**
  * Largest square-cell layout that fits `gridWidth` x `gridHeight` cells between
  * a `topBar`-px top bar and a `bottomBar`-px bottom bar, centred horizontally
- * and vertically in the remaining space. Pure function of its arguments, so it
- * scales down to a 360 x 640 screen (40 px cells) as well as 480 x 853.
+ * and vertically in the remaining space. With a `frame`, the border row and
+ * column are `frame` px thick and the interior cells share the rest. Pure
+ * function of its arguments.
  */
 export function yapComputeLayout(
   viewWidth: number,
@@ -141,21 +157,74 @@ export function yapComputeLayout(
   topBar: number = YAP_TOP_BAR_HEIGHT,
   bottomBar: number = YAP_BOTTOM_BAR_HEIGHT,
   inset: number = YAP_BOARD_INSET,
+  frame = 0,
 ): YapBoardLayout {
   const availW = Math.max(1, viewWidth - inset * 2);
   const availH = Math.max(1, viewHeight - topBar - bottomBar - inset * 2);
-  const cell = Math.max(1, Math.floor(Math.min(availW / gridWidth, availH / gridHeight)));
-  const boardWidth = cell * gridWidth;
-  const boardHeight = cell * gridHeight;
+  // a frame needs an interior: a grid of 2 or fewer cells per axis stays uniform
+  const thin = frame > 0 && gridWidth > 2 && gridHeight > 2 ? frame : 0;
+  const innerW = thin > 0 ? gridWidth - 2 : gridWidth;
+  const innerH = thin > 0 ? gridHeight - 2 : gridHeight;
+  const cell = Math.max(
+    1,
+    Math.floor(Math.min((availW - 2 * thin) / innerW, (availH - 2 * thin) / innerH)),
+  );
+  const boardWidth = 2 * thin + cell * innerW;
+  const boardHeight = 2 * thin + cell * innerH;
   return {
     viewWidth,
     viewHeight,
     cell,
+    frame: thin,
+    columns: gridWidth,
+    rows: gridHeight,
     originX: Math.max(inset, Math.floor((viewWidth - boardWidth) / 2)),
     originY: topBar + inset + Math.max(0, Math.floor((availH - boardHeight) / 2)),
     boardWidth,
     boardHeight,
   };
+}
+
+/**
+ * The frame `level` gets: `frame` when its outer ring of cells is all walls,
+ * 0 (uniform cells) otherwise — a thin frame would squeeze a floor cell.
+ */
+export function yapBoardFrame(level: YapLevel, frame: number = YAP_BOARD_FRAME): number {
+  const { width, height, map } = level;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const border = x === 0 || y === 0 || x === width - 1 || y === height - 1;
+      if (border && map[y]?.charAt(x) !== '#') return 0;
+    }
+  }
+  return frame;
+}
+
+/**
+ * The layout of `level` on a view: yapComputeLayout with the frame the level
+ * gets (yapBoardFrame). Every board — the level scene, path input, the ghost,
+ * the failure zoom, the viewer, the friend's plan, Home's mini-map and the e2e
+ * strokes — takes its geometry from here (spec §7, one source of geometry).
+ */
+export function yapLevelLayout(
+  viewWidth: number,
+  viewHeight: number,
+  level: YapLevel,
+  topBar: number = YAP_TOP_BAR_HEIGHT,
+  bottomBar: number = YAP_BOTTOM_BAR_HEIGHT,
+  frame: number = YAP_BOARD_FRAME,
+  inset: number = YAP_BOARD_INSET,
+): YapBoardLayout {
+  return yapComputeLayout(
+    viewWidth,
+    viewHeight,
+    level.width,
+    level.height,
+    topBar,
+    bottomBar,
+    inset,
+    yapBoardFrame(level, frame),
+  );
 }
 
 export interface YapPoint {
@@ -170,23 +239,44 @@ export interface YapRect {
   readonly h: number;
 }
 
+/** Start and size in px of column (or row) `index` of `count`, from the board edge. */
+function yapSpan(layout: YapBoardLayout, index: number, count: number): [number, number] {
+  const { cell, frame } = layout;
+  if (frame === 0) return [index * cell, cell];
+  if (index <= 0) return [0, frame];
+  if (index >= count - 1) return [frame + (count - 2) * cell, frame];
+  return [frame + (index - 1) * cell, cell];
+}
+
+/** Index of the column (or row) at `offset` px from the board edge, or -1 outside. */
+function yapIndexAt(layout: YapBoardLayout, offset: number, count: number, size: number): number {
+  if (offset < 0 || offset >= size) return -1;
+  const { cell, frame } = layout;
+  if (frame === 0) return Math.min(count - 1, Math.floor(offset / cell));
+  if (offset < frame) return 0;
+  if (offset >= size - frame) return count - 1;
+  return Math.min(count - 2, 1 + Math.floor((offset - frame) / cell));
+}
+
 /** Top-left pixel rect of a cell. */
 export function yapCellRect(layout: YapBoardLayout, cell: YapCell): YapRect {
-  return {
-    x: layout.originX + cell.x * layout.cell,
-    y: layout.originY + cell.y * layout.cell,
-    w: layout.cell,
-    h: layout.cell,
-  };
+  const [x, w] = yapSpan(layout, cell.x, layout.columns);
+  const [y, h] = yapSpan(layout, cell.y, layout.rows);
+  return { x: layout.originX + x, y: layout.originY + y, w, h };
 }
 
 /** Centre pixel of a cell. */
 export function yapCellCenter(layout: YapBoardLayout, cell: YapCell): YapPoint {
-  const half = layout.cell / 2;
-  return {
-    x: layout.originX + cell.x * layout.cell + half,
-    y: layout.originY + cell.y * layout.cell + half,
-  };
+  const r = yapCellRect(layout, cell);
+  return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+}
+
+/** The cell under the pixel (`px`, `py`), the inverse of yapCellRect; null off the board. */
+export function yapCellAt(layout: YapBoardLayout, px: number, py: number): YapCell | null {
+  const x = yapIndexAt(layout, px - layout.originX, layout.columns, layout.boardWidth);
+  const y = yapIndexAt(layout, py - layout.originY, layout.rows, layout.boardHeight);
+  if (x < 0 || y < 0) return null;
+  return { x, y };
 }
 
 // ---------------------------------------------------------------------------

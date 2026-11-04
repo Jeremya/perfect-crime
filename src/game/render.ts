@@ -47,14 +47,20 @@ export function yapDrawStaticGrid(
         g.fillStyle(color('wall'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
         // A restrained inset seam makes walls read as architectural panels
         // instead of a field of identical grey blocks. Floor remains untouched.
-        const inset = Math.max(2, Math.floor(layout.cell * 0.1));
-        g.lineStyle(1, color('wall-detail'), 0.62).strokeRoundedRect(
-          rect.x + inset + 0.5,
-          rect.y + inset + 0.5,
-          rect.w - inset * 2 - 1,
-          rect.h - inset * 2 - 1,
-          Math.max(2, Math.floor(layout.cell * 0.08)),
-        );
+        // Sized on the cell's own rect: the thin frame's border cells (plan
+        // style 3/6) are too small for a seam and get none.
+        const side = Math.min(rect.w, rect.h);
+        const inset = Math.max(2, Math.floor(side * 0.1));
+        const radius = Math.max(2, Math.floor(side * 0.08));
+        if (side - inset * 2 - 1 > radius * 2) {
+          g.lineStyle(1, color('wall-detail'), 0.62).strokeRoundedRect(
+            rect.x + inset + 0.5,
+            rect.y + inset + 0.5,
+            rect.w - inset * 2 - 1,
+            rect.h - inset * 2 - 1,
+            radius,
+          );
+        }
       } else {
         g.fillStyle(color('floor'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
       }

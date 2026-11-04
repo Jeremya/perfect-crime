@@ -23,6 +23,7 @@ import {
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
   yapComputeLayout,
+  yapLevelLayout,
   yapConeCells,
   yapHexToInt,
   yapLaserCells,
@@ -210,14 +211,18 @@ export class YapViewerScene extends Phaser.Scene {
     const model = this.yapModel;
     const level = model?.level;
     const view = yapViewSize(this);
-    const layout = yapComputeLayout(
-      view.width,
-      view.height,
-      level?.width ?? YAP_GRID_WIDTH,
-      level?.height ?? YAP_GRID_HEIGHT,
-      YAP_TOP_BAR_HEIGHT,
-      YAP_VIEWER_BOTTOM_BAR,
-    );
+    // the level's own geometry, thin frame included (plan style 3/6)
+    const layout =
+      level === undefined || level === null
+        ? yapComputeLayout(
+            view.width,
+            view.height,
+            YAP_GRID_WIDTH,
+            YAP_GRID_HEIGHT,
+            YAP_TOP_BAR_HEIGHT,
+            YAP_VIEWER_BOTTOM_BAR,
+          )
+        : yapLevelLayout(view.width, view.height, level, YAP_TOP_BAR_HEIGHT, YAP_VIEWER_BOTTOM_BAR);
     this.yapLayout = layout;
 
     if (level !== undefined) {

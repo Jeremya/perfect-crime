@@ -5,8 +5,11 @@
 // (the board always fits between the bars, with its inset) and the contrast
 // rules that make the exact-cell overlays readable — cell boundaries and the
 // diamond are gameplay information, not decoration.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { YapLevel } from '../../src/core/level';
 import {
+  YAP_BOARD_FRAME,
   YAP_BOARD_INSET,
   YAP_BOTTOM_BAR_HEIGHT,
   YAP_CAMERA_CONE_ALPHA,
@@ -15,9 +18,21 @@ import {
   YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
+  yapBoardFrame,
+  yapCellAt,
+  yapCellRect,
   yapComputeLayout,
   yapFitRows,
+  yapLevelLayout,
 } from '../../src/game/board';
+
+/** Every shipped level, from the compiled levels/levels.json. */
+const LEVELS: readonly { id: string; level: YapLevel }[] = (
+  JSON.parse(readFileSync(new URL('../../levels/levels.json', import.meta.url), 'utf8')) as {
+    levels: { id: string; level: YapLevel }[];
+  }
+).levels;
+const T1 = LEVELS.find((entry) => entry.id === 'tutorial/t1')?.level as YapLevel;
 
 /** WCAG 2 relative luminance of a #rrggbb colour. */
 function luminance(hex: string): number {
@@ -62,6 +77,90 @@ describe('yapComputeLayout — the board is a card inside the page', () => {
       });
     });
   }
+});
+
+describe('the thin wall frame (plan style 3/6)', () => {
+  it('every shipped level gets the thin frame', () => {
+    expect(LEVELS.length).toBeGreaterThan(0);
+    for (const { id, level } of LEVELS) expect(yapBoardFrame(level), id).toBe(YAP_BOARD_FRAME);
+    expect(YAP_BOARD_FRAME).toBe(10);
+  });
+
+  it('an open border falls back to uniform cells', () => {
+    const open: YapLevel = { ...T1, map: ['###.####', ...T1.map.slice(1)] };
+    expect(yapBoardFrame(open)).toBe(0);
+    expect(yapLevelLayout(390, 844, open)).toEqual(yapComputeLayout(390, 844, 8, 12));
+  });
+
+  it('the interior grows at 390 × 844', () => {
+    const layout = yapLevelLayout(390, 844, T1);
+    expect(layout.frame).toBe(10);
+    expect(layout.cell).toBe(59);
+    expect(layout.boardWidth).toBe(374);
+    expect(layout.boardHeight).toBe(610);
+    expect(layout.originX).toBeGreaterThanOrEqual(YAP_BOARD_INSET);
+    expect(layout.originX + layout.boardWidth).toBeLessThanOrEqual(390 - YAP_BOARD_INSET);
+    expect(layout.originY).toBeGreaterThanOrEqual(YAP_TOP_BAR_HEIGHT + YAP_BOARD_INSET);
+    expect(layout.originY + layout.boardHeight).toBeLessThanOrEqual(
+      844 - YAP_BOTTOM_BAR_HEIGHT - YAP_BOARD_INSET,
+    );
+    expect(yapLevelLayout(360, 640, T1).cell).toBeGreaterThanOrEqual(44);
+  });
+
+  it('gives the border cells the frame and the interior the cell', () => {
+    const layout = yapLevelLayout(390, 844, T1);
+    expect(yapCellRect(layout, { x: 0, y: 0 })).toEqual({
+      x: layout.originX,
+      y: layout.originY,
+      w: 10,
+      h: 10,
+    });
+    expect(yapCellRect(layout, { x: 1, y: 1 })).toEqual({
+      x: layout.originX + 10,
+      y: layout.originY + 10,
+      w: 59,
+      h: 59,
+    });
+    expect(yapCellRect(layout, { x: 7, y: 11 })).toEqual({
+      x: layout.originX + 10 + 6 * 59,
+      y: layout.originY + 10 + 10 * 59,
+      w: 10,
+      h: 10,
+    });
+  });
+
+  it('yapCellAt inverts yapCellRect', () => {
+    for (const [width, height] of [
+      [390, 844],
+      [360, 640],
+    ] as const) {
+      const layout = yapLevelLayout(width, height, T1);
+      for (let y = 0; y < 12; y += 1) {
+        for (let x = 0; x < 8; x += 1) {
+          const r = yapCellRect(layout, { x, y });
+          for (const [px, py] of [
+            [r.x, r.y],
+            [r.x + r.w / 2, r.y + r.h / 2],
+            [r.x + r.w - 0.01, r.y + r.h - 0.01],
+          ] as const) {
+            expect(yapCellAt(layout, px, py), `${x},${y} at ${px},${py}`).toEqual({ x, y });
+          }
+        }
+      }
+      expect(yapCellAt(layout, layout.originX - 0.01, layout.originY + 20)).toBeNull();
+      expect(yapCellAt(layout, layout.originX + layout.boardWidth, layout.originY + 20)).toBeNull();
+      expect(
+        yapCellAt(layout, layout.originX + 20, layout.originY + layout.boardHeight),
+      ).toBeNull();
+    }
+  });
+
+  it('keeps the uniform layout inverse too', () => {
+    const layout = yapComputeLayout(360, 640, 8, 12);
+    expect(layout.frame).toBe(0);
+    const r = yapCellRect(layout, { x: 3, y: 4 });
+    expect(yapCellAt(layout, r.x + 1, r.y + 1)).toEqual({ x: 3, y: 4 });
+  });
 });
 
 describe('palette — gameplay information is readable', () => {

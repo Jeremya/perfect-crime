@@ -59,7 +59,7 @@ import {
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
-  yapComputeLayout,
+  yapLevelLayout,
   yapDirVector,
   yapHexToInt,
   type YapBoardLayout,
@@ -501,11 +501,11 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintBadge = null;
 
     const view = yapViewSize(this);
-    const layout = yapComputeLayout(
+    // the thin wall frame (plan style 3/6): one geometry for drawing and input
+    const layout = yapLevelLayout(
       view.width,
       view.height,
-      level.width,
-      level.height,
+      level,
       YAP_TOP_BAR_HEIGHT,
       YAP_BOTTOM_BAR_HEIGHT,
     );

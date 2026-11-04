@@ -50,7 +50,7 @@ import {
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
-  yapComputeLayout,
+  yapLevelLayout,
   yapDirVector,
   yapHexToInt,
 } from './board';
@@ -409,7 +409,7 @@ export class YapChallengeScene extends Phaser.Scene {
 
     const areaY = y + Math.max(title.height, 44) + 12;
     const areaH = Math.max(80, y + h - areaY);
-    const layout = yapComputeLayout(w, areaH, level.width, level.height, 0, 0);
+    const layout = yapLevelLayout(w, areaH, level, 0, 0);
     const board = this.add.container(x, areaY);
     root.add(board);
     const g = this.add.graphics();
