@@ -178,6 +178,10 @@ export const en = {
   // taken the second hint. The card line and the actions reuse challenge.*
   // and comparison.* above.
   challengeFlow: {
+    // C1 plan style: the challenge screen's header (src/game/challenge-scene.ts)
+    kicker: 'Message received · heist No. {day}',
+    title: 'A challenge from {nickname}',
+    titleAnonymous: 'A challenge',
     expressNote: 'New here? A quick 3-level tutorial comes first.',
     you: 'You',
     friend: 'Friend',

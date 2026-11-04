@@ -17,9 +17,11 @@
 // otherwise. When unlocked, the plan is drawn on a small board of the linked
 // heist.
 //
-// Layout follows docs/UI-DESIGN.md: portrait, 64 px top bar, 96 px bottom
-// action bar with the primary action lowest, 44 px touch targets, 14 px
-// minimum text, all copy from the FR/EN dictionaries.
+// Layout follows docs/UI-DESIGN.md: portrait, the 64 px header, the actions
+// in the bottom third with the primary one lowest (as on Home), 44 px touch
+// targets, 14 px minimum text, all copy from the FR/EN dictionaries. C1 plan
+// style: the paper page, the kit header ("Message received · heist No. 3"
+// over "A challenge from Alex"), an index card and the kit's buttons.
 import Phaser from 'phaser';
 import { track } from '../app/analytics';
 import { yapI18n } from '../app/i18n';
@@ -45,7 +47,6 @@ import { yapStorage } from '../app/storage';
 import type { YapCell, YapLevel } from '../core/level';
 import type { YapPlan } from '../core/sim';
 import {
-  YAP_BOTTOM_BAR_HEIGHT,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
@@ -54,9 +55,11 @@ import {
   yapHexToInt,
 } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
+import { yapHomeActions } from './home-layout';
 import { yapFlow } from './home-scene';
+import { yapButton, yapCard, yapHeader, yapPaperPage } from './kit';
 import { yapDrawDiamond, yapDrawExit, yapDrawStart, yapDrawStaticGrid } from './render';
-import { yapText, yapTextStyle } from './text';
+import { yapRoleText, type YapTextRole } from './text';
 
 /** Scene key of the challenge card. */
 export const YAP_CHALLENGE_SCENE_KEY = 'yap-challenge';
@@ -94,7 +97,7 @@ export class YapChallengeScene extends Phaser.Scene {
   }
 
   create(data: YapChallengeSceneData): void {
-    this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
+    this.cameras.main.setBackgroundColor(YAP_PALETTE['paper-page']);
     this.yapDay = data.day;
     this.yapView = 'card';
     this.yapPlanViewedTracked = false;
@@ -183,91 +186,64 @@ export class YapChallengeScene extends Phaser.Scene {
     const root = this.add.container(0, 0);
     this.yapRoot = root;
 
-    const textStyle = (
-      size: number,
-      color: string,
-      bold = false,
-      wrap = 0,
-    ): Phaser.Types.GameObjects.Text.TextStyle =>
-      yapTextStyle(size, color, {
-        ...(bold ? { fontStyle: 'bold' } : {}),
-        ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
-      });
-    const primary = YAP_PALETTE['text-primary'];
+    // C1 plan style: the paper page, at the back
+    root.add(yapPaperPage(this, width, height));
 
-    // top bar: screen title, same accent strip as Home and the level HUD
-    const header = this.add.graphics();
-    header
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, 0, width, YAP_TOP_BAR_HEIGHT)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, YAP_TOP_BAR_HEIGHT - 0.5, width, YAP_TOP_BAR_HEIGHT - 0.5);
-    header
-      .fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1)
-      .fillRect(0, 0, 4, YAP_TOP_BAR_HEIGHT);
-    root.add(header);
+    // the header: the message kicker over who sent the challenge, or the
+    // comparison title over the friend's plan
+    const title =
+      this.yapView === 'plan'
+        ? yapI18n.t('comparison.title')
+        : entry.nickname !== ''
+          ? yapI18n.t('challengeFlow.title', { nickname: entry.nickname })
+          : yapI18n.t('challengeFlow.titleAnonymous');
     root.add(
-      yapText(
-        this,
-        16,
-        YAP_TOP_BAR_HEIGHT / 2,
-        yapI18n.t('comparison.title'),
-        textStyle(20, primary, true),
-      ).setOrigin(0, 0.5),
+      yapHeader(this, width, {
+        kicker: yapI18n.t('challengeFlow.kicker', { day: entry.day }),
+        title,
+      }).container,
     );
 
-    // card panel between the bars
+    // the actions in the bottom third: Later above the primary Take the
+    // challenge, the layout of Home's (yapHomeActions)
+    const actions = yapHomeActions(width, height, 1);
+
+    // the index card between the header and the actions
     const cardX = 16;
     const cardY = YAP_TOP_BAR_HEIGHT + 16;
     const cardW = width - 32;
-    const cardH = height - YAP_BOTTOM_BAR_HEIGHT - 16 - cardY;
+    const cardH = Math.round(actions.top - 16 - cardY);
     const innerX = cardX + 16;
     const innerW = cardW - 32;
-    const card = this.add.graphics();
-    root.add(card);
-    card
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRoundedRect(cardX, cardY, cardW, cardH, 12)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .strokeRoundedRect(cardX, cardY, cardW, cardH, 12);
+    root.add(yapCard(this, cardX, cardY, cardW, cardH));
 
     if (this.yapView === 'plan')
       this.yapBuildPlanView(root, innerX, cardY + 16, innerW, cardH - 32);
-    else this.yapBuildCardView(root, entry, innerX, cardY + 16, innerW, cardH - 32, textStyle);
+    else this.yapBuildCardView(root, entry, innerX, cardY + 16, innerW, cardH - 32);
 
-    // bottom action bar: Later above the primary Take the challenge
-    const barY = height - YAP_BOTTOM_BAR_HEIGHT;
-    const bar = this.add.graphics();
-    bar
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, barY, width, YAP_BOTTOM_BAR_HEIGHT)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, barY + 0.5, width, barY + 0.5);
-    root.add(bar);
-    const btnW = Math.min(width - 32, 420);
-    const cx = width / 2;
     root.add(
-      this.yapMakeButton(
-        cx,
-        barY + YAP_BOTTOM_BAR_HEIGHT - 6 - 28,
-        btnW,
-        56,
-        yapI18n.t('challenge.takeChallenge'),
-        true,
-        () => this.yapTakeChallenge(),
-      ),
+      yapButton(this, {
+        x: actions.primary.x,
+        y: actions.primaryY,
+        width: actions.primary.width,
+        label: yapI18n.t('challenge.takeChallenge'),
+        kind: 'primary',
+        onPress: () => this.yapTakeChallenge(),
+      }).container,
     );
-    root.add(
-      this.yapMakeButton(
-        cx,
-        barY + YAP_BOTTOM_BAR_HEIGHT - 6 - 56 - 12 - 24,
-        btnW,
-        48,
-        yapI18n.t('challenge.later'),
-        false,
-        () => this.yapLater(),
-      ),
-    );
+    const later = actions.secondary[0];
+    if (later !== undefined) {
+      root.add(
+        yapButton(this, {
+          x: later.x,
+          y: actions.secondaryY,
+          width: later.width,
+          label: yapI18n.t('challenge.later'),
+          kind: 'secondary',
+          onPress: () => this.yapLater(),
+        }).container,
+      );
+    }
   }
 
   /** The card view: sender line, express note, comparison table, verdict, plan button. */
@@ -278,25 +254,17 @@ export class YapChallengeScene extends Phaser.Scene {
     y: number,
     w: number,
     h: number,
-    textStyle: (
-      size: number,
-      color: string,
-      bold?: boolean,
-      wrap?: number,
-    ) => Phaser.Types.GameObjects.Text.TextStyle,
   ): void {
-    const primary = YAP_PALETTE['text-primary'];
-    const secondary = YAP_PALETTE['text-secondary'];
+    const ink = YAP_PALETTE.ink;
+    const muted = YAP_PALETTE['ink-muted'];
     let cursor = y;
     const line = (
       text: string,
-      size: number,
+      role: YapTextRole,
       color: string,
-      bold: boolean,
       gapAfter: number,
-      wrap = 0,
     ): Phaser.GameObjects.Text => {
-      const t = yapText(this, x, cursor, text, textStyle(size, color, bold, wrap)).setOrigin(0, 0);
+      const t = yapRoleText(this, x, cursor, text, role, color, { wordWrap: { width: w } });
       root.add(t);
       cursor += t.height + gapAfter;
       return t;
@@ -316,31 +284,28 @@ export class YapChallengeScene extends Phaser.Scene {
             attempts: entry.attempts,
             ticks: entry.ticks,
           });
-    line(senderLine, 20, primary, true, 8, w);
+    line(senderLine, 'cardTitle', ink, 8);
 
     // a player who has never played gets the express tutorial first
     if (!yapIsKnownPlayer(yapStorage))
-      line(yapI18n.t('challengeFlow.expressNote'), 14, secondary, false, 12, w);
+      line(yapI18n.t('challengeFlow.expressNote'), 'caption', muted, 12);
 
     // score comparison: You vs Friend — attempts first, then ticks
     const record = loadYapDays(yapStorage).get(this.yapDay) ?? null;
     const comparison = yapCompareWithSender(entry, record);
     const youX = x + w - 96;
     const friendX = x + w;
-    const header = yapText(
-      this,
-      youX,
-      cursor,
-      yapI18n.t('challengeFlow.you'),
-      textStyle(14, secondary, true),
-    ).setOrigin(1, 0);
-    const friendHeader = yapText(
+    const header = yapRoleText(this, youX, cursor, yapI18n.t('challengeFlow.you'), 'stat', muted);
+    const friendHeader = yapRoleText(
       this,
       friendX,
       cursor,
       yapI18n.t('challengeFlow.friend'),
-      textStyle(14, secondary, true),
-    ).setOrigin(1, 0);
+      'stat',
+      muted,
+    );
+    header.setOrigin(1, 0);
+    friendHeader.setOrigin(1, 0);
     root.add([header, friendHeader]);
     cursor += Math.max(header.height, friendHeader.height) + 6;
 
@@ -367,10 +332,11 @@ export class YapChallengeScene extends Phaser.Scene {
         String(entry.hints),
       ],
     ];
+    // labels in the body role, values in the stat role (as on the Win card)
     for (const [label, you, friend] of rows) {
-      root.add(yapText(this, x, cursor, label, textStyle(16, secondary)).setOrigin(0, 0));
-      root.add(yapText(this, youX, cursor, you, textStyle(16, primary)).setOrigin(1, 0));
-      root.add(yapText(this, friendX, cursor, friend, textStyle(16, primary)).setOrigin(1, 0));
+      root.add(yapRoleText(this, x, cursor, label, 'body', muted));
+      root.add(yapRoleText(this, youX, cursor + 2, you, 'stat', ink).setOrigin(1, 0));
+      root.add(yapRoleText(this, friendX, cursor + 2, friend, 'stat', ink).setOrigin(1, 0));
       cursor += 26;
     }
     cursor += 6;
@@ -381,25 +347,25 @@ export class YapChallengeScene extends Phaser.Scene {
           : comparison.verdict === 'worse'
             ? 'challengeFlow.verdictWorse'
             : 'challengeFlow.verdictTied';
-      line(yapI18n.t(verdictKey), 16, primary, true, 12);
+      line(yapI18n.t(verdictKey), 'body', ink, 12);
     }
 
     // "See their plan": reveals the plan only once unlocked (won or 2nd hint)
     const unlocked = this.yapPlanUnlocked();
     root.add(
-      this.yapMakeButton(
-        x + w / 2,
-        cursor + 22,
-        w,
-        44,
-        yapI18n.t('comparison.seeTheirPlan'),
-        false,
-        () => this.yapTogglePlan(),
-      ),
+      yapButton(this, {
+        x,
+        y: cursor + 22,
+        width: w,
+        height: 44,
+        label: yapI18n.t('comparison.seeTheirPlan'),
+        kind: 'secondary',
+        onPress: () => this.yapTogglePlan(),
+      }).container,
     );
     cursor += 44 + 10;
     if (!unlocked) {
-      line(yapI18n.t('challengeFlow.planLocked'), 14, secondary, false, 0, w);
+      line(yapI18n.t('challengeFlow.planLocked'), 'caption', muted, 0);
     }
     void h;
   }
@@ -415,23 +381,33 @@ export class YapChallengeScene extends Phaser.Scene {
     const entry = this.yapEntry;
     const level = yapLevelById(`daily/d${this.yapDay}`);
     if (entry === null || level === null) return;
-    const primary = YAP_PALETTE['text-primary'];
-    const title = yapText(
+    const backWidth = 88;
+    const title = yapRoleText(
       this,
       x,
       y,
       yapI18n.t('challengeFlow.planTitle'),
-      yapTextStyle(20, primary, { fontStyle: 'bold' }),
-    ).setOrigin(0, 0);
+      'cardTitle',
+      YAP_PALETTE.ink,
+      { wordWrap: { width: w - backWidth - 8 } },
+    );
     root.add(title);
     root.add(
-      this.yapMakeButton(x + w - 40, y + 22, 80, 44, yapI18n.t('common.back'), false, () => {
-        this.yapView = 'card';
-        this.yapBuild();
-      }),
+      yapButton(this, {
+        x: x + w - backWidth,
+        y: y + 22,
+        width: backWidth,
+        height: 44,
+        label: yapI18n.t('common.back'),
+        kind: 'secondary',
+        onPress: () => {
+          this.yapView = 'card';
+          this.yapBuild();
+        },
+      }).container,
     );
 
-    const areaY = y + title.height + 12;
+    const areaY = y + Math.max(title.height, 44) + 12;
     const areaH = Math.max(80, y + h - areaY);
     const layout = yapComputeLayout(w, areaH, level.width, level.height, 0, 0);
     const board = this.add.container(x, areaY);
@@ -460,39 +436,6 @@ export class YapChallengeScene extends Phaser.Scene {
       pass(Math.max(3, layout.cell * 0.36), yapHexToInt(YAP_PALETTE['path-outline']));
       pass(Math.max(2, layout.cell * 0.22), yapHexToInt(YAP_PALETTE['path-light']));
     }
-  }
-
-  /** A rounded button drawn in code (same style as the Home screen's). */
-  private yapMakeButton(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    labelText: string,
-    primary: boolean,
-    onPress: () => void,
-  ): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y);
-    const bg = this.add.graphics();
-    bg.fillStyle(yapHexToInt(YAP_PALETTE[primary ? 'action-primary' : 'action-secondary']), 1)
-      .fillRoundedRect(-w / 2, -h / 2, w, h, 8)
-      .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-      .strokeRoundedRect(-w / 2, -h / 2, w, h, 8);
-    const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
-    const label = yapText(
-      this,
-      0,
-      0,
-      labelText,
-      yapTextStyle(
-        primary ? 20 : 16,
-        primary ? YAP_PALETTE['path-light'] : YAP_PALETTE['text-primary'],
-        { ...(primary ? { fontStyle: 'bold' } : {}) },
-      ),
-    ).setOrigin(0.5);
-    zone.on('pointerdown', onPress);
-    container.add([bg, zone, label]);
-    return container;
   }
 }
 
