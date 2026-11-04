@@ -77,7 +77,7 @@ Five mechanics, in order of importance:
 
 ### 3.1 The Angry Birds mechanic to port: plan preview ("dotted arc")
 
-> **Status: implemented (task X3, branch `x3-plan-preview`, PR `[X3] Plan preview (Angry Birds dotted arc) behind ?flag=preview:`).**
+> **Status: implemented and merged (task X3, PR #56; behind `?flag=preview:`).**
 > Behind `?flag=preview:` (default on): once the drawn route is complete, a
 > Preview button (👁) appears in the planning bottom bar next to PLAY. It
 > replays the plan as a fast ghost (8 ticks/s, twice the playback): the ghost
@@ -111,7 +111,7 @@ Risk: could reduce the sting of failure — mitigate by making preview a
 
 ### 3.2 Slingshot undo
 
-> **Status: implemented (task X4, branch `x4-slingshot-undo`, PR `[X4] Slingshot undo: drag back erases the route`).**
+> **Status: implemented and merged (task X4, PR #58).**
 > Pure input change in `src/game/path-input.ts` (`yapUndoDrag`, threshold
 > `YAP_UNDO_MAX_DISTANCE` = half a cell): while drawing (not finished), a
 > pointer that pulls back along the last drawn segment — behind the last cell

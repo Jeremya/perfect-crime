@@ -2,7 +2,7 @@
 
 - **Epic**: X — post-Gate-1 experience (docs/design/experience.md) · **Role**: Dev · **Estimate**: M
 - **Depends on**: X8 (kit visuel, branche `x8-visual-kit`) · X3 (mergé, pas de conflit) · **Branch**: `x8b-style-tile` · **PR**: `[X8b-1] Style tile 100% code: tokens + ui-kit + Home`
-- **Status**: X8b-1 done locally — PR open, CI green, awaiting human review (never merged by the agent). X8b-2 (level scene) NOT started.
+- **Status**: X8b-1 Done (merged #59), then retired by the product call of 2026-11-04 (plan style 2/6, #60). X8b-2 and X8b-3 cancelled — the plan style covers those screens.
 
 ## Décision produit actée (2026-10-30, product owner)
 

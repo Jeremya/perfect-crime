@@ -105,6 +105,12 @@ F3 or H1–H3.
 
 ## Open decisions (defaults in the spec, to be confirmed by Jeremy)
 
-Domain name, test-week start date (a Monday ~3 weeks in), displayed game name
-("Perfect Crime", provisional), nickname in links (off by default), tester
-groups, PM role, Poki Playtesting access.
+Decided: deployment on Cloudflare Pages at
+`https://yap-corp-perfect-crime.pages.dev` (project `yap-corp-perfect-crime`,
+one preview URL per PR); displayed game name "Perfect Crime" (see
+`docs/NAMING.md`); visual direction "plan d'architecte", 100% code-drawn
+(2026-11-04, see `docs/design/2026-10-30-plan-style-design.md`).
+
+Still open: custom domain name, test-week start date (a Monday ~3 weeks in),
+nickname in links (off by default), tester groups, PM role, Poki Playtesting
+access.

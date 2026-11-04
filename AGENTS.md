@@ -25,10 +25,11 @@ Full rules in `docs/NAMING.md`. Summary:
 
 ## 3. How work is cut up
 
-The backlog is split into **34 atomic task files** in `tasks/` (one per story
+The backlog is split into **36 atomic task files** in `tasks/` (one per story
 of the Gate 1 spec: A1–A3, B1–B4, C1–C8, D1–D2, E1–E5, F1–F3, G1–G3, H1–H6,
-O1–O2). `tasks/README.md` has the index, the dependency graph and the
-parallel waves.
+O1–O2 — 34 required + 2 optional), plus the post-Gate-1 experience tasks
+X1–X8b cut from `docs/design/experience.md`. `tasks/README.md` has the index,
+the dependency graph and the parallel waves.
 
 **One task = one branch = one PR** titled `[<ID>] <title>` (e.g. `[B2] Simulation`).
 

@@ -5,7 +5,7 @@ optional). Each file is **self-contained**: an agent can pick it up with only
 `AGENTS.md` + the task file. Every task declares its **ownership** (the only
 files it may touch) so parallel agents never collide.
 
-Status snapshot: **2026-10-30 (after #44)**. `Done` means merged with
+Status snapshot: **2026-11-04 (after #64)**. `Done` means merged with
 repository acceptance evidenced. `In progress` includes merged work with an
 outstanding acceptance check (real-phone preview, playtest, live dashboards)
 or an open PR; each task file says which. External setup (such as live PostHog
@@ -13,7 +13,14 @@ dashboards or real-phone checks) is not complete without evidence.
 
 Current count across the **34 required stories: 23 Done, 6 In progress, 5 To
 do**. Both optional stories are Done (O1 #32+#44, O2 #19). Every line of code
-for Gate 1 is merged; nothing is blocked on a developer.
+for Gate 1 is merged; nothing is blocked on a developer. The post-Gate-1
+experience tasks (X1–X8b, from `docs/design/experience.md`) are also merged
+(#49–#59), except X5 (star-gain animation, not started). The C1 visual pass 3
+("plan d'architecte", `docs/design/2026-10-30-plan-style-design.md`) is
+**complete: slices 1–6/6 merged (#51, #60, #61, #62, #63, #64)** — crisp
+rendering, paper & ink chrome, board plan, screen compositions, UI-DESIGN
+rewrite + Kenney cleanup, plan-style share previews. Only the real-phone
+check of the visual passes is still pending.
 
 ## What remains
 
@@ -48,18 +55,27 @@ Without recruited testers, H5 and H6 cannot start.
 
 ### 4. Known gaps, not covered by a story
 
-Kept here so they are not lost (all from `docs/UI-DESIGN.md`, none blocking
-Gate 1):
+Kept here so they are not lost (none blocking Gate 1):
 
-- **Visual handoff**: `docs/design/` (style tile, mockups at 390 × 844 and
-  360 × 640, component sheet, readability check) does not exist. The Kenney
-  **UI Pack** sprites for primary/secondary controls are still not integrated.
-- **First launch**: the animated hand demonstrating a route (UI-DESIGN,
-  "First launch / T1") is not implemented; T1 opens with an empty board.
-- **Challenge card**: the E4 card has a large empty middle (it has not had a
-  visual pass).
+- **Visual direction**: decided 2026-11-04 — the "plan d'architecte" direction
+  (`docs/design/2026-10-30-plan-style-design.md`) is the only one, everywhere;
+  100% code-drawn, no Kenney UI Pack sprites and no Kenney character sprites
+  (`public/assets/kenney/` deleted in 5/6, #63; recorded in
+  `docs/design/visual-kit/README.md`, which stays as an archive of the
+  rejected "fancy" proposal). All six slices are merged (see C1).
+- **Visual handoff**: `docs/design/` exists (style tile, mockups at
+  390 × 844 and 360 × 640, component sheet under `docs/design/visual-kit/`;
+  plan-style design + screenshots under `docs/design/plan-style/`). The
+  readability-check artifact (one heist, tick-0 cones + ghost at tick 8) is
+  still to produce.
 - **Landscape**: at 864 × 307 the Home layout overlaps (portrait-only is in
   scope, but the degradation is ugly). Documented, not fixed.
+
+Closed since the 2026-10-30 snapshot: the first-launch animated hand and the
+consent note that moves the board (slice 4/6, #62), the challenge card's empty
+middle (memo, plan card, wax seal, verdict stamp — slice 4/6, #62), the Kenney
+UI Pack integration question (decided: not used), and the whole plan-style
+visual pass (slices 1–6/6, #51/#60–#64).
 
 Rules: one task = one branch `<id>-<slug>` = one PR `[<ID>] <title>`. Tests
 first. Full local check green before pushing:
@@ -108,6 +124,15 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | H6 | Gate 1 decision | H | PM | 1 | H5 | To do | `tasks/H6.md` |
 | O1 | Optional: playable archive | O | Dev | 0.75 | D2 | Done (#32 + #44; fits on 360 × 640 and 400 × 797) | `tasks/O1.md` |
 | O2 | Optional: draft generator | O | Dev | 1 | B3 | Done | `tasks/O2.md` |
+| X1 | Star thresholds visible in the planning top bar | X | Dev | S | C1, C2 | Done (#49) | — (cut from `docs/design/experience.md`) |
+| X2 | ★ total on Home + stars in archive rows | X | Dev | S | X1, D1 | Done (#50) | — (cut from `docs/design/experience.md`) |
+| X3 | Plan preview (Angry Birds dotted arc) behind `?flag=preview:` | X | Dev | M | C3, C6 | Done (#56) | `tasks/X3.md` |
+| X4 | Slingshot undo: drag back erases the route | X | Dev | M | C2 | Done (#58) | `tasks/X4.md` |
+| X5 | Star-gain animation on the Win screen | X | Dev | S | C5 | To do (not started) | — (cut from `docs/design/experience.md`) |
+| X6 | 10 medium-difficulty heists | X | Design+Content | 3 h | F2, F3, B3, B4 | Done (#54) | `tasks/X6.md` |
+| X7 | 10 hard-difficulty heists | X | Design+Content | 3 h | X6 | Done (#57) | `tasks/X7.md` |
+| X8 | Visual kit "fancy" (design only; archived, direction rejected) | X | Design | 2 h | C1 | Done (#55) | `tasks/X8.md` |
+| X8b | Style tile 100% code — X8b-1 merged (#59) then retired by the 2026-11-04 product call (#60); X8b-2/X8b-3 cancelled | X | Dev | M | X8 | Done / cancelled | `tasks/X8b.md` |
 
 ## Parallel waves (dependency order)
 
