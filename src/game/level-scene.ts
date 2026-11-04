@@ -100,6 +100,7 @@ import {
   yapDrawExit,
   yapDrawLaser,
   yapDrawPatrol,
+  yapDrawBoardFrame,
   yapDrawStaticGrid,
   yapDrawStart,
   yapDrawThief,
@@ -528,28 +529,6 @@ export class YapLevelScene extends Phaser.Scene {
     // camera clears to the page colour and the grid is drawn over it.
     board.add(yapPaperPage(this, view.width, view.height));
 
-    // Board card (C1 visual pass): a soft shadow under the grid and a 2 px
-    // frame around it. Without them the tiles floated on a background only
-    // 1.28:1 away from the floor, which read as a wireframe.
-    const outline = yapHexToInt(YAP_PALETTE['path-outline']);
-    const card = this.add.graphics();
-    for (const [dy, alpha] of [
-      [3, 0.09],
-      [6, 0.06],
-      [9, 0.03],
-    ] as const) {
-      card
-        .fillStyle(outline, alpha)
-        .fillRoundedRect(
-          layout.originX + 1,
-          layout.originY + dy,
-          layout.boardWidth - 2,
-          layout.boardHeight,
-          10,
-        );
-    }
-    board.add(card);
-
     // Static grid, drawn once into a texture (Gate 1 spec, Rendering and
     // input), at device resolution so it stays crisp on a phone.
     const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
@@ -558,19 +537,12 @@ export class YapLevelScene extends Phaser.Scene {
     );
     board.add(yapBakedImage(this, layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY));
 
-    // the frame sits on top of the grid so the edge stays crisp
+    // the plan sheet's double ink frame (spec §7), over the grid so it stays crisp
     const frame = this.add.graphics();
-    frame
-      .lineStyle(2, outline, 1)
-      .strokeRect(
-        layout.originX + 1,
-        layout.originY + 1,
-        layout.boardWidth - 2,
-        layout.boardHeight - 2,
-      );
+    yapDrawBoardFrame(frame, layout);
     board.add(frame);
 
-    // Patrols: thin dotted lines with direction arrows, kept secondary.
+    // Patrols: ink dashed lines with arrowheads, kept secondary.
     const patrolG = this.add.graphics();
     for (const guard of level.guards) yapDrawPatrol(patrolG, layout, guard);
     board.add(patrolG);

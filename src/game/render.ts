@@ -12,14 +12,30 @@ import type { YapCell, YapDir, YapGuard, YapLevel } from '../core/level';
 import {
   YAP_CONE_FILL_ALPHA,
   YAP_DANGER_LINE_WIDTH,
+  YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
   yapCellCenter,
   yapCellRect,
   yapDirVector,
   yapHexToInt,
+  yapLevelLayout,
   type YapBoardLayout,
   type YapPaletteToken,
 } from './board';
+import {
+  YAP_HATCH_SPACING,
+  YAP_HATCH_WIDTH,
+  YAP_SEAM_WIDTH,
+  YAP_WALL_EDGE_WIDTH,
+  yapDashes,
+  yapFloorSeams,
+  yapHatchSegments,
+  yapWallEdges,
+  type YapSegment,
+} from './plan-geometry';
+
+/** Patrols are ink at 55% (spec §7). */
+const YAP_PATROL_ALPHA = 0.55;
 
 function color(token: YapPaletteToken): number {
   return yapHexToInt(YAP_PALETTE[token]);
@@ -30,52 +46,53 @@ function color(token: YapPaletteToken): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Floors, walls and cell boundaries. Floors stay visually open; decorative
- * detail is drawn only on wall cells (docs/UI-DESIGN.md). Draw with a layout
- * whose origin is (0, 0) so the result can be baked into a board-sized texture.
+ * The plan sheet (spec §7, plan style 3/6): paper floor; walls in
+ * hatch-ground with 45° ink hatching clipped to each wall cell; a faint
+ * ink-soft grid between floor cells only; and an ink edge wherever floor meets
+ * wall. Draw with a layout whose origin is (0, 0) so the result can be baked
+ * into a board-sized texture.
  */
 export function yapDrawStaticGrid(
   g: Phaser.GameObjects.Graphics,
   level: YapLevel,
   layout: YapBoardLayout,
 ): void {
+  const ink = color('ink');
   for (let y = 0; y < level.height; y += 1) {
     for (let x = 0; x < level.width; x += 1) {
       const rect = yapCellRect(layout, { x, y });
-      const ch = level.map[y]?.charAt(x) ?? '#';
-      if (ch === '#') {
-        g.fillStyle(color('wall'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
-        // A restrained inset seam makes walls read as architectural panels
-        // instead of a field of identical grey blocks. Floor remains untouched.
-        // Sized on the cell's own rect: the thin frame's border cells (plan
-        // style 3/6) are too small for a seam and get none.
-        const side = Math.min(rect.w, rect.h);
-        const inset = Math.max(2, Math.floor(side * 0.1));
-        const radius = Math.max(2, Math.floor(side * 0.08));
-        if (side - inset * 2 - 1 > radius * 2) {
-          g.lineStyle(1, color('wall-detail'), 0.62).strokeRoundedRect(
-            rect.x + inset + 0.5,
-            rect.y + inset + 0.5,
-            rect.w - inset * 2 - 1,
-            rect.h - inset * 2 - 1,
-            radius,
-          );
-        }
-      } else {
-        g.fillStyle(color('floor'), 1).fillRect(rect.x, rect.y, rect.w, rect.h);
-      }
+      const wall = (level.map[y]?.charAt(x) ?? '#') === '#';
+      g.fillStyle(color(wall ? 'hatch-ground' : 'paper'), 1).fillRect(
+        rect.x,
+        rect.y,
+        rect.w,
+        rect.h,
+      );
+      if (!wall) continue;
+      g.lineStyle(YAP_HATCH_WIDTH, ink, 1);
+      for (const s of yapHatchSegments(rect, YAP_HATCH_SPACING)) yapStroke(g, s);
     }
   }
-  // crisp 1 px cell boundaries, floors only: on the dark walls a light line
-  // would read as a seam and compete with the architecture
-  g.lineStyle(1, color('grid-line'), 1);
-  for (let y = 0; y < level.height; y += 1) {
-    for (let x = 0; x < level.width; x += 1) {
-      if ((level.map[y]?.charAt(x) ?? '#') === '#') continue;
-      const rect = yapCellRect(layout, { x, y });
-      g.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
-    }
-  }
+  g.lineStyle(YAP_SEAM_WIDTH, ink, YAP_INK_SOFT_ALPHA);
+  for (const s of yapFloorSeams(level, layout)) yapStroke(g, s);
+  g.lineStyle(YAP_WALL_EDGE_WIDTH, ink, 1);
+  for (const s of yapWallEdges(level, layout)) yapStroke(g, s);
+}
+
+/**
+ * The double ink frame of the plan sheet (spec §7): a 2 px line on the board's
+ * edge and a 0.8 px line 3 px inside it. No shadow, no rounded corners.
+ */
+export function yapDrawBoardFrame(g: Phaser.GameObjects.Graphics, layout: YapBoardLayout): void {
+  const ink = color('ink');
+  const { originX: x, originY: y, boardWidth: w, boardHeight: h } = layout;
+  g.lineStyle(2, ink, 1).strokeRect(x + 1, y + 1, w - 2, h - 2);
+  g.lineStyle(0.8, ink, 1).strokeRect(x + 3.4, y + 3.4, w - 6.8, h - 6.8);
+}
+
+/** One segment, stroked with the Graphics' current line style. */
+function yapStroke(g: Phaser.GameObjects.Graphics, s: YapSegment): void {
+  g.lineBetween(s.x1, s.y1, s.x2, s.y2);
 }
 
 // ---------------------------------------------------------------------------
@@ -105,17 +122,20 @@ export function yapDrawCone(
 // Patrols — thin dotted line with small direction arrows (secondary to cones)
 // ---------------------------------------------------------------------------
 
-/** Dots spaced along each route segment, plus an arrow at each segment middle. */
+/**
+ * A guard's patrol (spec §7): an ink dashed line (4/4) at 55% along its route,
+ * with a small ink arrowhead at the middle of each segment — always secondary
+ * to the cones and the route.
+ */
 export function yapDrawPatrol(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   guard: YapGuard,
 ): void {
   const pts = guard.route.map((c) => yapCellCenter(layout, c));
-  const c = color('text-secondary');
-  const dotR = Math.max(1.5, layout.cell * 0.055);
-  const step = Math.max(4, layout.cell * 0.22);
-  g.fillStyle(c, 0.85);
+  const ink = color('ink');
+  g.lineStyle(1.5, ink, YAP_PATROL_ALPHA);
+  g.fillStyle(ink, YAP_PATROL_ALPHA);
   for (let i = 0; i + 1 < pts.length; i += 1) {
     const a = pts[i];
     const b = pts[i + 1];
@@ -124,24 +144,20 @@ export function yapDrawPatrol(
     const dy = b.y - a.y;
     const len = Math.hypot(dx, dy);
     if (len < 1) continue; // repeated cell = a wait, no segment to draw
+    for (const s of yapDashes(a, b, 4, 4)) yapStroke(g, s);
+    // direction arrowhead at the middle of the segment
     const ux = dx / len;
     const uy = dy / len;
-    for (let d = step / 2; d < len; d += step) {
-      g.fillCircle(a.x + ux * d, a.y + uy * d, dotR);
-    }
-    // direction arrow at the middle of the segment
     const mx = a.x + ux * len * 0.5;
     const my = a.y + uy * len * 0.5;
-    const s = Math.max(3, layout.cell * 0.14);
-    const px = -uy;
-    const py = ux;
+    const size = Math.max(3, layout.cell * 0.09);
     g.fillTriangle(
-      mx + ux * s,
-      my + uy * s,
-      mx - ux * s * 0.4 + px * s * 0.7,
-      my - uy * s * 0.4 + py * s * 0.7,
-      mx - ux * s * 0.4 - px * s * 0.7,
-      my - uy * s * 0.4 - py * s * 0.7,
+      mx + ux * size,
+      my + uy * size,
+      mx - ux * size * 0.6 - uy * size * 0.7,
+      my - uy * size * 0.6 + ux * size * 0.7,
+      mx - ux * size * 0.6 + uy * size * 0.7,
+      my - uy * size * 0.6 - ux * size * 0.7,
     );
   }
 }
@@ -320,22 +336,10 @@ export function yapDrawDiamond(
     new Phaser.Math.Vector2(p.x - r, p.y),
   ];
   // a soft ground shadow lifts the gem off the floor
-  g.fillStyle(color('path-outline'), 0.14).fillEllipse(
-    p.x,
-    p.y + r * 0.85,
-    r * 1.7,
-    r * 0.6,
-  );
+  g.fillStyle(color('path-outline'), 0.14).fillEllipse(p.x, p.y + r * 0.85, r * 1.7, r * 0.6);
   g.fillStyle(color('objective-diamond'), 1).fillPoints(pts, true);
   // one lit facet: the jewel reads as cut, not as a flat lozenge
-  g.fillStyle(color('path-light'), 0.55).fillTriangle(
-    p.x,
-    p.y - r,
-    p.x,
-    p.y,
-    p.x - r * 0.62,
-    p.y,
-  );
+  g.fillStyle(color('path-light'), 0.55).fillTriangle(p.x, p.y - r, p.x, p.y, p.x - r * 0.62, p.y);
   g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokePoints(pts, true);
 }
 
@@ -386,68 +390,38 @@ export function yapDrawStart(
   at: YapCell,
 ): void {
   const p = yapCellCenter(layout, at);
-  g.lineStyle(1, color('text-secondary'), 0.8).strokeCircle(
-    p.x,
-    p.y,
-    layout.cell * 0.42,
-  );
+  g.lineStyle(1, color('text-secondary'), 0.8).strokeCircle(p.x, p.y, layout.cell * 0.42);
 }
 
+/** Thickness of the thin wall frame on Home's mini-map, in px. */
+const YAP_MINI_MAP_FRAME = 4;
+
 /**
- * Spoiler-free thumbnail of a heist (Home, story D2 pass 2): the walls, the
- * start, the diamond and the exit — never a route, a guard cone or a threat.
- * `x`/`y` are the top-left corner and `cell` the size of one grid cell.
+ * Spoiler-free thumbnail of a heist (Home, story D2 pass 2), as a small plan
+ * sheet (plan style 3/6): the static grid, the start, the diamond, the exit
+ * and the double frame — never a route, a guard cone or a threat. The board
+ * is centred in the `width` × `height` box at (`x`, `y`). Returns false, and
+ * draws nothing, when the box is too small for a readable map.
  */
 export function yapDrawMiniMap(
   g: Phaser.GameObjects.Graphics,
   level: YapLevel,
   x: number,
   y: number,
-  cell: number,
-): void {
-  for (let cy = 0; cy < level.height; cy += 1) {
-    for (let cx = 0; cx < level.width; cx += 1) {
-      const ch = level.map[cy]?.charAt(cx) ?? '#';
-      g.fillStyle(color(ch === '#' ? 'wall' : 'floor'), 1).fillRect(
-        x + cx * cell,
-        y + cy * cell,
-        cell,
-        cell,
-      );
-    }
-  }
-  const at = (c: YapCell): { x: number; y: number } => ({
-    x: x + c.x * cell + cell / 2,
-    y: y + c.y * cell + cell / 2,
-  });
-  const start = at(level.start);
-  g.lineStyle(1, color('path-light'), 0.9).strokeCircle(start.x, start.y, cell * 0.34);
-  const loot = at(level.loot);
-  g.fillStyle(color('objective-diamond'), 1)
-    .fillPoints(
-      [
-        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
-        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
-        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
-        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
-      ],
-      true,
-    )
-    .lineStyle(1, color('path-outline'), 1)
-    .strokePoints(
-      [
-        new Phaser.Math.Vector2(loot.x, loot.y - cell * 0.3),
-        new Phaser.Math.Vector2(loot.x + cell * 0.3, loot.y),
-        new Phaser.Math.Vector2(loot.x, loot.y + cell * 0.3),
-        new Phaser.Math.Vector2(loot.x - cell * 0.3, loot.y),
-      ],
-      true,
-    );
-  const exit = at(level.exit);
-  g.fillStyle(color('objective-exit'), 1).fillRect(
-    exit.x - cell * 0.3,
-    exit.y - cell * 0.3,
-    cell * 0.6,
-    cell * 0.6,
-  );
+  width: number,
+  height: number,
+): boolean {
+  const fitted = yapLevelLayout(width, height, level, 0, 0, YAP_MINI_MAP_FRAME, 0);
+  if (fitted.cell < 6) return false;
+  const layout: YapBoardLayout = {
+    ...fitted,
+    originX: Math.round(x + fitted.originX),
+    originY: Math.round(y + fitted.originY),
+  };
+  yapDrawStaticGrid(g, level, layout);
+  yapDrawStart(g, layout, level.start);
+  yapDrawDiamond(g, layout, level.loot);
+  yapDrawExit(g, layout, level.exit);
+  yapDrawBoardFrame(g, layout);
+  return true;
 }
