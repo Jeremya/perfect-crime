@@ -24,7 +24,7 @@
 // over "A challenge from Alex"), an index card and the kit's buttons.
 import Phaser from 'phaser';
 import { track } from '../app/analytics';
-import { yapI18n } from '../app/i18n';
+import { yapI18n, type YapKey } from '../app/i18n';
 import {
   loadYapInbox,
   yapCompareWithSender,
@@ -46,20 +46,29 @@ import { yapLoadShareId, yapShareIdHex } from '../app/share';
 import { yapStorage } from '../app/storage';
 import type { YapCell, YapLevel } from '../core/level';
 import type { YapPlan } from '../core/sim';
-import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapLevelLayout, yapDirVector } from './board';
+import {
+  YAP_PALETTE,
+  YAP_TOP_BAR_HEIGHT,
+  yapDirVector,
+  yapHexToInt,
+  yapLevelLayout,
+} from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapHomeActions } from './home-layout';
 import { yapFlow } from './home-scene';
 import { yapButton, yapCard, yapHeader, yapPaperPage } from './kit';
+import { yapSeal, yapStamp } from './kit-screens';
+import { yapHeistFacts } from './compose';
 import {
   yapDrawBoardFrame,
   yapDrawDiamond,
   yapDrawExit,
+  yapDrawMiniMap,
   yapDrawRoute,
   yapDrawStart,
   yapDrawStaticGrid,
 } from './render';
-import { YAP_FRIEND_ROUTE_WIDTH } from './plan-geometry';
+import { YAP_FRIEND_ROUTE_WIDTH, yapDashes } from './plan-geometry';
 import { yapRoleText, type YapTextRole } from './text';
 
 /** Scene key of the challenge card. */
@@ -216,11 +225,18 @@ export class YapChallengeScene extends Phaser.Scene {
     const cardH = Math.round(actions.top - 16 - cardY);
     const innerX = cardX + 16;
     const innerW = cardW - 32;
-    root.add(yapCard(this, cardX, cardY, cardW, cardH));
-
-    if (this.yapView === 'plan')
+    if (this.yapView === 'plan') {
+      root.add(yapCard(this, cardX, cardY, cardW, cardH));
       this.yapBuildPlanView(root, innerX, cardY + 16, innerW, cardH - 32);
-    else this.yapBuildCardView(root, entry, innerX, cardY + 16, innerW, cardH - 32);
+    } else {
+      // the memo's card is sized to its content, under it
+      const under = root.length;
+      const end = this.yapBuildCardView(root, entry, innerX, cardY + 16, innerW, cardH - 32);
+      root.addAt(
+        yapCard(this, cardX, cardY, cardW, Math.min(cardH, Math.round(end + 16 - cardY))),
+        under,
+      );
+    }
 
     root.add(
       yapButton(this, {
@@ -247,7 +263,13 @@ export class YapChallengeScene extends Phaser.Scene {
     }
   }
 
-  /** The card view: sender line, express note, comparison table, verdict, plan button. */
+  /**
+   * The card view (spec §8, challenge): a memo — the sender's result in
+   * typewriter capitals, the express note for a new player, the You / Friend
+   * grid and, once the recipient has a result, a verdict stamp — then a small
+   * spoiler-free plan card of the heist (when there is room) and the sealed
+   * block: the wax seal, broken once the plan is unlocked, with See their plan.
+   */
   private yapBuildCardView(
     root: Phaser.GameObjects.Container,
     entry: YapInboxEntry,
@@ -255,7 +277,7 @@ export class YapChallengeScene extends Phaser.Scene {
     y: number,
     w: number,
     h: number,
-  ): void {
+  ): number {
     const ink = YAP_PALETTE.ink;
     const muted = YAP_PALETTE['ink-muted'];
     let cursor = y;
@@ -271,7 +293,7 @@ export class YapChallengeScene extends Phaser.Scene {
       return t;
     };
 
-    // the shared result: "Alex cleared heist #3 in 2 attempts · 38 ticks. Your turn."
+    // the memo: "ALEX CLEARED HEIST #3 IN 2 ATTEMPTS · 38 TICKS. YOUR TURN."
     const senderLine =
       entry.nickname !== ''
         ? yapI18n.t('challenge.withNickname', {
@@ -285,11 +307,12 @@ export class YapChallengeScene extends Phaser.Scene {
             attempts: entry.attempts,
             ticks: entry.ticks,
           });
-    line(senderLine, 'cardTitle', ink, 8);
+    line(senderLine, 'stat', ink, 10);
 
     // a player who has never played gets the express tutorial first
-    if (!yapIsKnownPlayer(yapStorage))
-      line(yapI18n.t('challengeFlow.expressNote'), 'caption', muted, 12);
+    if (!yapIsKnownPlayer(yapStorage)) {
+      line(yapI18n.t('challengeFlow.expressNote'), 'caption', muted, 10);
+    }
 
     // score comparison: You vs Friend — attempts first, then ticks
     const record = loadYapDays(yapStorage).get(this.yapDay) ?? null;
@@ -309,7 +332,6 @@ export class YapChallengeScene extends Phaser.Scene {
     friendHeader.setOrigin(1, 0);
     root.add([header, friendHeader]);
     cursor += Math.max(header.height, friendHeader.height) + 6;
-
     const starsText = (stars: number): string => '★'.repeat(stars) + '☆'.repeat(3 - stars);
     const rows: readonly (readonly [string, string, string])[] = [
       [
@@ -333,42 +355,126 @@ export class YapChallengeScene extends Phaser.Scene {
         String(entry.hints),
       ],
     ];
-    // labels in the body role, values in the stat role (as on the Win card)
+    // labels in the body role, values in the stat role (as on the win report)
     for (const [label, you, friend] of rows) {
       root.add(yapRoleText(this, x, cursor, label, 'body', muted));
       root.add(yapRoleText(this, youX, cursor + 2, you, 'stat', ink).setOrigin(1, 0));
       root.add(yapRoleText(this, friendX, cursor + 2, friend, 'stat', ink).setOrigin(1, 0));
       cursor += 26;
     }
-    cursor += 6;
+    // the verdict as a stamp under the grid, on its right (spec §8, comparison)
     if (comparison !== null) {
-      const verdictKey =
+      const key =
         comparison.verdict === 'better'
-          ? 'challengeFlow.verdictBetter'
+          ? 'challengeFlow.stampBetter'
           : comparison.verdict === 'worse'
-            ? 'challengeFlow.verdictWorse'
-            : 'challengeFlow.verdictTied';
-      line(yapI18n.t(verdictKey), 'body', ink, 12);
+            ? 'challengeFlow.stampWorse'
+            : 'challengeFlow.stampTied';
+      const stamp = yapStamp(this, 0, cursor + 22, yapI18n.t(key), 'stamp', {
+        thump: true,
+        maxWidth: w * 0.7,
+        size: 14,
+      });
+      stamp.setX(Math.round(x + w - stamp.width / 2 - 8));
+      root.add(stamp);
+      cursor += 44;
+    }
+    cursor += 12;
+
+    // the sealed block, at the foot of the card; See their plan under it once open
+    const unlocked = this.yapPlanUnlocked();
+    const sealBlockH = 64 + (unlocked ? 54 : 0);
+    const bottom = y + h;
+    // the small plan card, when it fits between the grid and the sealed block
+    const planCardH = 104;
+    const level = yapLevelById(`daily/d${this.yapDay}`);
+    if (level !== null && bottom - sealBlockH - 12 - cursor >= planCardH) {
+      root.add(yapCard(this, x, cursor, w, planCardH));
+      const map = this.add.graphics();
+      if (yapDrawMiniMap(map, level, x + 10, cursor + 10, 56, planCardH - 20)) root.add(map);
+      else map.destroy();
+      const tx = x + 80;
+      let ty = cursor + 14;
+      for (const [text, role, color] of [
+        [yapI18n.t('header.daily', { day: this.yapDay }), 'kicker', muted],
+        [level.name, 'body', ink],
+        [
+          [
+            yapI18n.t('planning.statsPar', { par: level.par }),
+            ...yapHeistFacts(level).map((k) => yapI18n.t(`facts.${k}` as YapKey)),
+          ].join(' · '),
+          'kicker',
+          muted,
+        ],
+      ] as const) {
+        const t = yapRoleText(this, tx, ty, text, role, color, {
+          wordWrap: { width: x + w - 10 - tx },
+        });
+        root.add(t);
+        ty += t.height + 4;
+      }
+      cursor += planCardH + 12;
     }
 
-    // "See their plan": reveals the plan only once unlocked (won or 2nd hint)
-    const unlocked = this.yapPlanUnlocked();
-    root.add(
-      yapButton(this, {
-        x,
-        y: cursor + 22,
-        width: w,
-        height: 44,
-        label: yapI18n.t('comparison.seeTheirPlan'),
-        kind: 'secondary',
-        onPress: () => this.yapTogglePlan(),
-      }).container,
+    // the sealed block follows the content (never past the card's foot)
+    const blockY = Math.min(cursor, bottom - sealBlockH);
+    // the texts first: the block takes their height (a long FR note wraps)
+    const sealTx = x + 66;
+    const sealTw = x + w - 10 - sealTx;
+    const title = yapRoleText(
+      this,
+      sealTx,
+      blockY + 8,
+      yapI18n.t(unlocked ? 'challengeFlow.openTitle' : 'challengeFlow.sealedTitle'),
+      'body',
+      ink,
+      { wordWrap: { width: sealTw } },
     );
-    cursor += 44 + 10;
-    if (!unlocked) {
-      line(yapI18n.t('challengeFlow.planLocked'), 'caption', muted, 0);
+    const note = unlocked
+      ? null
+      : yapRoleText(
+          this,
+          sealTx,
+          blockY + 10 + title.height,
+          yapI18n.t('challengeFlow.sealedNote'),
+          'kicker',
+          muted,
+          { wordWrap: { width: sealTw } },
+        );
+    const blockH = Math.max(56, Math.ceil(10 + title.height + 2 + (note?.height ?? 0) + 10));
+    const dashed = this.add.graphics().lineStyle(1, yapHexToInt(ink), 0.35);
+    const corners = [
+      { x, y: blockY },
+      { x: x + w, y: blockY },
+      { x: x + w, y: blockY + blockH },
+      { x, y: blockY + blockH },
+    ];
+    for (let i = 0; i < 4; i += 1) {
+      const a = corners[i];
+      const b = corners[(i + 1) % 4];
+      if (a === undefined || b === undefined) continue;
+      for (const seg of yapDashes(a, b, 4, 3)) dashed.lineBetween(seg.x1, seg.y1, seg.x2, seg.y2);
     }
-    void h;
+    root.add(dashed);
+    root.add(
+      yapSeal(this, x + 34, blockY + blockH / 2, 20, yapI18n.t('challengeFlow.seal'), unlocked),
+    );
+    root.add(title);
+    if (note !== null) root.add(note);
+    if (unlocked) {
+      root.add(
+        yapButton(this, {
+          x,
+          y: blockY + blockH + 10 + 22,
+          width: w,
+          height: 44,
+          label: yapI18n.t('comparison.seeTheirPlan'),
+          kind: 'secondary',
+          onPress: () => this.yapTogglePlan(),
+        }).container,
+      );
+    }
+    return blockY + blockH + (unlocked ? 10 + 44 : 0);
   }
 
   /** The plan view: the friend's plan drawn on a small board of the linked heist. */

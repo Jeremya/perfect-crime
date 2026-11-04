@@ -212,6 +212,14 @@ export const fr: YapDictionary = {
   // jusqu'au deuxième indice. La ligne de la carte et les actions réutilisent
   // challenge.* et comparison.* ci-dessus.
   challengeFlow: {
+    // Style plan 4/6 de C1 : le sceau du plan de l'ami et les tampons du verdict
+    seal: 'Scellé',
+    sealedTitle: 'Son plan est sous scellés',
+    sealedNote: 'Ouvert après ta réussite ou au 2ᵉ indice',
+    openTitle: 'Son plan est ouvert',
+    stampBetter: 'Gagné',
+    stampWorse: 'Ami devant',
+    stampTied: 'Égalité',
     // Style plan de C1 : l'en-tête de l'écran défi (src/game/challenge-scene.ts)
     kicker: 'Message reçu · casse nº {day}',
     title: 'Défi lancé par {nickname}',

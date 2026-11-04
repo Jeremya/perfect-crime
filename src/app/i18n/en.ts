@@ -210,6 +210,14 @@ export const en = {
   // taken the second hint. The card line and the actions reuse challenge.*
   // and comparison.* above.
   challengeFlow: {
+    // C1 plan style 4/6: the seal on the friend's plan and the verdict stamps
+    seal: 'Sealed',
+    sealedTitle: 'Their plan is sealed',
+    sealedNote: 'Opened after your win or at the 2nd hint',
+    openTitle: 'Their plan is open',
+    stampBetter: 'You win',
+    stampWorse: 'Friend ahead',
+    stampTied: 'Tie',
     // C1 plan style: the challenge screen's header (src/game/challenge-scene.ts)
     kicker: 'Message received · heist No. {day}',
     title: 'A challenge from {nickname}',
