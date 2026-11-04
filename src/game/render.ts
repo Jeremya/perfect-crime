@@ -10,8 +10,9 @@
 import Phaser from 'phaser';
 import type { YapCell, YapDir, YapGuard, YapLevel } from '../core/level';
 import {
-  YAP_CONE_FILL_ALPHA,
-  YAP_DANGER_LINE_WIDTH,
+  YAP_CAMERA_CONE_ALPHA,
+  YAP_CONE_LINE_WIDTH,
+  YAP_GUARD_CONE_ALPHA,
   YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
   yapCellCenter,
@@ -25,11 +26,15 @@ import {
 import {
   YAP_HATCH_SPACING,
   YAP_HATCH_WIDTH,
+  YAP_LASER_WIDTH,
   YAP_SEAM_WIDTH,
   YAP_WALL_EDGE_WIDTH,
+  yapCameraAnchor,
   yapDashes,
+  yapDoorSide,
   yapFloorSeams,
   yapHatchSegments,
+  yapLaserBeam,
   yapWallEdges,
   type YapSegment,
 } from './plan-geometry';
@@ -96,25 +101,114 @@ function yapStroke(g: Phaser.GameObjects.Graphics, s: YapSegment): void {
 }
 
 // ---------------------------------------------------------------------------
+// Looks: ink (the board) or pencil (the C6 ghost preview, graphite, dashed)
+// ---------------------------------------------------------------------------
+
+/**
+ * How a threat is drawn: in ink, or in pencil for the ghost preview (spec
+ * §7: graphite, dashed outlines; the caller sets the layer to
+ * YAP_PENCIL_ALPHA).
+ */
+export type YapLook = 'ink' | 'pencil';
+
+/** Dash and gap of a pencil outline, in px. */
+const YAP_PENCIL_DASH = 3;
+
+/** The colour of `token`, or graphite in pencil. */
+function inLook(look: YapLook, token: YapPaletteToken): number {
+  return color(look === 'pencil' ? 'graphite' : token);
+}
+
+/** A rect outline with the current line style: solid in ink, dashed in pencil. */
+function yapOutlineRect(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  look: YapLook,
+): void {
+  if (look === 'ink') {
+    g.strokeRect(x, y, w, h);
+    return;
+  }
+  const corners = [
+    { x, y },
+    { x: x + w, y },
+    { x: x + w, y: y + h },
+    { x, y: y + h },
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    const a = corners[i];
+    const b = corners[(i + 1) % 4];
+    if (a === undefined || b === undefined) continue;
+    for (const s of yapDashes(a, b, YAP_PENCIL_DASH, YAP_PENCIL_DASH)) yapStroke(g, s);
+  }
+}
+
+/** A circle outline with the current line style: solid, or dashed arcs of about `dash` px. */
+function yapOutlineCircle(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  r: number,
+  dash: number | null,
+): void {
+  if (dash === null) {
+    g.strokeCircle(cx, cy, r);
+    return;
+  }
+  const count = Math.max(4, Math.floor((2 * Math.PI * r) / (2 * dash)));
+  const step = (2 * Math.PI) / count;
+  for (let i = 0; i < count; i += 1) {
+    g.beginPath();
+    g.arc(cx, cy, r, i * step, i * step + step / 2);
+    g.strokePath();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Vision cones — exact cells, tinted + outlined (never color-only)
 // ---------------------------------------------------------------------------
 
-/** Tint each cell at ~30% and stroke a crisp 2 px outline around each cell. */
+/** The tint, its opacity and the outline of each kind of cone (spec §5, §7). */
+const YAP_CONE_LOOKS = {
+  guard: { tint: 'guard-cone', alpha: YAP_GUARD_CONE_ALPHA, edge: 'guard-cone-edge' },
+  camera: { tint: 'camera-cone', alpha: YAP_CAMERA_CONE_ALPHA, edge: 'camera-cone' },
+  // the caught state: the detector's cone turns stamp red (failure)
+  stamp: { tint: 'stamp', alpha: YAP_GUARD_CONE_ALPHA, edge: 'stamp' },
+} as const satisfies Record<
+  string,
+  { tint: YapPaletteToken; alpha: number; edge: YapPaletteToken }
+>;
+
+/**
+ * A cone: exactly `cells` (visibleCells), each tinted and outlined with a
+ * crisp 1.5 px line inside its rect. In pencil, a light graphite tint and a
+ * dashed graphite outline.
+ */
 export function yapDrawCone(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   cells: readonly YapCell[],
-  token: YapPaletteToken,
+  kind: keyof typeof YAP_CONE_LOOKS,
+  look: YapLook = 'ink',
 ): void {
-  const c = color(token);
+  const { tint, alpha, edge } = YAP_CONE_LOOKS[kind];
   for (const cell of cells) {
     const rect = yapCellRect(layout, cell);
-    g.fillStyle(c, YAP_CONE_FILL_ALPHA).fillRect(rect.x, rect.y, rect.w, rect.h);
+    g.fillStyle(inLook(look, tint), look === 'pencil' ? 0.12 : alpha).fillRect(
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+    );
   }
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, c, 1);
+  const inset = YAP_CONE_LINE_WIDTH / 2;
+  g.lineStyle(YAP_CONE_LINE_WIDTH, inLook(look, edge), 1);
   for (const cell of cells) {
     const rect = yapCellRect(layout, cell);
-    g.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
+    yapOutlineRect(g, rect.x + inset, rect.y + inset, rect.w - 2 * inset, rect.h - 2 * inset, look);
   }
 }
 
@@ -163,77 +257,62 @@ export function yapDrawPatrol(
 }
 
 // ---------------------------------------------------------------------------
-// Lasers — solid red while active, gray dashed while off; on/off tick at the emitter
+// Lasers — a thin stamp-red beam with emitter nubs while active, a dashed
+// laser-off line while off; the on/off tick at the emitter stays
 // ---------------------------------------------------------------------------
 
 export function yapDrawLaser(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
+  level: YapLevel,
   cells: readonly YapCell[],
   active: boolean,
+  look: YapLook = 'ink',
 ): void {
-  const pts = cells.map((c) => yapCellCenter(layout, c));
-  const first = pts[0];
+  const first = cells[0];
   if (first === undefined) return;
+  const beam = yapLaserBeam(level, layout, cells);
   if (active) {
-    const red = color('danger-laser');
+    const red = inLook(look, 'stamp');
+    // a faint red tint on its cells: the beam owns them
     for (const cell of cells) {
       const rect = yapCellRect(layout, cell);
-      g.fillStyle(red, 0.22).fillRect(rect.x, rect.y, rect.w, rect.h);
+      g.fillStyle(red, 0.12).fillRect(rect.x, rect.y, rect.w, rect.h);
     }
-    g.lineStyle(Math.max(2, layout.cell * 0.1), red, 1);
-    for (let i = 0; i + 1 < pts.length; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      if (a === undefined || b === undefined) continue;
-      g.lineBetween(a.x, a.y, b.x, b.y);
-    }
-    g.lineStyle(YAP_DANGER_LINE_WIDTH, red, 1);
-    for (const cell of cells) {
-      const rect = yapCellRect(layout, cell);
-      g.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
-    }
+    g.lineStyle(YAP_LASER_WIDTH, red, 1).lineBetween(
+      beam.from.x,
+      beam.from.y,
+      beam.to.x,
+      beam.to.y,
+    );
+    // emitter nubs at both ends: a laser has them, the route never does
+    const nub = Math.max(4, layout.cell * 0.12);
+    g.fillStyle(red, 1);
+    for (const end of [beam.from, beam.to]) g.fillRect(end.x - nub / 2, end.y - nub / 2, nub, nub);
   } else {
-    const gray = color('laser-off');
-    g.lineStyle(1, gray, 0.9);
-    for (const cell of cells) {
-      const rect = yapCellRect(layout, cell);
-      g.strokeRect(rect.x + 1, rect.y + 1, rect.w - 2, rect.h - 2);
-    }
-    // dashed beam: dots along the centre line
-    g.fillStyle(gray, 0.9);
-    const dotR = Math.max(1.5, layout.cell * 0.06);
-    const step = Math.max(4, layout.cell * 0.24);
-    for (let i = 0; i + 1 < pts.length; i += 1) {
-      const a = pts[i];
-      const b = pts[i + 1];
-      if (a === undefined || b === undefined) continue;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy);
-      if (len < 1) continue;
-      for (let d = step / 2; d < len; d += step) {
-        g.fillCircle(a.x + (dx / len) * d, a.y + (dy / len) * d, dotR);
-      }
-    }
+    g.lineStyle(1.5, inLook(look, 'laser-off'), 1);
+    for (const s of yapDashes(beam.from, beam.to, 4, 4)) yapStroke(g, s);
   }
   // cycle tick at the emitter cell: filled square = on, hollow = off
-  const rect = yapCellRect(layout, cells[0] ?? { x: 0, y: 0 });
-  const t = Math.max(3, Math.floor(layout.cell * 0.16));
+  const rect = yapCellRect(layout, first);
+  const t = Math.max(3, Math.floor(layout.cell * 0.12));
   const tx = rect.x + rect.w - t - 2;
   const ty = rect.y + 2;
   if (active) {
-    g.fillStyle(color('danger-laser'), 1).fillRect(tx, ty, t, t);
+    g.fillStyle(inLook(look, 'stamp'), 1).fillRect(tx, ty, t, t);
   } else {
-    g.lineStyle(1, color('laser-off'), 1).strokeRect(tx + 0.5, ty + 0.5, t - 1, t - 1);
+    g.lineStyle(1, inLook(look, 'laser-off'), 1).strokeRect(tx + 0.5, ty + 0.5, t - 1, t - 1);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Entities — code-drawn stand-ins (no weapon, no illustration at Gate 1)
+// Entities — tokens drawn in code (spec §7): no sprite, no illustration
 // ---------------------------------------------------------------------------
 
-/** Thief: light-edged disc under the Kenney silhouette for cone contrast. */
+/**
+ * The thief: a thief-token disc with a paper mask band and two eye dots, and
+ * a 2.5 px paper ring so it stays visible over any cone.
+ */
 export function yapDrawThief(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
@@ -241,87 +320,79 @@ export function yapDrawThief(
 ): void {
   const p = yapCellCenter(layout, at);
   const r = layout.cell * 0.3;
-  // ground shadow: the character reads as standing on the floor, not pasted on
-  g.fillStyle(color('path-outline'), 0.16).fillEllipse(
-    p.x,
-    p.y + layout.cell * 0.24,
-    r * 2.1,
-    r * 0.8,
-  );
-  g.fillStyle(color('path-light'), 1).fillCircle(p.x, p.y, r);
-  g.lineStyle(2, color('text-primary'), 1).strokeCircle(p.x, p.y, r);
+  const dark = color('thief-token');
+  g.fillStyle(dark, 1).fillCircle(p.x, p.y, r);
+  g.lineStyle(2.5, color('paper'), 1).strokeCircle(p.x, p.y, r + 1.25);
+  // the mask band across the upper third, inside the disc, and the eyes on it
+  g.fillStyle(color('paper'), 1).fillRect(p.x - r * 0.85, p.y - r * 0.42, r * 1.7, r * 0.34);
+  g.fillStyle(dark, 1)
+    .fillCircle(p.x - r * 0.35, p.y - r * 0.25, Math.max(1, r * 0.1))
+    .fillCircle(p.x + r * 0.35, p.y - r * 0.25, Math.max(1, r * 0.1));
 }
 
-/** Guard: amber square (shape differs from the thief) with a facing wedge. */
+/**
+ * A guard: a guard-token disc (radius 0.28 cell) with a "G" drawn in strokes
+ * and a filled facing wedge just outside the circle, all in guard-token-ink.
+ * In pencil: a dashed graphite outline, the "G" and the wedge in graphite.
+ */
 export function yapDrawGuard(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   at: YapCell,
   facing: YapDir,
+  look: YapLook = 'ink',
 ): void {
   const p = yapCellCenter(layout, at);
-  const s = layout.cell * 0.58;
-  g.fillStyle(color('danger-guard'), 1).fillRect(p.x - s / 2, p.y - s / 2, s, s);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('text-primary'), 1).strokeRect(
-    p.x - s / 2,
-    p.y - s / 2,
-    s,
-    s,
-  );
-  // facing wedge from the centre towards the facing direction
+  const r = layout.cell * 0.28;
+  const inkC = inLook(look, 'guard-token-ink');
+  if (look === 'ink') g.fillStyle(color('guard-token'), 1).fillCircle(p.x, p.y, r);
+  g.lineStyle(1.5, inkC, 1);
+  yapOutlineCircle(g, p.x, p.y, r, look === 'pencil' ? YAP_PENCIL_DASH : null);
+  // the "G": an open arc over the top, the left and the bottom, ending at the
+  // middle of the right side, and a bar from there toward the centre
+  const gr = r * 0.52;
+  g.lineStyle(Math.max(1.5, layout.cell * 0.05), inkC, 1);
+  g.beginPath();
+  g.arc(p.x, p.y, gr, -Math.PI / 4, 0, true);
+  g.strokePath();
+  g.lineBetween(p.x + gr, p.y, p.x + gr * 0.2, p.y);
+  // the facing wedge, its base just outside the circle
   const d = yapDirVector(facing);
-  const len = layout.cell * 0.42;
-  const w = layout.cell * 0.2;
-  const px = -d.y;
-  const py = d.x;
-  g.fillStyle(color('text-primary'), 1).fillTriangle(
-    p.x + d.x * len,
-    p.y + d.y * len,
-    p.x - d.x * len * 0.3 + px * w,
-    p.y - d.y * len * 0.3 + py * w,
-    p.x - d.x * len * 0.3 - px * w,
-    p.y - d.y * len * 0.3 - py * w,
+  const base = r + layout.cell * 0.06;
+  const tip = layout.cell * 0.46;
+  const half = layout.cell * 0.1;
+  g.fillStyle(inkC, 1).fillTriangle(
+    p.x + d.x * tip,
+    p.y + d.y * tip,
+    p.x + d.x * base - d.y * half,
+    p.y + d.y * base + d.x * half,
+    p.x + d.x * base + d.y * half,
+    p.y + d.y * base - d.x * half,
   );
 }
 
-/** Camera: violet body mounted on its wall cell, with a lens ring and a facing nub. */
+/**
+ * A camera: a paper box with an ink outline on its wall cell — on the thin
+ * frame for a border camera — and a violet lens dot on the side it faces
+ * (yapCameraAnchor). In pencil: a dashed graphite box and a graphite lens.
+ */
 export function yapDrawCamera(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   at: YapCell,
   facing: YapDir,
+  look: YapLook = 'ink',
 ): void {
-  const p = yapCellCenter(layout, at);
-  const s = layout.cell * 0.54;
-  const d = yapDirVector(facing);
-  // wall foot, on the side the camera looks away from
-  g.fillStyle(color('text-primary'), 1).fillCircle(
-    p.x - d.x * s * 0.62,
-    p.y - d.y * s * 0.62,
-    Math.max(1.5, s * 0.1),
-  );
-  g.fillStyle(color('danger-camera'), 1).fillRoundedRect(
-    p.x - s / 2,
-    p.y - s / 2,
-    s,
-    s,
-    Math.max(2, s * 0.24),
-  );
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokeRoundedRect(
-    p.x - s / 2,
-    p.y - s / 2,
-    s,
-    s,
-    Math.max(2, s * 0.24),
-  );
-  // lens ring on the facing edge: the camera visibly points somewhere
-  const lx = p.x + d.x * s * 0.3;
-  const ly = p.y + d.y * s * 0.3;
-  g.fillStyle(color('path-light'), 1).fillCircle(lx, ly, s * 0.27);
-  g.fillStyle(color('path-outline'), 1).fillCircle(lx, ly, Math.max(1.5, s * 0.13));
+  const { centre, lens } = yapCameraAnchor(layout, at, facing);
+  const s = layout.cell * 0.44;
+  if (look === 'ink')
+    g.fillStyle(color('paper'), 1).fillRect(centre.x - s / 2, centre.y - s / 2, s, s);
+  g.lineStyle(1.5, inLook(look, 'ink'), 1);
+  yapOutlineRect(g, centre.x - s / 2, centre.y - s / 2, s, s, look);
+  g.fillStyle(inLook(look, 'camera-cone'), 1).fillCircle(lens.x, lens.y, layout.cell * 0.09);
 }
 
-/** Diamond: cyan lozenge with a lit facet, clearly apart from the floor. */
+/** The diamond: an outlined gem with its girdle and two facet lines. */
 export function yapDrawDiamond(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
@@ -335,62 +406,73 @@ export function yapDrawDiamond(
     new Phaser.Math.Vector2(p.x, p.y + r),
     new Phaser.Math.Vector2(p.x - r, p.y),
   ];
-  // a soft ground shadow lifts the gem off the floor
-  g.fillStyle(color('path-outline'), 0.14).fillEllipse(p.x, p.y + r * 0.85, r * 1.7, r * 0.6);
-  g.fillStyle(color('objective-diamond'), 1).fillPoints(pts, true);
-  // one lit facet: the jewel reads as cut, not as a flat lozenge
-  g.fillStyle(color('path-light'), 0.55).fillTriangle(p.x, p.y - r, p.x, p.y, p.x - r * 0.62, p.y);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokePoints(pts, true);
+  const edge = color('diamond-edge');
+  g.fillStyle(color('diamond-fill'), 1).fillPoints(pts, true);
+  g.lineStyle(1.5, edge, 1).strokePoints(pts, true);
+  // the girdle across the upper part, and two facets down to the culet
+  const gy = p.y - r * 0.3;
+  g.lineStyle(1, edge, 1)
+    .lineBetween(p.x - r * 0.7, gy, p.x + r * 0.7, gy)
+    .lineBetween(p.x - r * 0.3, gy, p.x, p.y + r)
+    .lineBetween(p.x + r * 0.3, gy, p.x, p.y + r);
 }
 
-/** Exit: a green door with a frame, a lit panel and a handle. */
+/**
+ * The exit: an architectural door symbol on the wall side of the cell
+ * (yapDoorSide) — a dashed threshold along that edge, the leaf drawn open
+ * into the room from the hinge, and its quarter-circle swing.
+ */
 export function yapDrawExit(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
+  level: YapLevel,
   at: YapCell,
 ): void {
   const rect = yapCellRect(layout, at);
-  const inset = Math.max(2, Math.floor(layout.cell * 0.15));
-  const x = rect.x + inset;
-  const y = rect.y + inset;
-  const w = rect.w - inset * 2;
-  const h = rect.h - inset * 2;
-  const radius = Math.max(2, Math.floor(layout.cell * 0.1));
-  // frame + panel
-  g.fillStyle(color('objective-exit'), 1).fillRoundedRect(x, y, w, h, radius);
-  g.lineStyle(YAP_DANGER_LINE_WIDTH, color('path-outline'), 1).strokeRoundedRect(
-    x,
-    y,
-    w,
-    h,
-    radius,
-  );
-  const pi = Math.max(2, Math.floor(layout.cell * 0.08));
-  g.fillStyle(color('path-light'), 0.16).fillRoundedRect(
-    x + pi,
-    y + pi,
-    w - pi * 2,
-    h - pi * 2,
-    Math.max(1, radius - 1),
-  );
-  // handle on the opening side
-  g.fillStyle(color('path-light'), 1).fillCircle(
-    x + w * 0.72,
-    y + h * 0.55,
-    Math.max(1.5, layout.cell * 0.045),
-  );
-  // threshold: the door sits in the floor, not on it
-  g.fillStyle(color('path-outline'), 0.45).fillRect(x + w * 0.18, y + h - 2, w * 0.64, 2);
+  const side = yapDoorSide(level, at);
+  const d = yapDirVector(side);
+  // the edge on that side, and the direction along it
+  const start =
+    side === 'E'
+      ? { x: rect.x + rect.w, y: rect.y }
+      : side === 'S'
+        ? { x: rect.x, y: rect.y + rect.h }
+        : { x: rect.x, y: rect.y };
+  const along = side === 'E' || side === 'W' ? { x: 0, y: 1 } : { x: 1, y: 0 };
+  const into = { x: -d.x, y: -d.y };
+  const span = side === 'E' || side === 'W' ? rect.h : rect.w;
+  // a door about half the cell, toward the far corner (as in the mockups)
+  const margin = span * 0.4;
+  const leaf = span * 0.55;
+  const hinge = { x: start.x + along.x * margin, y: start.y + along.y * margin };
+  const shut = { x: hinge.x + along.x * leaf, y: hinge.y + along.y * leaf };
+  const open = { x: hinge.x + into.x * leaf, y: hinge.y + into.y * leaf };
+  const green = color('exit-door');
+  // the swing: a quarter circle around the hinge, from the open leaf to the
+  // frame, lightly tinted so the objective reads at a glance
+  const a0 = Math.atan2(into.y, into.x);
+  const a1 = Math.atan2(along.y, along.x);
+  const turn = Math.atan2(Math.sin(a1 - a0), Math.cos(a1 - a0));
+  g.fillStyle(green, 0.12)
+    .slice(hinge.x, hinge.y, leaf, a0, a1, turn < 0)
+    .fillPath();
+  g.lineStyle(1.5, green, 1);
+  g.beginPath();
+  g.arc(hinge.x, hinge.y, leaf, a0, a1, turn < 0);
+  g.strokePath();
+  for (const s of yapDashes(hinge, shut, 3, 3)) yapStroke(g, s);
+  g.lineStyle(2.5, green, 1).lineBetween(hinge.x, hinge.y, open.x, open.y);
 }
 
-/** Start cell marker (under the thief): a small neutral ring. */
+/** Start cell marker (under the thief): a thin dashed ink-muted ring. */
 export function yapDrawStart(
   g: Phaser.GameObjects.Graphics,
   layout: YapBoardLayout,
   at: YapCell,
 ): void {
   const p = yapCellCenter(layout, at);
-  g.lineStyle(1, color('text-secondary'), 0.8).strokeCircle(p.x, p.y, layout.cell * 0.42);
+  g.lineStyle(1, color('ink-muted'), 1);
+  yapOutlineCircle(g, p.x, p.y, layout.cell * 0.42, 3);
 }
 
 /** Thickness of the thin wall frame on Home's mini-map, in px. */
@@ -421,7 +503,7 @@ export function yapDrawMiniMap(
   yapDrawStaticGrid(g, level, layout);
   yapDrawStart(g, layout, level.start);
   yapDrawDiamond(g, layout, level.loot);
-  yapDrawExit(g, layout, level.exit);
+  yapDrawExit(g, layout, level, level.exit);
   yapDrawBoardFrame(g, layout);
   return true;
 }

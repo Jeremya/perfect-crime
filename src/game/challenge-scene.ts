@@ -414,7 +414,7 @@ export class YapChallengeScene extends Phaser.Scene {
     root.add(board);
     const g = this.add.graphics();
     yapDrawStaticGrid(g, level, layout);
-    yapDrawExit(g, layout, level.exit);
+    yapDrawExit(g, layout, level, level.exit);
     yapDrawDiamond(g, layout, level.loot);
     yapDrawStart(g, layout, level.start);
     board.add(g);

@@ -310,11 +310,11 @@ export class YapViewerScene extends Phaser.Scene {
     }
     // Cones at the chosen tick: exactly the seen cells of that frame.
     const cones = yapConeCells(model.level, frame);
-    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
-    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
+    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'guard');
+    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'camera');
     // Lasers at the chosen tick.
     for (const laser of yapLaserCells(frame)) {
-      yapDrawLaser(g, layout, laser.cells, laser.active);
+      yapDrawLaser(g, layout, model.level, laser.cells, laser.active);
     }
     // Patrols: thin dotted lines, kept secondary.
     for (const guard of model.level.guards) yapDrawPatrol(g, layout, guard);
@@ -322,7 +322,7 @@ export class YapViewerScene extends Phaser.Scene {
 
     // Entities at the chosen tick, thief on top.
     const ent = this.add.graphics();
-    yapDrawExit(ent, layout, model.level.exit);
+    yapDrawExit(ent, layout, model.level, model.level.exit);
     yapDrawDiamond(ent, layout, model.level.loot);
     yapDrawStart(ent, layout, model.level.start);
     for (const cam of frame.cameras) yapDrawCamera(ent, layout, cam.at, cam.facing);
