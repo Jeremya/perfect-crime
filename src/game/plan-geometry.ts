@@ -8,7 +8,6 @@
 import type { YapCell, YapDir, YapLevel } from '../core/level';
 import type { YapPlan } from '../core/sim';
 import {
-  yapCellCenter,
   yapCellRect,
   yapDirVector,
   type YapBoardLayout,
@@ -194,20 +193,48 @@ export function yapDoorSide(level: YapLevel, at: YapCell): YapDir {
   return 'S';
 }
 
+/** Side of a camera's box, in cells. */
+export const YAP_CAMERA_BOX = 0.44;
+/** Radius of a camera's lens dot, in cells. */
+export const YAP_CAMERA_LENS = 0.09;
+
+/** Where a camera is drawn: its box, the box's centre and its lens. */
+export interface YapCameraAnchor {
+  readonly box: YapRect;
+  readonly centre: YapPoint;
+  readonly lens: YapPoint;
+}
+
 /**
- * Where a camera sits: the centre of its wall cell — for a border camera,
- * the middle of the thin frame strip — and its lens, 0.18 of a cell toward
- * where it faces, so a border camera's lens points into the floor.
+ * Where a camera sits on its wall cell. Inside the board, its box is centred
+ * on the cell. On the border, the box is flush with the board's outer edge
+ * and straddles the thin frame, so it stays on the plan sheet instead of
+ * hanging off it (and off a narrow phone's edge). The lens sits 0.18 of a
+ * cell toward where the camera faces, held inside the box.
  */
 export function yapCameraAnchor(
   layout: YapBoardLayout,
   at: YapCell,
   facing: YapDir,
-): { readonly centre: YapPoint; readonly lens: YapPoint } {
-  const centre = yapCellCenter(layout, at);
+): YapCameraAnchor {
+  const s = layout.cell * YAP_CAMERA_BOX;
+  const r = yapCellRect(layout, at);
+  const left = layout.originX;
+  const top = layout.originY;
+  const right = left + layout.boardWidth;
+  const bottom = top + layout.boardHeight;
+  const along = (start: number, size: number, lo: number, hi: number): number =>
+    Math.min(Math.max(start + size / 2 - s / 2, lo), hi - s);
+  const box: YapRect = {
+    x: along(r.x, r.w, left, right),
+    y: along(r.y, r.h, top, bottom),
+    w: s,
+    h: s,
+  };
+  const centre = { x: box.x + s / 2, y: box.y + s / 2 };
   const d = yapDirVector(facing);
-  const offset = layout.cell * YAP_LENS_OFFSET;
-  return { centre, lens: { x: centre.x + d.x * offset, y: centre.y + d.y * offset } };
+  const reach = Math.min(layout.cell * YAP_LENS_OFFSET, s / 2 - layout.cell * YAP_CAMERA_LENS);
+  return { box, centre, lens: { x: centre.x + d.x * reach, y: centre.y + d.y * reach } };
 }
 
 /**

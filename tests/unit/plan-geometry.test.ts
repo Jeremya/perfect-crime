@@ -152,13 +152,54 @@ describe('yapDoorSide — where the exit door opens', () => {
 });
 
 describe('yapCameraAnchor — cameras on their wall cell', () => {
-  it('border cameras sit on the frame', () => {
+  it('border cameras sit on the frame, inside the sheet', () => {
     const layout = yapLevelLayout(390, 844, T5);
     const t5 = yapCameraAnchor(layout, { x: 0, y: 6 }, 'E');
-    expect(t5.centre.x).toBe(layout.originX + 5);
+    // flush with the board's outer edge, straddling the thin frame
+    expect(t5.box.x).toBe(layout.originX);
+    expect(t5.box.x + t5.box.w).toBeGreaterThan(layout.originX + layout.frame);
     expect(t5.lens.x).toBeGreaterThan(t5.centre.x);
-    const h4 = yapCameraAnchor(yapLevelLayout(390, 844, H4), { x: 7, y: 3 }, 'W');
+    const h4l = yapLevelLayout(390, 844, H4);
+    const h4 = yapCameraAnchor(h4l, { x: 7, y: 3 }, 'W');
+    expect(h4.box.x + h4.box.w).toBe(h4l.originX + h4l.boardWidth);
     expect(h4.lens.x).toBeLessThan(h4.centre.x);
+  });
+
+  it('keeps every border camera and its lens on the board at phone widths', () => {
+    const cameras = LEVELS.flatMap(({ id, level: lvl }) =>
+      lvl.cameras
+        .filter(
+          (c) =>
+            c.at.x === 0 || c.at.y === 0 || c.at.x === lvl.width - 1 || c.at.y === lvl.height - 1,
+        )
+        .map((c) => ({ id, lvl, at: c.at, dirs: c.dirs })),
+    );
+    expect(cameras).toHaveLength(11);
+    for (const [width, height] of [
+      [360, 640],
+      [375, 812],
+      [390, 844],
+      [412, 915],
+    ] as const) {
+      for (const { id, lvl, at, dirs } of cameras) {
+        const layout = yapLevelLayout(width, height, lvl);
+        for (const facing of ['N', 'E', 'S', 'W'] as const) {
+          const { box, lens } = yapCameraAnchor(layout, at, facing);
+          const where = `${id} at ${width} facing ${facing}`;
+          expect(box.x, where).toBeGreaterThanOrEqual(layout.originX);
+          expect(box.y, where).toBeGreaterThanOrEqual(layout.originY);
+          expect(box.x + box.w, where).toBeLessThanOrEqual(layout.originX + layout.boardWidth);
+          expect(box.y + box.h, where).toBeLessThanOrEqual(layout.originY + layout.boardHeight);
+          // the lens dot, radius 0.09 cell, stays inside its box
+          const r = layout.cell * 0.09;
+          expect(lens.x - r, where).toBeGreaterThanOrEqual(box.x - 1e-9);
+          expect(lens.x + r, where).toBeLessThanOrEqual(box.x + box.w + 1e-9);
+          expect(lens.y - r, where).toBeGreaterThanOrEqual(box.y - 1e-9);
+          expect(lens.y + r, where).toBeLessThanOrEqual(box.y + box.h + 1e-9);
+        }
+        void dirs;
+      }
+    }
   });
 
   it('an interior camera sits at its cell centre', () => {
@@ -166,7 +207,7 @@ describe('yapCameraAnchor — cameras on their wall cell', () => {
     const r = yapCellRect(layout, { x: 4, y: 5 });
     const anchor = yapCameraAnchor(layout, { x: 4, y: 5 }, 'S');
     expect(anchor.centre).toEqual({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
-    expect(anchor.lens.y).toBeCloseTo(anchor.centre.y + 0.18 * layout.cell, 9);
+    expect(anchor.lens.y).toBeGreaterThan(anchor.centre.y);
   });
 });
 

@@ -26,6 +26,7 @@ import {
   type YapPoint,
 } from './board';
 import {
+  YAP_CAMERA_LENS,
   YAP_HATCH_SPACING,
   YAP_HATCH_WIDTH,
   YAP_LASER_WIDTH,
@@ -375,8 +376,8 @@ export function yapDrawGuard(
 }
 
 /**
- * A camera: a paper box with an ink outline on its wall cell — on the thin
- * frame for a border camera — and a violet lens dot on the side it faces
+ * A camera: a paper box with an ink outline on its wall cell — straddling the
+ * thin frame, flush with the board's edge, for a border camera — and a violet lens dot on the side it faces
  * (yapCameraAnchor). In pencil: a dashed graphite box and a graphite lens.
  */
 export function yapDrawCamera(
@@ -386,13 +387,15 @@ export function yapDrawCamera(
   facing: YapDir,
   look: YapLook = 'ink',
 ): void {
-  const { centre, lens } = yapCameraAnchor(layout, at, facing);
-  const s = layout.cell * 0.44;
-  if (look === 'ink')
-    g.fillStyle(color('paper'), 1).fillRect(centre.x - s / 2, centre.y - s / 2, s, s);
+  const { box, lens } = yapCameraAnchor(layout, at, facing);
+  if (look === 'ink') g.fillStyle(color('paper'), 1).fillRect(box.x, box.y, box.w, box.h);
   g.lineStyle(1.5, inLook(look, 'ink'), 1);
-  yapOutlineRect(g, centre.x - s / 2, centre.y - s / 2, s, s, look);
-  g.fillStyle(inLook(look, 'camera-cone'), 1).fillCircle(lens.x, lens.y, layout.cell * 0.09);
+  yapOutlineRect(g, box.x, box.y, box.w, box.h, look);
+  g.fillStyle(inLook(look, 'camera-cone'), 1).fillCircle(
+    lens.x,
+    lens.y,
+    layout.cell * YAP_CAMERA_LENS,
+  );
 }
 
 /** The diamond: an outlined gem with its girdle and two facet lines. */
