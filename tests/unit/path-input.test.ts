@@ -6,7 +6,15 @@
 import { describe, expect, it } from 'vitest';
 import { parseLevel, YAP_MAX_TICKS, type YapCell, type YapLevel } from '../../src/core/level';
 import { run } from '../../src/core/sim';
-import { yapCellCenter, yapComputeLayout, type YapBoardLayout } from '../../src/game/board';
+import {
+  YAP_BOARD_FRAME,
+  YAP_BOARD_INSET,
+  YAP_BOTTOM_BAR_HEIGHT,
+  YAP_TOP_BAR_HEIGHT,
+  yapCellCenter,
+  yapComputeLayout,
+  type YapBoardLayout,
+} from '../../src/game/board';
 import {
   YapPathInput,
   YAP_CENTRAL_ZONE,
@@ -64,10 +72,24 @@ function lvl(mapRows: readonly string[], maxPauses = 3): YapLevel {
   return parseLevel(src);
 }
 
-// 360 x 640 viewport: 39 px cells, board origin (24, 70).
-const layout: YapBoardLayout = yapComputeLayout(360, 640, 8, 12);
-// 390 x 844 viewport: 47 px cells, board origin (7, 124).
-const layoutWide: YapBoardLayout = yapComputeLayout(390, 844, 8, 12);
+/** The thin-frame board of a shipped level (plan style 3/6) on a `width` × `height` view. */
+function framed(width: number, height: number): YapBoardLayout {
+  return yapComputeLayout(
+    width,
+    height,
+    8,
+    12,
+    YAP_TOP_BAR_HEIGHT,
+    YAP_BOTTOM_BAR_HEIGHT,
+    YAP_BOARD_INSET,
+    YAP_BOARD_FRAME,
+  );
+}
+
+// 360 x 640 viewport: a 10 px wall frame around 44 px interior cells.
+const layout: YapBoardLayout = framed(360, 640);
+// 390 x 844 viewport: a 10 px wall frame around 59 px interior cells.
+const layoutWide: YapBoardLayout = framed(390, 844);
 
 const S: YapCell = { x: 1, y: 1 };
 const cell = (x: number, y: number): YapCell => ({ x, y });
@@ -165,6 +187,17 @@ describe('central zone (70% of the cell)', () => {
     // outside the board
     expect(input.yapCellAtPoint(-5, -5)).toBeNull();
     expect(input.yapCellAtPoint(layout.originX + layout.boardWidth + 1, 100)).toBeNull();
+  });
+
+  it('a press on the frame selects the border cell, not the first floor cell', () => {
+    const input = new YapPathInput(level, layout);
+    const row = center(cell(1, 1)).y;
+    // the middle of the 10 px frame strip is the border wall cell of that row
+    expect(input.yapCellAtPoint(layout.originX + 5, row)).toEqual(cell(0, 1));
+    // the centre of the first floor cell is that floor cell, past the frame
+    expect(input.yapCellAtPoint(center(cell(1, 1)).x, row)).toEqual(cell(1, 1));
+    // and 2 px inside the floor cell is its border zone, not the wall's
+    expect(input.yapCellAtPoint(layout.originX + layout.frame + 2, row)).toBeNull();
   });
 
   it('exposes the 70% ratio and the tap thresholds of the spec', () => {

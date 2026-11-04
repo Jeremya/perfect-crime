@@ -46,19 +46,20 @@ import { yapLoadShareId, yapShareIdHex } from '../app/share';
 import { yapStorage } from '../app/storage';
 import type { YapCell, YapLevel } from '../core/level';
 import type { YapPlan } from '../core/sim';
-import {
-  YAP_PALETTE,
-  YAP_TOP_BAR_HEIGHT,
-  yapCellCenter,
-  yapComputeLayout,
-  yapDirVector,
-  yapHexToInt,
-} from './board';
+import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapLevelLayout, yapDirVector } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapHomeActions } from './home-layout';
 import { yapFlow } from './home-scene';
 import { yapButton, yapCard, yapHeader, yapPaperPage } from './kit';
-import { yapDrawDiamond, yapDrawExit, yapDrawStart, yapDrawStaticGrid } from './render';
+import {
+  yapDrawBoardFrame,
+  yapDrawDiamond,
+  yapDrawExit,
+  yapDrawRoute,
+  yapDrawStart,
+  yapDrawStaticGrid,
+} from './render';
+import { YAP_FRIEND_ROUTE_WIDTH } from './plan-geometry';
 import { yapRoleText, type YapTextRole } from './text';
 
 /** Scene key of the challenge card. */
@@ -409,33 +410,20 @@ export class YapChallengeScene extends Phaser.Scene {
 
     const areaY = y + Math.max(title.height, 44) + 12;
     const areaH = Math.max(80, y + h - areaY);
-    const layout = yapComputeLayout(w, areaH, level.width, level.height, 0, 0);
+    const layout = yapLevelLayout(w, areaH, level, 0, 0);
     const board = this.add.container(x, areaY);
     root.add(board);
     const g = this.add.graphics();
     yapDrawStaticGrid(g, level, layout);
-    yapDrawExit(g, layout, level.exit);
+    yapDrawExit(g, layout, level, level.exit);
     yapDrawDiamond(g, layout, level.loot);
     yapDrawStart(g, layout, level.start);
+    yapDrawBoardFrame(g, layout);
     board.add(g);
 
-    // the friend's plan: thick rounded near-white route with a dark outline
-    const cells = yapPlanCells(level, entry.plan);
-    const pts = cells.map((c) => yapCellCenter(layout, c));
-    if (pts.length >= 2) {
-      const pass = (lineW: number, col: number): void => {
-        g.lineStyle(lineW, col, 1);
-        for (let i = 0; i + 1 < pts.length; i += 1) {
-          const a = pts[i];
-          const b = pts[i + 1];
-          if (a !== undefined && b !== undefined) g.lineBetween(a.x, a.y, b.x, b.y);
-        }
-        g.fillStyle(col, 1);
-        for (const p of pts) g.fillCircle(p.x, p.y, lineW / 2);
-      };
-      pass(Math.max(3, layout.cell * 0.36), yapHexToInt(YAP_PALETTE['path-outline']));
-      pass(Math.max(2, layout.cell * 0.22), yapHexToInt(YAP_PALETTE['path-light']));
-    }
+    // the friend's plan in solid ink (spec §7), so it never looks like the
+    // player's own marker-red route
+    yapDrawRoute(g, layout, yapPlanCells(level, entry.plan), YAP_FRIEND_ROUTE_WIDTH, 'ink');
   }
 }
 

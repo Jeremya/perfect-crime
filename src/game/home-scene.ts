@@ -531,27 +531,12 @@ export class YapHomeScene extends Phaser.Scene {
     const top = cardBottom + 16;
     const bottom = actionsTop - 20;
     if (bottom - top < 80) return;
-    const cell = Math.floor(Math.min(innerW / level.width, (bottom - top) / level.height));
-    if (cell < 3) return;
-    const boardW = cell * level.width;
-    const boardH = cell * level.height;
-    const x = Math.round(cx - boardW / 2);
-    const y = Math.round(top + (bottom - top - boardH) / 2);
+    // the heist as a small plan sheet, centred in the band (plan style 3/6)
     const g = this.add.graphics();
-    // the same elevation as the level board: shadow + crisp frame
-    g.fillStyle(yapHexToInt(YAP_PALETTE['path-outline']), 0.08).fillRect(
-      x + 1,
-      y + 4,
-      boardW,
-      boardH,
-    );
-    yapDrawMiniMap(g, level, x, y, cell);
-    g.lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1).strokeRect(
-      x + 1,
-      y + 1,
-      boardW - 2,
-      boardH - 2,
-    );
+    if (!yapDrawMiniMap(g, level, cx - innerW / 2, top, innerW, bottom - top)) {
+      g.destroy();
+      return;
+    }
     this.yapRoot?.add(g);
   }
 

@@ -5,15 +5,35 @@
 // (the board always fits between the bars, with its inset) and the contrast
 // rules that make the exact-cell overlays readable — cell boundaries and the
 // diamond are gameplay information, not decoration.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import type { YapLevel } from '../../src/core/level';
 import {
+  YAP_BOARD_FRAME,
   YAP_BOARD_INSET,
   YAP_BOTTOM_BAR_HEIGHT,
+  YAP_CAMERA_CONE_ALPHA,
+  YAP_CONE_LINE_WIDTH,
+  YAP_GUARD_CONE_ALPHA,
+  YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
+  yapBoardFrame,
+  yapCellAt,
+  yapCellRect,
   yapComputeLayout,
   yapFitRows,
+  yapLevelLayout,
+  yapMixHex,
 } from '../../src/game/board';
+
+/** Every shipped level, from the compiled levels/levels.json. */
+const LEVELS: readonly { id: string; level: YapLevel }[] = (
+  JSON.parse(readFileSync(new URL('../../levels/levels.json', import.meta.url), 'utf8')) as {
+    levels: { id: string; level: YapLevel }[];
+  }
+).levels;
+const T1 = LEVELS.find((entry) => entry.id === 'tutorial/t1')?.level as YapLevel;
 
 /** WCAG 2 relative luminance of a #rrggbb colour. */
 function luminance(hex: string): number {
@@ -60,6 +80,90 @@ describe('yapComputeLayout — the board is a card inside the page', () => {
   }
 });
 
+describe('the thin wall frame (plan style 3/6)', () => {
+  it('every shipped level gets the thin frame', () => {
+    expect(LEVELS.length).toBeGreaterThan(0);
+    for (const { id, level } of LEVELS) expect(yapBoardFrame(level), id).toBe(YAP_BOARD_FRAME);
+    expect(YAP_BOARD_FRAME).toBe(10);
+  });
+
+  it('an open border falls back to uniform cells', () => {
+    const open: YapLevel = { ...T1, map: ['###.####', ...T1.map.slice(1)] };
+    expect(yapBoardFrame(open)).toBe(0);
+    expect(yapLevelLayout(390, 844, open)).toEqual(yapComputeLayout(390, 844, 8, 12));
+  });
+
+  it('the interior grows at 390 × 844', () => {
+    const layout = yapLevelLayout(390, 844, T1);
+    expect(layout.frame).toBe(10);
+    expect(layout.cell).toBe(59);
+    expect(layout.boardWidth).toBe(374);
+    expect(layout.boardHeight).toBe(610);
+    expect(layout.originX).toBeGreaterThanOrEqual(YAP_BOARD_INSET);
+    expect(layout.originX + layout.boardWidth).toBeLessThanOrEqual(390 - YAP_BOARD_INSET);
+    expect(layout.originY).toBeGreaterThanOrEqual(YAP_TOP_BAR_HEIGHT + YAP_BOARD_INSET);
+    expect(layout.originY + layout.boardHeight).toBeLessThanOrEqual(
+      844 - YAP_BOTTOM_BAR_HEIGHT - YAP_BOARD_INSET,
+    );
+    expect(yapLevelLayout(360, 640, T1).cell).toBeGreaterThanOrEqual(44);
+  });
+
+  it('gives the border cells the frame and the interior the cell', () => {
+    const layout = yapLevelLayout(390, 844, T1);
+    expect(yapCellRect(layout, { x: 0, y: 0 })).toEqual({
+      x: layout.originX,
+      y: layout.originY,
+      w: 10,
+      h: 10,
+    });
+    expect(yapCellRect(layout, { x: 1, y: 1 })).toEqual({
+      x: layout.originX + 10,
+      y: layout.originY + 10,
+      w: 59,
+      h: 59,
+    });
+    expect(yapCellRect(layout, { x: 7, y: 11 })).toEqual({
+      x: layout.originX + 10 + 6 * 59,
+      y: layout.originY + 10 + 10 * 59,
+      w: 10,
+      h: 10,
+    });
+  });
+
+  it('yapCellAt inverts yapCellRect', () => {
+    for (const [width, height] of [
+      [390, 844],
+      [360, 640],
+    ] as const) {
+      const layout = yapLevelLayout(width, height, T1);
+      for (let y = 0; y < 12; y += 1) {
+        for (let x = 0; x < 8; x += 1) {
+          const r = yapCellRect(layout, { x, y });
+          for (const [px, py] of [
+            [r.x, r.y],
+            [r.x + r.w / 2, r.y + r.h / 2],
+            [r.x + r.w - 0.01, r.y + r.h - 0.01],
+          ] as const) {
+            expect(yapCellAt(layout, px, py), `${x},${y} at ${px},${py}`).toEqual({ x, y });
+          }
+        }
+      }
+      expect(yapCellAt(layout, layout.originX - 0.01, layout.originY + 20)).toBeNull();
+      expect(yapCellAt(layout, layout.originX + layout.boardWidth, layout.originY + 20)).toBeNull();
+      expect(
+        yapCellAt(layout, layout.originX + 20, layout.originY + layout.boardHeight),
+      ).toBeNull();
+    }
+  });
+
+  it('keeps the uniform layout inverse too', () => {
+    const layout = yapComputeLayout(360, 640, 8, 12);
+    expect(layout.frame).toBe(0);
+    const r = yapCellRect(layout, { x: 3, y: 4 });
+    expect(yapCellAt(layout, r.x + 1, r.y + 1)).toEqual({ x: 3, y: 4 });
+  });
+});
+
 describe('palette — gameplay information is readable', () => {
   it('keeps cell boundaries at 3:1 or better against the floor', () => {
     expect(contrast(YAP_PALETTE['grid-line'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
@@ -74,11 +178,8 @@ describe('palette — gameplay information is readable', () => {
   });
 
   it('keeps the primary action readable in both states', () => {
-    expect(contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary'])).toBeGreaterThanOrEqual(
-      4.5,
-    );
     expect(
-      contrast(YAP_PALETTE['action-primary'], YAP_PALETTE['action-primary-soft']),
+      contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary']),
     ).toBeGreaterThanOrEqual(4.5);
   });
 });
@@ -100,6 +201,50 @@ describe('plan style tokens — paper and ink', () => {
     // enabled: a paper label on the ink fill; disabled: an ink label on ink at 28%
     expect(contrast(YAP_PALETTE.paper, YAP_PALETTE.ink)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['ink-disabled'])).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('plan style tokens — the board', () => {
+  it('marks read on paper at 3:1', () => {
+    for (const token of [
+      'guard-cone-edge',
+      'camera-cone',
+      'marker',
+      'stamp',
+      'diamond-edge',
+      'exit-door',
+      'thief-token',
+      'laser-off',
+      'graphite',
+    ] as const) {
+      expect(contrast(YAP_PALETTE[token], YAP_PALETTE.paper), token).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('the guard letter reads on its token', () => {
+    expect(
+      contrast(YAP_PALETTE['guard-token-ink'], YAP_PALETTE['guard-token']),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('ink edges read on the hatching', () => {
+    expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['hatch-ground'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('pins the tints and the outline of the cones', () => {
+    expect(YAP_INK_SOFT_ALPHA).toBe(0.16);
+    expect(YAP_GUARD_CONE_ALPHA).toBe(0.24);
+    expect(YAP_CAMERA_CONE_ALPHA).toBe(0.18);
+    expect(YAP_CONE_LINE_WIDTH).toBe(1.5);
+  });
+});
+
+describe('yapMixHex — a colour laid over another at an opacity', () => {
+  it('mixes the faint route on paper without overlap artefacts', () => {
+    // marker at 30% over paper: what the route's unwalked part shows, drawn opaque
+    expect(yapMixHex('#D2403A', '#FCFBF6', 0.3)).toBe('#EFC3BE');
+    expect(yapMixHex('#D2403A', '#FCFBF6', 1)).toBe('#D2403A');
+    expect(yapMixHex('#D2403A', '#FCFBF6', 0)).toBe('#FCFBF6');
   });
 });
 

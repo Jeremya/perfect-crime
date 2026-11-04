@@ -37,7 +37,7 @@
 // (src/core/sim.ts) via the helpers of ./board.ts; drawing lives in ./render.ts
 // and the path overlay below; the input rules live in ./path-input.ts.
 import Phaser from 'phaser';
-import { parseLevel, type YapCell, type YapDir, type YapLevel } from '../core/level';
+import { parseLevel, type YapCell, type YapLevel } from '../core/level';
 import { createInitialState, type YapPlan, type YapSimState } from '../core/sim';
 import { yapI18n, type YapKey } from '../app/i18n';
 import { loadYapProfile } from '../app/config';
@@ -55,12 +55,11 @@ import {
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
-  YAP_DANGER_LINE_WIDTH,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
-  yapComputeLayout,
-  yapDirVector,
+  yapCellRect,
+  yapLevelLayout,
   yapHexToInt,
   type YapBoardLayout,
 } from './board';
@@ -94,16 +93,23 @@ import { yapStarThresholds } from './stars';
 import { track } from '../app/analytics';
 import { YAP_EXECUTION_TICK_EVENT, YAP_PATH_STEP_EVENT, yapAttachSound } from './sound';
 import {
+  YAP_PAUSE_BADGE_BARS,
+  YAP_PAUSE_BADGE_PAD,
   yapDrawCamera,
+  yapDrawGuard,
+  yapDrawPauseBadge,
+  yapDrawRoute,
   yapDrawCone,
   yapDrawDiamond,
   yapDrawExit,
   yapDrawLaser,
   yapDrawPatrol,
+  yapDrawBoardFrame,
   yapDrawStaticGrid,
   yapDrawStart,
   yapDrawThief,
 } from './render';
+import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapWalkedSteps } from './plan-geometry';
 import { yapRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
@@ -291,11 +297,6 @@ export class YapLevelScene extends Phaser.Scene {
 
   constructor() {
     super('yap-level');
-  }
-
-  preload(): void {
-    this.load.image('yap-thief', '/assets/kenney/thief-hitman-stand.png');
-    this.load.image('yap-guard', '/assets/kenney/guard-man-brown-stand.png');
   }
 
   create(data: YapLevelSceneData): void {
@@ -501,11 +502,11 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintBadge = null;
 
     const view = yapViewSize(this);
-    const layout = yapComputeLayout(
+    // the thin wall frame (plan style 3/6): one geometry for drawing and input
+    const layout = yapLevelLayout(
       view.width,
       view.height,
-      level.width,
-      level.height,
+      level,
       YAP_TOP_BAR_HEIGHT,
       YAP_BOTTOM_BAR_HEIGHT,
     );
@@ -528,28 +529,6 @@ export class YapLevelScene extends Phaser.Scene {
     // camera clears to the page colour and the grid is drawn over it.
     board.add(yapPaperPage(this, view.width, view.height));
 
-    // Board card (C1 visual pass): a soft shadow under the grid and a 2 px
-    // frame around it. Without them the tiles floated on a background only
-    // 1.28:1 away from the floor, which read as a wireframe.
-    const outline = yapHexToInt(YAP_PALETTE['path-outline']);
-    const card = this.add.graphics();
-    for (const [dy, alpha] of [
-      [3, 0.09],
-      [6, 0.06],
-      [9, 0.03],
-    ] as const) {
-      card
-        .fillStyle(outline, alpha)
-        .fillRoundedRect(
-          layout.originX + 1,
-          layout.originY + dy,
-          layout.boardWidth - 2,
-          layout.boardHeight,
-          10,
-        );
-    }
-    board.add(card);
-
     // Static grid, drawn once into a texture (Gate 1 spec, Rendering and
     // input), at device resolution so it stays crisp on a phone.
     const bakeLayout: YapBoardLayout = { ...layout, originX: 0, originY: 0 };
@@ -558,19 +537,12 @@ export class YapLevelScene extends Phaser.Scene {
     );
     board.add(yapBakedImage(this, layout.originX, layout.originY, YAP_GRID_TEXTURE_KEY));
 
-    // the frame sits on top of the grid so the edge stays crisp
+    // the plan sheet's double ink frame (spec §7), over the grid so it stays crisp
     const frame = this.add.graphics();
-    frame
-      .lineStyle(2, outline, 1)
-      .strokeRect(
-        layout.originX + 1,
-        layout.originY + 1,
-        layout.boardWidth - 2,
-        layout.boardHeight - 2,
-      );
+    yapDrawBoardFrame(frame, layout);
     board.add(frame);
 
-    // Patrols: thin dotted lines with direction arrows, kept secondary.
+    // Patrols: ink dashed lines with arrowheads, kept secondary.
     const patrolG = this.add.graphics();
     for (const guard of level.guards) yapDrawPatrol(patrolG, layout, guard);
     board.add(patrolG);
@@ -597,10 +569,6 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBadgeLayer = this.add.container(0, 0);
     board.add(this.yapBadgeLayer);
 
-    // C7: compact 💡 badge at the end of the revealed ghost path.
-    this.yapHintBadge = this.add.container(0, 0);
-    board.add(this.yapHintBadge);
-
     this.yapEntities = this.add.container(0, 0);
     board.add(this.yapEntities);
 
@@ -609,6 +577,11 @@ export class YapLevelScene extends Phaser.Scene {
     // plan after returning from a failure.
     this.yapMarksLayer = this.add.graphics();
     board.add(this.yapMarksLayer);
+
+    // C7: compact 💡 badge at the end of the revealed ghost path, above the
+    // marks: a label, it stays readable over the fatal-cell marker.
+    this.yapHintBadge = this.add.container(0, 0);
+    board.add(this.yapHintBadge);
 
     this.yapRedrawPath();
     // Chrome and displayed state of the current mode (planning, execution,
@@ -666,45 +639,25 @@ export class YapLevelScene extends Phaser.Scene {
     const cones = yapGhostCones(level, state);
     const g = this.add.graphics();
     g.setAlpha(alpha);
-    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
-    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
+    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'guard');
+    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'camera');
     // Lasers: solid red while on, gray dashed while off.
     for (const laser of state.lasers) {
-      yapDrawLaser(g, layout, laser.cells, laser.active);
+      yapDrawLaser(g, layout, level, laser.cells, laser.active);
     }
     dyn.add(g);
 
-    // Entities: exit, diamond (until picked up), cameras, guards, thief on top.
+    // Entities, drawn in code (plan style 3/6): exit, diamond (until picked
+    // up), start, cameras, guards, and the thief on top.
     const ent = this.add.graphics();
     ent.setAlpha(alpha);
-    yapDrawExit(ent, layout, level.exit);
+    yapDrawExit(ent, layout, level, level.exit);
     if (!state.hasLoot) yapDrawDiamond(ent, layout, level.loot);
     yapDrawStart(ent, layout, level.start);
     for (const cam of state.cameras) yapDrawCamera(ent, layout, cam.at, cam.facing);
+    for (const guard of state.guards) yapDrawGuard(ent, layout, guard.pos, guard.facing);
     yapDrawThief(ent, layout, state.thief);
     ents.add(ent);
-
-    // Kenney Top-down Shooter stand poses: the warm character chips separate
-    // guards from the thief. The pose is upright (rotating a standing human
-    // 90° read as a fallen body); facing is shown by a wedge on the chip.
-    for (const guard of state.guards) {
-      const p = yapCellCenter(layout, guard.pos);
-      const marker = this.add.graphics();
-      marker.setAlpha(alpha);
-      this.yapDrawGuardMarker(marker, layout, guard.pos, guard.facing);
-      const sprite = this.add
-        .image(p.x, p.y, 'yap-guard')
-        .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82)
-        .setAlpha(alpha);
-      ents.add([marker, sprite]);
-    }
-    const thiefAt = yapCellCenter(layout, state.thief);
-    ents.add(
-      this.add
-        .image(thiefAt.x, thiefAt.y, 'yap-thief')
-        .setDisplaySize(layout.cell * 0.7, layout.cell * 0.9)
-        .setAlpha(alpha),
-    );
 
     // What is on screen right now (input of the dev assertion).
     this.yapDisplayed = {
@@ -714,36 +667,6 @@ export class YapLevelScene extends Phaser.Scene {
       cameras: state.cameras.map((c) => ({ at: c.at, facing: c.facing })),
       lasers: state.lasers.map((l) => ({ cells: l.cells, active: l.active })),
     };
-  }
-
-  /**
-   * Guard marker: amber disc with a dark facing wedge, under the Kenney stand
-   * pose. Shared by the real entities (yapDrawState) and the C6 ghost preview,
-   * so both use the exact same shapes and colors.
-   */
-  private yapDrawGuardMarker(
-    g: Phaser.GameObjects.Graphics,
-    layout: YapBoardLayout,
-    pos: YapCell,
-    facing: YapDir,
-  ): void {
-    const p = yapCellCenter(layout, pos);
-    const r = layout.cell * 0.42;
-    g.fillStyle(yapHexToInt(YAP_PALETTE['danger-guard']), 1)
-      .fillCircle(p.x, p.y, r)
-      .lineStyle(2, yapHexToInt(YAP_PALETTE['text-primary']), 1)
-      .strokeCircle(p.x, p.y, r);
-    const d = yapDirVector(facing);
-    const px = -d.y;
-    const py = d.x;
-    g.fillStyle(yapHexToInt(YAP_PALETTE['text-primary']), 1).fillTriangle(
-      p.x + d.x * r * 0.98,
-      p.y + d.y * r * 0.98,
-      p.x + d.x * r * 0.42 + px * r * 0.3,
-      p.y + d.y * r * 0.42 + py * r * 0.3,
-      p.x + d.x * r * 0.42 - px * r * 0.3,
-      p.y + d.y * r * 0.42 - py * r * 0.3,
-    );
   }
 
   // -------------------------------------------------------------------------
@@ -756,7 +679,7 @@ export class YapLevelScene extends Phaser.Scene {
    * `yapPathInput.yapGhostState()` is non-null and the layer shows the guards,
    * cameras, lasers and their cones at that tick — the cones are exactly the
    * cells of visibleCells for the tick (yapGhostCones), drawn with the same
-   * helpers and colors as the real entities, the whole layer at YAP_GHOST_ALPHA
+   * helpers and shapes as the real entities in pencil, the whole layer at YAP_PENCIL_ALPHA
    * so it cannot be confused with the tick-0 state (docs/UI-DESIGN.md). The
    * layer is cleared as soon as the drawing stops, when the execution, the
    * failure or the win screen starts, or when the flag is off.
@@ -781,31 +704,30 @@ export class YapLevelScene extends Phaser.Scene {
     const ghost = input === null ? null : input.yapGhostState();
     if (ghost === null || !yapGhostLayerVisible(mode, ghost)) return;
 
+    // The pencil treatment (spec §7): graphite, dashed outlines, the whole
+    // layer at YAP_PENCIL_ALPHA, so it cannot be confused with the tick-0 state.
     const g = this.add.graphics();
-    g.setAlpha(YAP_GHOST_ALPHA); // the whole ghost layer at reduced opacity
+    g.setAlpha(YAP_PENCIL_ALPHA);
     // Cones: exactly the visibleCells cells of the ghost tick.
     const cones = yapGhostCones(level, ghost);
-    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'danger-guard');
-    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'danger-camera');
+    for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'guard', 'pencil');
+    for (const cells of cones.cameras) yapDrawCone(g, layout, cells, 'camera', 'pencil');
     // Lasers at the ghost tick, same active/off treatment as the real ones.
-    for (const laser of ghost.lasers) yapDrawLaser(g, layout, laser.cells, laser.active);
-    // Cameras and guard markers: the same shapes and colors as yapDrawState.
-    for (const cam of ghost.cameras) yapDrawCamera(g, layout, cam.at, cam.facing);
-    for (const guard of ghost.guards) this.yapDrawGuardMarker(g, layout, guard.pos, guard.facing);
-    layer.add(g);
-    // Kenney stand pose on each ghost guard, same size as the real one.
-    for (const guard of ghost.guards) {
-      const p = yapCellCenter(layout, guard.pos);
-      layer.add(
-        this.add
-          .image(p.x, p.y, 'yap-guard')
-          .setDisplaySize(layout.cell * 0.62, layout.cell * 0.82)
-          .setAlpha(YAP_GHOST_ALPHA),
-      );
+    for (const laser of ghost.lasers) {
+      yapDrawLaser(g, layout, level, laser.cells, laser.active, 'pencil');
     }
+    // Cameras and guards: the same shapes as yapDrawState, in pencil.
+    for (const cam of ghost.cameras) yapDrawCamera(g, layout, cam.at, cam.facing, 'pencil');
+    for (const guard of ghost.guards) yapDrawGuard(g, layout, guard.pos, guard.facing, 'pencil');
+    layer.add(g);
   }
 
-  /** Redraws the route line and the pause badges from the path-input state. */
+  /**
+   * Redraws the route and the pause badges from the path-input state. The
+   * route is a marker-red line (spec §7); during the playback the part the
+   * thief has not walked yet is faint (yapWalkedSteps), a static redraw per
+   * tick, so nothing animates under reduced motion.
+   */
   private yapRedrawPath(): void {
     const input = this.yapPathInput;
     const layout = this.yapLayout;
@@ -814,46 +736,28 @@ export class YapLevelScene extends Phaser.Scene {
     if (input === null || layout === null || g === null || badges === null) return;
     g.clear();
     const cells = input.yapPath();
-    const pts = cells.map((c) => yapCellCenter(layout, c));
-    if (pts.length >= 2) {
-      const outline = yapHexToInt(YAP_PALETTE['path-outline']);
-      const light = yapHexToInt(YAP_PALETTE['path-light']);
-      const wOut = Math.max(3, layout.cell * 0.36);
-      const wIn = Math.max(2, layout.cell * 0.22);
-      const pass = (w: number, col: number): void => {
-        g.lineStyle(w, col, 1);
-        for (let i = 0; i + 1 < pts.length; i += 1) {
-          const a = pts[i];
-          const b = pts[i + 1];
-          if (a !== undefined && b !== undefined) g.lineBetween(a.x, a.y, b.x, b.y);
-        }
-        g.fillStyle(col, 1);
-        for (const p of pts) g.fillCircle(p.x, p.y, w / 2);
-      };
-      pass(wOut, outline); // dark outline first, then the near-white core
-      pass(wIn, light);
-    }
-    // pause badges: compact "⏸ n" on the cells that hold pauses
+    const exec = this.yapExecution;
+    const walked = exec === null ? undefined : yapWalkedSteps(input.yapPlan(), exec.yapTick());
+    yapDrawRoute(g, layout, cells, YAP_ROUTE_WIDTH, 'marker', walked);
+    // pause badges: a paper pill with two marker bars and the count, on the
+    // cells that hold pauses
     badges.removeAll(true);
     const pauses = input.yapPauseCounts();
-    const badgeStyle = yapTextStyle(14, YAP_PALETTE['text-primary']);
     for (let i = 0; i < cells.length; i += 1) {
       const n = pauses[i] ?? 0;
       const c = cells[i];
       if (n <= 0 || c === undefined) continue;
       const p = yapCellCenter(layout, c);
-      const label = yapText(this, p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
-      const bg = this.add
-        .rectangle(
-          p.x,
-          p.y,
-          label.width + 10,
-          label.height + 4,
-          yapHexToInt(YAP_PALETTE['surface-panel']),
-          1,
-        )
-        .setStrokeStyle(2, yapHexToInt(YAP_PALETTE['path-outline']));
-      badges.add([bg, label]);
+      const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE.marker);
+      const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
+      const h = count.height + 4;
+      const pill = this.add.graphics();
+      yapDrawPauseBadge(pill, p, w, h);
+      count.setPosition(
+        Math.round(p.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
+        Math.round(p.y - count.height / 2),
+      );
+      badges.add([pill, count]);
     }
   }
 
@@ -880,8 +784,9 @@ export class YapLevelScene extends Phaser.Scene {
     if (this.yapExecution !== null || this.yapFailure !== null || this.yapWin !== null) return;
     const cells = hints.yapGhostCells();
     if (cells.length < 2) return;
-    const col = yapHexToInt(YAP_PALETTE['action-primary']);
-    const r = Math.max(2, layout.cell * 0.14);
+    // the pencil treatment (spec §7): graphite dots, never the route's red
+    const col = yapHexToInt(YAP_PALETTE.graphite);
+    const r = Math.max(2, layout.cell * 0.1);
     g.fillStyle(col, 0.9);
     for (let i = 0; i < cells.length; i += 1) {
       const c = cells[i];
@@ -894,28 +799,28 @@ export class YapLevelScene extends Phaser.Scene {
         g.fillCircle((p.x + q.x) / 2, (p.y + q.y) / 2, r * 0.8);
       }
     }
-    // compact status badge at the end of the ghost: 💡 shown/total steps
+    // compact status badge at the end of the ghost: 💡 shown/total steps, a
+    // paper pill with a graphite outline
     const plan = hints.yapOptimalPlan();
     const last = cells[cells.length - 1];
     if (plan !== null && last !== undefined && badge !== null) {
       const p = yapCellCenter(layout, last);
-      const label = yapText(
+      const label = yapRoleText(
         this,
         0,
         0,
         yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }),
-        yapTextStyle(14, YAP_PALETTE['path-light']),
+        'stat',
+        YAP_PALETTE.graphite,
       ).setOrigin(0.5);
+      const w = label.width + 12;
+      const h = label.height + 4;
       const bg = this.add
-        .rectangle(
-          0,
-          0,
-          label.width + 10,
-          label.height + 4,
-          yapHexToInt(YAP_PALETTE['action-primary']),
-          1,
-        )
-        .setStrokeStyle(2, yapHexToInt(YAP_PALETTE['path-outline']));
+        .graphics()
+        .fillStyle(yapHexToInt(YAP_PALETTE.paper), 1)
+        .fillRoundedRect(-w / 2, -h / 2, w, h, h / 2)
+        .lineStyle(1.5, col, 1)
+        .strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
       const at = this.add.container(p.x, p.y);
       at.add([bg, label]);
       badge.add(at);
@@ -1298,6 +1203,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapDrawState(exec.yapFrame());
     this.yapRedrawMarks();
     this.yapRedrawGhost(); // C6: the ghost preview is cleared when PLAY starts
+    this.yapRedrawPath(); // tick 0: the whole route ahead of the thief is faint
     this.yapUpdateExecutionChrome();
     this.yapScheduleTick();
   }
@@ -1312,6 +1218,7 @@ export class YapLevelScene extends Phaser.Scene {
       return;
     }
     this.yapDrawState(frame);
+    this.yapRedrawPath(); // the walked part of the route follows the thief
     this.events.emit(YAP_EXECUTION_TICK_EVENT, frame);
     // Dev assertion: what is on screen is exactly the simulated frame.
     if (this.yapDisplayed !== null) exec.yapAssertDisplayedMatchesSim(this.yapDisplayed);
@@ -1685,25 +1592,30 @@ export class YapLevelScene extends Phaser.Scene {
     g.clear();
     const failure = this.yapFailure;
     if (failure !== null) {
-      yapDrawCone(g, layout, failure.yapDetectorSeen(), 'danger-laser');
+      yapDrawCone(g, layout, failure.yapDetectorSeen(), 'stamp');
       this.yapDrawFatalMarker(g, layout, failure.yapFatalCell());
     } else if (this.yapFatalMarker !== null) {
       this.yapDrawFatalMarker(g, layout, this.yapFatalMarker);
     }
   }
 
-  /** The fatal-cell marker: a red ring with a bold X (icon + shape, not color). */
+  /**
+   * The fatal-cell marker (spec §7): a 3 px stamp-red outline on the cell, a
+   * ring and a bold X over the thief (icon + shape, not color alone).
+   */
   private yapDrawFatalMarker(
     g: Phaser.GameObjects.Graphics,
     layout: YapBoardLayout,
     cell: YapCell,
   ): void {
+    const rect = yapCellRect(layout, cell);
     const p = yapCellCenter(layout, cell);
     const r = layout.cell * 0.42;
-    const red = yapHexToInt(YAP_PALETTE['danger-laser']);
-    g.lineStyle(YAP_DANGER_LINE_WIDTH, red, 1).strokeCircle(p.x, p.y, r);
+    const red = yapHexToInt(YAP_PALETTE.stamp);
+    g.lineStyle(3, red, 1).strokeRect(rect.x + 1.5, rect.y + 1.5, rect.w - 3, rect.h - 3);
+    g.lineStyle(2, red, 1).strokeCircle(p.x, p.y, r);
     const s = r * 0.62;
-    g.lineStyle(Math.max(3, layout.cell * 0.09), red, 1)
+    g.lineStyle(Math.max(3, layout.cell * 0.08), red, 1)
       .lineBetween(p.x - s, p.y - s, p.x + s, p.y + s)
       .lineBetween(p.x - s, p.y + s, p.x + s, p.y - s);
   }

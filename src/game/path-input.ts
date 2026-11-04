@@ -27,7 +27,7 @@
 // resolveTick only.
 import { YAP_MAX_TICKS, type YapCell, type YapLevel } from '../core/level';
 import type { YapMove } from '../core/sim';
-import { yapCellCenter, type YapBoardLayout } from './board';
+import { yapCellAt, yapCellCenter, yapCellRect, type YapBoardLayout } from './board';
 import { YapGhostPreview, yapResolveGhostFlag, type YapGhostState } from './ghost';
 
 /** Central zone of a cell: a cell is entered only inside the central 70%. */
@@ -211,24 +211,24 @@ export class YapPathInput {
    * borders.
    */
   yapCellAtPoint(x: number, y: number): YapCell | null {
-    const l = this.yapLayout;
-    const cx = Math.floor((x - l.originX) / l.cell);
-    const cy = Math.floor((y - l.originY) / l.cell);
-    if (cx < 0 || cx >= this.yapLevel.width || cy < 0 || cy >= this.yapLevel.height) return null;
-    const lx = x - l.originX - cx * l.cell;
-    const ly = y - l.originY - cy * l.cell;
-    const inset = (l.cell * (1 - YAP_CENTRAL_ZONE)) / 2;
-    if (lx < inset || lx > l.cell - inset || ly < inset || ly > l.cell - inset) return null;
-    return { x: cx, y: cy };
+    const at = this.yapCellAtPointLoose(x, y);
+    if (at === null) return null;
+    // the central zone of that cell's own rect: the frame's thin border cells
+    // and the interior cells each keep their 70% (one geometry, board.ts)
+    const r = yapCellRect(this.yapLayout, at);
+    const insetX = (r.w * (1 - YAP_CENTRAL_ZONE)) / 2;
+    const insetY = (r.h * (1 - YAP_CENTRAL_ZONE)) / 2;
+    const lx = x - r.x;
+    const ly = y - r.y;
+    if (lx < insetX || lx > r.w - insetX || ly < insetY || ly > r.h - insetY) return null;
+    return at;
   }
 
   /** The cell under a point, ignoring the central zone (gesture starts). */
   private yapCellAtPointLoose(x: number, y: number): YapCell | null {
-    const l = this.yapLayout;
-    const cx = Math.floor((x - l.originX) / l.cell);
-    const cy = Math.floor((y - l.originY) / l.cell);
-    if (cx < 0 || cx >= this.yapLevel.width || cy < 0 || cy >= this.yapLevel.height) return null;
-    return { x: cx, y: cy };
+    const at = yapCellAt(this.yapLayout, x, y);
+    if (at === null || at.x >= this.yapLevel.width || at.y >= this.yapLevel.height) return null;
+    return at;
   }
 
   // -------------------------------------------------------------------------

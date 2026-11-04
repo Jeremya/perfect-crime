@@ -20,7 +20,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { YapCell, YapDir, YapLevel } from '../../src/core/level';
 import type { YapMove } from '../../src/core/sim';
-import { yapCellCenter, yapComputeLayout, type YapPoint } from '../../src/game/board';
+import { yapCellCenter, yapLevelLayout, type YapPoint } from '../../src/game/board';
 import { YAP_ROW_FROM_BOTTOM, yapPlanningRow } from '../../src/game/kit';
 
 // ---------------------------------------------------------------------------
@@ -180,7 +180,8 @@ export async function yapDraw(
   cells: readonly YapCell[],
 ): Promise<void> {
   const view = await yapCanvasView(page);
-  const layout = yapComputeLayout(view.width, view.height, level.width, level.height);
+  // the scene's own geometry, thin wall frame included (plan style 3/6)
+  const layout = yapLevelLayout(view.width, view.height, level);
   const points = cells.map((cell) => yapCellCenter(layout, cell));
   const first = points[0];
   if (first === undefined) throw new Error('empty route');
