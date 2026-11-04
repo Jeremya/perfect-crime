@@ -23,6 +23,7 @@ import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
 import { YAP_TEST_START_DATE } from '../../src/app/config';
 import { yapHomeActions } from '../../src/game/home-layout';
+import { yapWinActions } from '../../src/game/compose';
 import {
   YAP_MOBILE_UA as MOBILE_UA,
   yapCanvasView,
@@ -108,11 +109,9 @@ async function yapWinTutorialT1(page: Page, path = '/'): Promise<YapCanvasView> 
 }
 
 /**
- * Tap the Win-screen Share button until `done` reports the share ended. The
- * 56 px button closes the result card, 16 px above its bottom edge (itself
- * 16 px above the page bottom): centred at (viewWidth/2, viewHeight - 60).
- * Before the Win screen the same point is harmless (empty bottom bar, or PLAY
- * while planning).
+ * Tap the Win-screen Share button until `done` reports the share ended. Share
+ * is the primary, full-width action of the win report, its centre line from
+ * yapWinActions (src/game/compose.ts), the same layout the scene draws with.
  */
 async function yapTapShareUntil(
   page: Page,
@@ -123,7 +122,7 @@ async function yapTapShareUntil(
   // wait for the Win screen itself before tapping: the Share button only
   // exists there, and a tap during the playback does nothing
   await yapWaitPhase(page, 'win', timeoutMs);
-  const share = { x: view.x + view.width / 2, y: view.y + view.height - 60 };
+  const share = { x: view.x + view.width / 2, y: view.y + yapWinActions(view.height).shareY };
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await done()) return;

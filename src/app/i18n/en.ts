@@ -29,6 +29,17 @@ export const en = {
     decline: 'No thanks',
   },
   home: {
+    // C1 plan style 4/6: the folder of the day, its stamp, the streak
+    folderTab: 'File No. {day} · {weekday}',
+    dailyKicker: 'Daily heist',
+    status: 'Status',
+    stampToDo: 'To do',
+    stampCleared: 'Cleared · {attempts} tries',
+    stampClearedShort: 'Cleared',
+    stampSoon: 'Soon',
+    stampWeekOver: 'Week over',
+    streakKicker: 'Streak · {count} days',
+    nextFile: 'Next file in {time}',
     // C1 plan style: the kicker of Home's header (shown in capitals)
     tagline: 'One heist a day · Yap Corp',
     dailyHeist: 'Daily heist #{day}',
@@ -61,6 +72,8 @@ export const en = {
     speed: '×{speed}',
   },
   failure: {
+    // C1 plan style 4/6: the stamp that lands near the fatal cell
+    stamp: 'Spotted',
     spottedByGuard: 'Spotted by the guard',
     attempt: 'Attempt {n}',
     tapToReturn: 'Tap to return to your plan',
@@ -88,7 +101,23 @@ export const en = {
     shareMyResult: 'Share my result',
     home: 'Home',
   },
+  // C1 plan style 4/6: weekdays (Sunday = d0) and what a heist holds
+  weekdays: {
+    d0: 'Sunday',
+    d1: 'Monday',
+    d2: 'Tuesday',
+    d3: 'Wednesday',
+    d4: 'Thursday',
+    d5: 'Friday',
+    d6: 'Saturday',
+  },
+  facts: {
+    guard: 'Guard',
+    camera: 'Camera',
+    laser: 'Laser',
+  },
   archive: {
+    rowTitle: 'No. {day} · {weekday}',
     title: 'Archive',
     playPastDay: 'Play a past day — no effect on the streak',
   },
@@ -130,6 +159,10 @@ export const en = {
   // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
   // preview that will go into the share.
   winScreen: {
+    // C1 plan style 4/6: the win report's kicker, telegram and stamp
+    report: 'Operation report · No. {day}',
+    telegram: 'To share {line} · {ticks} ticks',
+    stamp: 'Heist pulled off',
     sharePreview: 'Share preview',
   },
   // Story G2 — consent banner (first launch, non-blocking top strip).
@@ -178,6 +211,14 @@ export const en = {
   // taken the second hint. The card line and the actions reuse challenge.*
   // and comparison.* above.
   challengeFlow: {
+    // C1 plan style 4/6: the seal on the friend's plan and the verdict stamps
+    seal: 'Sealed',
+    sealedTitle: 'Their plan is sealed',
+    sealedNote: 'Opened after your win or at the 2nd hint',
+    openTitle: 'Their plan is open',
+    stampBetter: 'You win',
+    stampWorse: 'Friend ahead',
+    stampTied: 'Tie',
     // C1 plan style: the challenge screen's header (src/game/challenge-scene.ts)
     kicker: 'Message received · heist No. {day}',
     title: 'A challenge from {nickname}',

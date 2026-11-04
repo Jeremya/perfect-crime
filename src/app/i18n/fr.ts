@@ -30,6 +30,17 @@ export const fr: YapDictionary = {
     decline: 'Non merci',
   },
   home: {
+    // Style plan 4/6 de C1 : le dossier du jour, son tampon, la série
+    folderTab: 'Dossier nº {day} · {weekday}',
+    dailyKicker: 'Casse du jour',
+    status: 'Statut',
+    stampToDo: 'À faire',
+    stampCleared: 'Réussi · {attempts} essais',
+    stampClearedShort: 'Réussi',
+    stampSoon: 'Bientôt',
+    stampWeekOver: 'Semaine terminée',
+    streakKicker: 'Série · {count} jours',
+    nextFile: 'Prochain dossier dans {time}',
     // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
     tagline: 'Un casse par jour · Yap Corp',
     dailyHeist: 'Casse du jour n°{day}',
@@ -62,6 +73,8 @@ export const fr: YapDictionary = {
     speed: '×{speed}',
   },
   failure: {
+    // Style plan 4/6 de C1 : le tampon posé près de la case fatale
+    stamp: 'Repéré',
     spottedByGuard: 'Repéré par le garde',
     attempt: 'Essai n°{n}',
     tapToReturn: "Touche l'écran pour revenir à ton plan",
@@ -89,7 +102,23 @@ export const fr: YapDictionary = {
     shareMyResult: 'Partager mon résultat',
     home: 'Accueil',
   },
+  // Style plan 4/6 de C1 : les jours (dimanche = d0) et ce qu'un casse contient
+  weekdays: {
+    d0: 'dimanche',
+    d1: 'lundi',
+    d2: 'mardi',
+    d3: 'mercredi',
+    d4: 'jeudi',
+    d5: 'vendredi',
+    d6: 'samedi',
+  },
+  facts: {
+    guard: 'Garde',
+    camera: 'Caméra',
+    laser: 'Laser',
+  },
   archive: {
+    rowTitle: 'Nº {day} · {weekday}',
     title: 'Archives',
     playPastDay: 'Rejouer un jour passé — sans effet sur la série',
   },
@@ -131,6 +160,10 @@ export const fr: YapDictionary = {
   // Story C5 — panneau de l'écran de victoire (src/game/win.ts) : label de
   // l'aperçu de la ligne d'emojis qui ira dans le partage.
   winScreen: {
+    // Style plan 4/6 de C1 : le surtitre, le télégramme et le tampon du rapport
+    report: "Rapport d'opération · nº {day}",
+    telegram: 'À partager {line} · {ticks} ticks',
+    stamp: 'Casse réussi',
     sharePreview: 'Aperçu du partage',
   },
   // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
@@ -180,6 +213,14 @@ export const fr: YapDictionary = {
   // jusqu'au deuxième indice. La ligne de la carte et les actions réutilisent
   // challenge.* et comparison.* ci-dessus.
   challengeFlow: {
+    // Style plan 4/6 de C1 : le sceau du plan de l'ami et les tampons du verdict
+    seal: 'Scellé',
+    sealedTitle: 'Son plan est sous scellés',
+    sealedNote: 'Ouvert après ta réussite ou au 2ᵉ indice',
+    openTitle: 'Son plan est ouvert',
+    stampBetter: 'Gagné',
+    stampWorse: 'Ami devant',
+    stampTied: 'Égalité',
     // Style plan de C1 : l'en-tête de l'écran défi (src/game/challenge-scene.ts)
     kicker: 'Message reçu · casse nº {day}',
     title: 'Défi lancé par {nickname}',

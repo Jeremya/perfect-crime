@@ -197,6 +197,22 @@ export function yapCanTrack(content: string): boolean {
 }
 
 /**
+ * Gives a Text made for `role` new content: in the role's case, with the
+ * role's letter spacing, or none when the content holds an emoji
+ * (yapCanTrack) — a Text first made with plain content keeps its spacing
+ * otherwise, and Phaser would split the emoji in two.
+ */
+export function yapSetRoleText(
+  text: Phaser.GameObjects.Text,
+  role: YapTextRole,
+  content: string,
+): Phaser.GameObjects.Text {
+  text.setText(yapRoleCase(role, content));
+  text.setLetterSpacing(yapCanTrack(content) ? yapRoleTracking(role) : 0);
+  return text;
+}
+
+/**
  * Creates a Text on `scene` for `role`, through yapText. A role in capitals
  * shows `content` upper-cased (yapRoleCase), and a tracked role sets its
  * letter spacing on the Text once it exists, which wins over a

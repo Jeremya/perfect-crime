@@ -75,6 +75,15 @@ export const YAP_PALETTE = {
   'thief-token': '#1B1F24',
   /** Pencil treatment of the ghost preview and the hint. */
   graphite: '#5B6470',
+  // Plan style screen tokens (spec §5, plan style 4/6).
+  /** Home's folder of the day. */
+  kraft: '#E4D4AE',
+  /** The folder's edge and tab outline. */
+  'kraft-edge': '#B99E66',
+  /** Text on the folder (its tab). */
+  'kraft-ink': '#5C4A24',
+  /** Stars on the win report, Home and the archive. */
+  star: '#B8860B',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
@@ -114,6 +123,18 @@ export const YAP_CONE_LINE_WIDTH = 1.5;
 
 /** Top bar height in px (level name, ticks/par, pauses) — docs/UI-DESIGN.md. */
 export const YAP_TOP_BAR_HEIGHT = 64;
+/**
+ * The top band of the level scene while the first-launch consent note is up
+ * (plan style 4/6, spec §8): the header moves down under the `note` px note,
+ * so the note covers no board cell and the stats stay visible.
+ */
+/** Registry key the consent scene publishes its note's height under (0 when gone). */
+export const YAP_CONSENT_HEIGHT_KEY = 'yap-consent-height';
+
+export function yapConsentTopBar(note: number): number {
+  return YAP_TOP_BAR_HEIGHT + Math.max(0, note);
+}
+
 /** Bottom action bar height in px (Clear, PLAY, Hint) — docs/UI-DESIGN.md. */
 export const YAP_BOTTOM_BAR_HEIGHT = 96;
 /**

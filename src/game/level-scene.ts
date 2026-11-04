@@ -56,12 +56,16 @@ import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
   YAP_PALETTE,
-  YAP_TOP_BAR_HEIGHT,
+  YAP_CONSENT_HEIGHT_KEY,
   yapCellCenter,
+  yapConsentTopBar,
+  yapDirVector,
   yapCellRect,
   yapLevelLayout,
   yapHexToInt,
   type YapBoardLayout,
+  type YapPaletteToken,
+  type YapPoint,
 } from './board';
 import {
   YAP_DPR,
@@ -97,6 +101,7 @@ import {
   YAP_PAUSE_BADGE_PAD,
   yapDrawCamera,
   yapDrawGuard,
+  yapDrawHand,
   yapDrawPauseBadge,
   yapDrawRoute,
   yapDrawCone,
@@ -109,8 +114,16 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
-import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapWalkedSteps } from './plan-geometry';
-import { yapRoleText, yapText, yapTextStyle } from './text';
+import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
+import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
+import {
+  YAP_WIN_ROW_HEIGHT,
+  yapHandPose,
+  yapPlanningBand,
+  yapTelegram,
+  yapWinActions,
+} from './compose';
+import { yapRoleCase, yapRoleText, yapSetRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
   YAP_PLANNING_CLEAR_WIDTH,
@@ -173,14 +186,6 @@ const YAP_HEIST_KICKERS: Readonly<Record<'daily' | 'archive' | 'challenge', YapK
 
 /** Room the planning caption keeps from the rule above it and the row below it, in px. */
 const YAP_CAPTION_CLEARANCE = 4;
-
-/**
- * Centre line of the Win screen's Share, up from the bottom of the view: where
- * it has been since C5, and where tests/e2e/share.spec.ts taps it.
- */
-const YAP_WIN_SHARE_FROM_BOTTOM = 60;
-/** Height of Improve my score and Home on the Win card, in px. */
-const YAP_WIN_ROW_HEIGHT = 48;
 
 /** Width of a line of text in a footer: the width of a row of buttons, margins apart. */
 function yapLineRoom(viewWidth: number): number {
@@ -251,6 +256,24 @@ export class YapLevelScene extends Phaser.Scene {
   private yapTickTimer: Phaser.Time.TimerEvent | null = null;
   /** The ×2 toggle of the execution footer. */
   private yapSpeedButton: YapButton | null = null;
+  /** The execution ruler (plan style 4/6): the playback's progress. */
+  private yapRuler: YapRuler | null = null;
+  /** The first-launch hand (spec §8): its layer while it shows, null otherwise. */
+  private yapHandLayer: Phaser.GameObjects.Container | null = null;
+  /** The hand's dashed ghost route, under the pieces (outside the hand's layer). */
+  private yapHandGhosts: Phaser.GameObjects.Graphics[] = [];
+  /** The hand's own graphics, redrawn each frame while it loops. */
+  private yapHandGraphics: Phaser.GameObjects.Graphics | null = null;
+  /** The cell centres of the route the hand draws (T1's solution). */
+  private yapHandPoints: readonly YapPoint[] = [];
+  /** When the hand's loop started (scene time, ms). */
+  private yapHandStart = 0;
+  /** The run has had its first touch: the hand never comes back. */
+  private yapHandDone = false;
+  /** The REPÉRÉ stamp's holder while it is on the board (null otherwise). */
+  private yapFailureStamp: Phaser.GameObjects.Container | null = null;
+  /** The failure replay has settled: its REPÉRÉ stamp is down. */
+  private yapFailureSettled = false;
   // --- Failure (C4) ---
   /** Failure replay controller while the Failure screen is up (null = not). */
   private yapFailure: YapFailureReplay | null = null;
@@ -308,6 +331,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapState = createInitialState(this.yapLevel);
     // C7: the hints of this run (failures unlock them, the win counts them)
     this.yapHints = new YapHints(this.yapLevel);
+    // the consent note may already be up (it is a scene of its own)
+    this.yapConsentNote = Number(this.registry.get(YAP_CONSENT_HEIGHT_KEY) ?? 0);
     this.yapBuild(); // its paper page also sets the camera's page colour
     // Path drawing: pointer events, a single finger (Gate 1 spec).
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.yapOnPointerDown, this);
@@ -318,7 +343,23 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
+    // first launch (spec §8): the consent note's height moves the header and
+    // the board down; its changes rebuild the scene as a resize does
+    this.events.on(Phaser.Scenes.Events.UPDATE, this.yapOnHandFrame, this);
+    this.registry.events.on(`setdata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
+    this.registry.events.on(`changedata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
   }
+
+  /** Height of the first-launch consent note over the header, in px (0 = none). */
+  private yapConsentNote = 0;
+
+  /** The consent note changed height (shown, rewrapped, answered): rebuild. */
+  private readonly yapOnConsentNote = (_parent: unknown, value: unknown): void => {
+    const note = Math.max(0, Number(value) || 0);
+    if (note === this.yapConsentNote) return;
+    this.yapConsentNote = note;
+    this.yapBuild();
+  };
 
   /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
   private yapOnResize: () => void = () => undefined;
@@ -329,7 +370,25 @@ export class YapLevelScene extends Phaser.Scene {
    * instead of sleeping. Read-only, no gameplay effect, absent outside a
    * browser.
    */
+  /**
+   * End-to-end hook beside `__yapPhase`: the failure stamp's text while it is
+   * on the board, null otherwise. Read-only, absent outside a browser.
+   */
+  private yapPublishStamp(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        const on = this.yapFailureStamp !== null && this.yapFailureStamp.active;
+        (window as unknown as Record<string, unknown>)['__yapStamp'] = on
+          ? yapRoleCase('buttonPrimary', yapI18n.t('failure.stamp'))
+          : null;
+      }
+    } catch {
+      // no window (node tests): nothing to publish
+    }
+  }
+
   private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win' | 'preview'): void {
+    this.yapPublishStamp();
     try {
       if (typeof window !== 'undefined') {
         (window as unknown as Record<string, unknown>)['__yapPhase'] = phase;
@@ -361,6 +420,10 @@ export class YapLevelScene extends Phaser.Scene {
   /** D2: forget the previous run (path, playback, failure, win, attempts). */
   private yapResetRun(data: YapLevelSceneData): void {
     this.yapSceneData = data;
+    this.yapHandDone = false;
+    this.yapHandGhosts = [];
+    this.yapHandLayer = null;
+    this.yapHandGraphics = null;
     this.yapBoard = null; // destroyed with the previous run's display list
     this.yapChrome = null;
     this.yapHeader = null; // the chrome refs went with it too
@@ -386,6 +449,9 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize);
+    this.events.off(Phaser.Scenes.Events.UPDATE, this.yapOnHandFrame, this);
+    this.registry.events.off(`setdata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
+    this.registry.events.off(`changedata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.yapOnPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_MOVE, this.yapOnPointerMove, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
@@ -412,6 +478,11 @@ export class YapLevelScene extends Phaser.Scene {
   }
 
   private readonly yapOnPointerDown = (pointer: Phaser.Input.Pointer): void => {
+    // the first touch anywhere, buttons included: the player has the gesture
+    if (!this.yapHandDone) {
+      this.yapHandDone = true;
+      this.yapStopHand();
+    }
     if (this.yapFailure !== null) {
       // Failure screen: one tap anywhere goes back to the intact plan.
       this.yapExitFailure();
@@ -507,7 +578,7 @@ export class YapLevelScene extends Phaser.Scene {
       view.width,
       view.height,
       level,
-      YAP_TOP_BAR_HEIGHT,
+      yapConsentTopBar(this.yapConsentNote),
       YAP_BOTTOM_BAR_HEIGHT,
     );
     this.yapLayout = layout;
@@ -562,8 +633,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintLayer = this.add.graphics();
     board.add(this.yapHintLayer);
 
-    // The player's plan: thick rounded near-white route with a dark outline,
-    // plus compact pause badges (docs/UI-DESIGN.md, Planned path).
+    // The player's plan: a marker-red route with round joins, plus the pause
+    // badges (spec §7, docs/UI-DESIGN.md, Planned path).
     this.yapPathLayer = this.add.graphics();
     board.add(this.yapPathLayer);
     this.yapBadgeLayer = this.add.container(0, 0);
@@ -583,6 +654,9 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintBadge = this.add.container(0, 0);
     board.add(this.yapHintBadge);
 
+    // the first-launch hand on T1 (spec §8), on top of the board
+    this.yapBuildHand(board, layout);
+
     this.yapRedrawPath();
     // Chrome and displayed state of the current mode (planning, execution,
     // failure or win).
@@ -598,7 +672,9 @@ export class YapLevelScene extends Phaser.Scene {
       const frames = failure.yapReplayFrames(this.yapReducedMotion());
       const frame = frames[this.yapFailureFrameIndex] ?? frames[frames.length - 1];
       if (frame !== undefined) this.yapDrawState(frame);
+      this.yapRedrawPath(); // the faint route past the replayed thief survives a rebuild
       this.yapApplyFailureZoom();
+      if (this.yapFailureSettled) this.yapDrawFailureStamp(false);
     } else if (win !== null) {
       this.yapBuildWinChrome(level, layout);
       if (this.yapWinFrame !== null) this.yapDrawState(this.yapWinFrame);
@@ -722,6 +798,110 @@ export class YapLevelScene extends Phaser.Scene {
     layer.add(g);
   }
 
+  // -------------------------------------------------------------------------
+  // First-launch hand (spec §8, §9; X8 storyboard): on T1, a hand draws the
+  // start of the route in a loop over a dashed red ghost of the whole route,
+  // until the first touch; still over the first segment under reduced motion.
+  // -------------------------------------------------------------------------
+
+  /** The hand shows on T1, in planning, before the run's first touch. */
+  private yapHandWanted(): boolean {
+    return (
+      !this.yapHandDone &&
+      this.yapSceneData.levelId === 'tutorial/t1' &&
+      this.yapExecution === null &&
+      this.yapFailure === null &&
+      this.yapWin === null &&
+      this.yapPreview === null &&
+      (this.yapPathInput?.yapPath().length ?? 0) <= 1
+    );
+  }
+
+  /** Builds the hand's layer on `board`: the ghost route and the hand. */
+  private yapBuildHand(board: Phaser.GameObjects.Container, layout: YapBoardLayout): void {
+    this.yapHandLayer = null;
+    this.yapHandGhosts = []; // the previous board, and its ghost, are gone
+    this.yapHandGraphics = null;
+    const level = this.yapLevel;
+    const plan = this.yapHints?.yapOptimalPlan() ?? null;
+    if (!this.yapHandWanted() || level === null || plan === null) return;
+    const cells: YapCell[] = [{ x: level.start.x, y: level.start.y }];
+    for (const move of plan) {
+      if (move === 'wait') continue;
+      const last = cells[cells.length - 1] ?? level.start;
+      const d = yapDirVector(move);
+      cells.push({ x: last.x + d.x, y: last.y + d.y });
+    }
+    this.yapHandPoints = cells.map((c) => yapCellCenter(layout, c));
+    const ghost = this.add.graphics();
+    ghost.lineStyle(2.5, yapHexToInt(YAP_PALETTE.marker), 0.6);
+    for (let i = 0; i + 1 < this.yapHandPoints.length; i += 1) {
+      const a = this.yapHandPoints[i];
+      const b = this.yapHandPoints[i + 1];
+      if (a === undefined || b === undefined) continue;
+      for (const seg of yapDashes(a, b, 6, 5)) ghost.lineBetween(seg.x1, seg.y1, seg.x2, seg.y2);
+    }
+    const hand = this.add.graphics().setAlpha(0.85);
+    // the ghost under the pieces (the thief stays on top of it), the hand above all
+    const layer = this.add.container(0, 0, [ghost, hand]);
+    const entities = this.yapEntities;
+    if (entities !== null) board.addAt(ghost, board.getIndex(entities));
+    this.yapHandGhosts.push(ghost);
+    board.add(layer);
+    this.yapHandLayer = layer;
+    this.yapHandGraphics = hand;
+    this.yapHandStart = this.time.now;
+    this.yapDrawHandAt(this.yapReducedMotion() ? { index: 0, along: 0.5 } : { index: 0, along: 0 });
+  }
+
+  /** Segments the hand draws: the first four of the route (an excerpt). */
+  private yapHandSegments(): number {
+    return Math.min(4, this.yapHandPoints.length - 1);
+  }
+
+  /** Redraws the hand at `along` (0..1) of segment `index` of the route. */
+  private yapDrawHandAt(pose: { readonly index: number; readonly along: number }): void {
+    const g = this.yapHandGraphics;
+    const layout = this.yapLayout;
+    const a = this.yapHandPoints[pose.index];
+    const b = this.yapHandPoints[pose.index + 1] ?? a;
+    if (g === null || layout === null || a === undefined || b === undefined) return;
+    g.clear();
+    yapDrawHand(
+      g,
+      { x: a.x + (b.x - a.x) * pose.along, y: a.y + (b.y - a.y) * pose.along },
+      layout.cell * 0.9,
+    );
+  }
+
+  /** Each frame: the hand's loop (none under reduced motion, it stays still). */
+  private readonly yapOnHandFrame = (time: number): void => {
+    if (this.yapHandLayer === null || this.yapReducedMotion()) return;
+    const pose = yapHandPose(time - this.yapHandStart, this.yapHandSegments());
+    if (pose.visible) this.yapDrawHandAt(pose);
+  };
+
+  /** The first touch: the hand fades out (150 ms) and never comes back. */
+  private yapStopHand(): void {
+    const layer = this.yapHandLayer;
+    this.yapHandLayer = null;
+    this.yapHandGraphics = null;
+    if (layer === null) return;
+    const parts = [layer, ...this.yapHandGhosts.splice(0)];
+    if (this.yapReducedMotion()) {
+      for (const part of parts) part.destroy();
+      return;
+    }
+    this.tweens.add({
+      targets: parts,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => {
+        for (const part of parts) part.destroy();
+      },
+    });
+  }
+
   /**
    * Redraws the route and the pause badges from the path-input state. The
    * route is a marker-red line (spec §7); during the playback the part the
@@ -736,8 +916,16 @@ export class YapLevelScene extends Phaser.Scene {
     if (input === null || layout === null || g === null || badges === null) return;
     g.clear();
     const cells = input.yapPath();
+    // the walked part follows the thief: the playback's tick, or the replayed
+    // frame's on the failure screen (so a rebuild keeps the faint route)
     const exec = this.yapExecution;
-    const walked = exec === null ? undefined : yapWalkedSteps(input.yapPlan(), exec.yapTick());
+    const tick =
+      exec !== null
+        ? exec.yapTick()
+        : this.yapFailure !== null
+          ? this.yapDisplayed?.tick
+          : undefined;
+    const walked = tick === undefined ? undefined : yapWalkedSteps(input.yapPlan(), tick);
     yapDrawRoute(g, layout, cells, YAP_ROUTE_WIDTH, 'marker', walked);
     // pause badges: a paper pill with two marker bars and the count, on the
     // cells that hold pauses
@@ -787,7 +975,7 @@ export class YapLevelScene extends Phaser.Scene {
     // the pencil treatment (spec §7): graphite dots, never the route's red
     const col = yapHexToInt(YAP_PALETTE.graphite);
     const r = Math.max(2, layout.cell * 0.1);
-    g.fillStyle(col, 0.9);
+    g.fillStyle(col, YAP_PENCIL_ALPHA);
     for (let i = 0; i < cells.length; i += 1) {
       const c = cells[i];
       if (c === undefined) continue;
@@ -864,6 +1052,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintButton = null;
     this.yapPreviewButton = null;
     this.yapSpeedButton = null;
+    this.yapRuler = null;
     return chrome;
   }
 
@@ -886,6 +1075,7 @@ export class YapLevelScene extends Phaser.Scene {
       right,
       rightLarge: running,
     });
+    header.container.setY(this.yapConsentNote); // under the first-launch note
     chrome.add(header.container);
     this.yapHeader = header;
     this.yapPublishHeader();
@@ -1159,6 +1349,13 @@ export class YapLevelScene extends Phaser.Scene {
     });
     chrome.add([speed.container, stop.container]);
     this.yapSpeedButton = speed;
+    // the ruler (spec §8): the playback's progress, a graduation per tick,
+    // between the rule on the bar's top and the row
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    chrome.add(yapRule(this, 0, layout.viewWidth, barY + 0.5));
+    const ruler = yapRuler(this, 16, barY + 20, layout.viewWidth - 32, exec?.yapMaxTick() ?? 1);
+    chrome.add(ruler.container);
+    this.yapRuler = ruler;
   }
 
   /**
@@ -1178,6 +1375,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (exec === null) return;
     this.yapSetHeaderRight(this.yapExecutionRight(exec));
     this.yapSpeedButton?.setLabel(yapI18n.t('execution.speed', { speed: exec.yapSpeed() }));
+    this.yapRuler?.setProgress(exec.yapTick() / Math.max(1, exec.yapMaxTick()));
   }
 
   /** PLAY: starts the playback of the drawn plan. */
@@ -1458,6 +1656,9 @@ export class YapLevelScene extends Phaser.Scene {
     if (level === null || layout === null) return;
     const replay = new YapFailureReplay(exec.yapFrames(), exec.yapOutcome());
     this.yapFailure = replay;
+    this.yapFailureSettled = false;
+    this.yapFailureStamp?.destroy();
+    this.yapFailureStamp = null;
     this.yapExecution = null; // the playback is over; the failure drives now
     this.yapFatalMarker = replay.yapFatalCell();
     this.yapChrome?.destroy();
@@ -1489,8 +1690,34 @@ export class YapLevelScene extends Phaser.Scene {
     const frame = frames[this.yapFailureFrameIndex];
     if (frame === undefined) return;
     this.yapDrawState(frame);
+    this.yapRedrawPath(); // the walked part follows the replayed thief
     this.yapRedrawMarks();
+    if (this.yapFailureTimer === null && !this.yapFailureSettled) {
+      this.yapFailureSettled = true;
+      this.yapDrawFailureStamp(true); // the replay has settled: REPÉRÉ lands
+    }
   };
+
+  /**
+   * The REPÉRÉ stamp (spec §8), near the fatal cell once the replay settles.
+   * It sits in board space, so it follows the zoom, scaled back so it keeps
+   * its size, up and to the right of the cell and inside the board.
+   */
+  private yapDrawFailureStamp(thump: boolean): void {
+    const replay = this.yapFailure;
+    const layout = this.yapLayout;
+    const board = this.yapBoard;
+    if (replay === null || layout === null || board === null) return;
+    const zoom = replay.yapZoomFactor(layout);
+    const p = yapCellCenter(layout, replay.yapFatalCell());
+    const x = Math.min(p.x + layout.cell * 0.9, layout.originX + layout.boardWidth - 40 / zoom);
+    const y = Math.max(p.y - layout.cell * 0.55, layout.originY + 20 / zoom);
+    const holder = this.add.container(x, y).setScale(1 / zoom);
+    holder.add(yapStamp(this, 0, 0, yapI18n.t('failure.stamp'), 'stamp', { thump }));
+    board.add(holder);
+    this.yapFailureStamp = holder;
+    this.yapPublishStamp();
+  }
 
   /** (Re)starts the slow-motion replay timer (quarter speed). */
   private yapScheduleFailureTick(): void {
@@ -1515,6 +1742,10 @@ export class YapLevelScene extends Phaser.Scene {
   private yapExitFailure(): void {
     this.yapRemoveFailureTimer();
     this.yapFailure = null;
+    this.yapFailureSettled = false;
+    // the stamp lives on the board, which outlives the failure screen
+    this.yapFailureStamp?.destroy();
+    this.yapFailureStamp = null;
     this.yapResetCamera();
     const level = this.yapLevel;
     const layout = this.yapLayout;
@@ -1547,12 +1778,9 @@ export class YapLevelScene extends Phaser.Scene {
     const a = yapCellCenter(layout, { x: Math.floor(focus.x), y: Math.floor(focus.y) });
     const b = yapCellCenter(layout, { x: Math.ceil(focus.x), y: Math.ceil(focus.y) });
     const cam = this.cameras.main;
-    cam.setViewport(
-      0,
-      YAP_TOP_BAR_HEIGHT * YAP_DPR,
-      layout.viewWidth * YAP_DPR,
-      (layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT) * YAP_DPR,
-    );
+    // the band under the header (itself under the first-launch consent note)
+    const band = yapPlanningBand(layout.viewHeight, this.yapConsentNote);
+    cam.setViewport(0, band.y * YAP_DPR, layout.viewWidth * YAP_DPR, band.height * YAP_DPR);
     // keep the zoomed view on the grid, never on the empty margins around it
     cam.setBounds(layout.originX, layout.originY, layout.boardWidth, layout.boardHeight);
     cam.setZoom(replay.yapZoomFactor(layout) * YAP_DPR);
@@ -1711,86 +1939,134 @@ export class YapLevelScene extends Phaser.Scene {
    * Home, and at its foot the dominant Share: the action lives inside the card
    * that it concludes.
    */
+  /**
+   * The win report (spec §8): the final board dimmed to about 28% behind a
+   * fiche — the report's kicker, the level title, leader rows (Attempts,
+   * Ticks, Par, Stars in gold) and, under a dashed rule, the telegram Share
+   * sends — with the CASSE RÉUSSI stamp over its top-right corner. Under it,
+   * Share (primary, full width), then Improve and Home or Next level.
+   */
   private yapBuildWinChrome(level: YapLevel, layout: YapBoardLayout): void {
     this.yapSetPhase('win');
     const chrome = this.yapNewChrome();
     const win = this.yapWin;
     if (win === null) return;
+    // the final board, dimmed to about 28% behind the report
+    chrome.add(
+      this.add
+        .rectangle(
+          0,
+          0,
+          layout.viewWidth,
+          layout.viewHeight,
+          yapHexToInt(YAP_PALETTE['paper-page']),
+          0.72,
+        )
+        .setOrigin(0, 0),
+    );
     this.yapBuildHeader(chrome, layout, level, [
       yapI18n.t('planning.statsPar', { par: level.par }),
     ]);
 
     const body = this.add.container(0, 0);
     chrome.add(body);
-    const panelX = 12;
-    const panelY = YAP_TOP_BAR_HEIGHT + 8;
-    const panelW = layout.viewWidth - 24;
-    const panelH = layout.viewHeight - 16 - panelY;
-    const innerX = panelX + 16;
-    const innerW = panelW - 32;
-    const cx = layout.viewWidth / 2;
+    const actions = yapWinActions(layout.viewHeight);
+    const cardX = 16;
+    const cardW = layout.viewWidth - 32;
+    const innerX = cardX + 20;
+    const innerW = cardW - 40;
 
-    const actions = this.yapWinActions(layout);
+    // CASSE RÉUSSI across the fiche's top-right corner: centred on its top
+    // edge, its tilted box kept inside the card's width (placed below)
+    const stamp = yapStamp(this, 0, 0, yapI18n.t('winScreen.stamp'), 'stamp', {
+      thump: true,
+      maxWidth: Math.min(200, cardW * 0.6),
+      size: 15,
+    });
+    const tilt = (Math.abs(YAP_STAMP_ANGLE) * Math.PI) / 180;
+    const halfSpan = (stamp.width * Math.cos(tilt) + stamp.height * Math.sin(tilt)) / 2;
+    const stampX = Math.round(cardX + cardW - halfSpan - 6);
+    // its lowest corner, the bottom-left one (the stamp tilts up to the right),
+    // relative to the card's top edge
+    const cornerX =
+      stampX - (stamp.width / 2) * Math.cos(tilt) + (stamp.height / 2) * Math.sin(tilt);
+    const cornerY = -2 + (stamp.width / 2) * Math.sin(tilt) + (stamp.height / 2) * Math.cos(tilt);
 
-    // content block, centred between the card top and the action stack, so the
-    // card has no dead half and the eye lands on the result first
-    const rows: readonly (readonly [string, string])[] = [
-      [yapI18n.t('win.attempts'), String(win.yapAttempts())],
-      [yapI18n.t('win.ticks'), String(win.yapTicks())],
-      [yapI18n.t('win.par'), String(win.yapPar())],
-      [yapI18n.t('win.stars'), win.yapStarsText()],
-    ];
-    const rowGap = 26;
-    const titleH = 32;
-    const emojiH = 28;
-    const contentH = titleH + 14 + rows.length * rowGap + 8 + 20 + emojiH;
-    const top = panelY + 20;
-    const bottom = actions.top - 20;
-    let y = Math.round(top + Math.max(0, (bottom - top - contentH) / 2));
-
-    body.add(yapCard(this, panelX, panelY, panelW, panelH));
-
-    // centred lines start on a whole pixel, so they stay crisp
-    const title = yapRoleText(this, 0, y, yapI18n.t('win.title'), 'cardTitle', YAP_PALETTE.ink);
-    title.setX(Math.round(cx - title.width / 2));
-    body.add(title);
-    y += titleH + 14;
-
-    // stats rows: the label on the left and the value on the right, on one
-    // baseline although the two roles differ in size
-    for (const [label, value] of rows) {
-      const name = yapRoleText(this, innerX, y, label, 'body', YAP_PALETTE['ink-muted']);
-      const stat = yapRoleText(this, innerX + innerW, y, value, 'stat', YAP_PALETTE.ink);
-      stat
-        .setOrigin(1, 0)
-        .setY(Math.round(y + name.getTextMetrics().ascent - stat.getTextMetrics().ascent));
-      body.add([name, stat]);
-      y += rowGap;
+    // the report's content, laid out from 0, then the card sized to it
+    const content = this.add.container(0, 0);
+    let y = 0;
+    const { day, mode } = this.yapSceneData;
+    const heading = this.yapHeaderText(level, false);
+    const kicker =
+      mode === 'tutorial' || day === undefined || day <= 0
+        ? heading.kicker
+        : yapI18n.t('winScreen.report', { day });
+    // the content starts below the stamp's corner when the kicker would run under it
+    let padTop = 20;
+    if (kicker !== '') {
+      const kick = yapRoleText(this, innerX, y, kicker, 'kicker', YAP_PALETTE['ink-muted']);
+      content.add(kick);
+      if (innerX + kick.width + 6 > cornerX) padTop = Math.max(padTop, Math.ceil(cornerY + 8));
+      y += 20;
     }
-    y += 8;
-
-    // the emoji line that will go into the share, as a preview
-    const preview = yapRoleText(
-      this,
-      0,
-      y,
-      yapI18n.t('winScreen.sharePreview'),
-      'kicker',
-      YAP_PALETTE['ink-muted'],
+    // the title leaves room on the right for the stamp
+    const title = yapRoleText(this, innerX, y, heading.title, 'cardTitle', YAP_PALETTE.ink, {
+      wordWrap: { width: innerW - 70 },
+    });
+    content.add(title);
+    y += title.height + 12;
+    const rows: readonly (readonly [string, string, YapPaletteToken])[] = [
+      [yapI18n.t('win.attempts'), String(win.yapAttempts()), 'ink'],
+      [yapI18n.t('win.ticks'), String(win.yapTicks()), 'ink'],
+      [yapI18n.t('win.par'), String(win.yapPar()), 'ink'],
+      [yapI18n.t('win.stars'), win.yapStarsText(), 'star'],
+    ];
+    for (const [label, value, colour] of rows) {
+      content.add(yapLeaderRow(this, innerX, y, innerW, label, value, colour));
+      y += 28;
+    }
+    y += 6;
+    // the telegram: what Share sends, under a dashed rule
+    const dashes = this.add.graphics().lineStyle(1, yapHexToInt(YAP_PALETTE.ink), 0.35);
+    for (const s of yapDashes(
+      { x: innerX, y: y + 0.5 },
+      { x: innerX + innerW, y: y + 0.5 },
+      4,
+      3,
+    )) {
+      dashes.lineBetween(s.x1, s.y1, s.x2, s.y2);
+    }
+    content.add(dashes);
+    y += 12;
+    const telegram = yapRoleText(this, innerX, y, '', 'stat', YAP_PALETTE.ink);
+    const line = yapTelegram(
+      yapI18n.t('winScreen.telegram'),
+      win.yapEmojiLine(),
+      win.yapTicks(),
+      innerW,
+      (candidate) => yapSetRoleText(telegram, 'stat', candidate).width,
     );
-    preview.setX(Math.round(cx - preview.width / 2));
-    body.add(preview);
-    y += 20;
-    const emoji = yapText(this, 0, y, win.yapEmojiLine(), yapTextStyle(22, YAP_PALETTE.ink));
-    emoji.setX(Math.round(cx - emoji.width / 2));
-    body.add(emoji);
+    // through the emoji guard: the empty text took the role's letter spacing,
+    // which would split an astral emoji (👁️ 📷 🔴 💡) in two
+    yapSetRoleText(telegram, 'stat', line);
+    content.add(telegram);
+    y += telegram.height;
 
-    // Improve my score + Home, side by side across the card's inner width,
-    // above the dominant Share action
-    const [improveBox, homeBox] = yapActionRow(innerW, [{}, {}], 0);
+    const padY = 20;
+    const cardH = Math.round(y + padTop + padY);
+    const top = yapConsentTopBar(this.yapConsentNote) + 24;
+    const room = actions.top - 16 - top;
+    const cardY = Math.round(top + Math.max(0, (room - cardH) / 2));
+    content.setY(cardY + padTop);
+    body.add(yapCard(this, cardX, cardY, cardW, cardH));
+    body.add(content);
+    stamp.setPosition(stampX, cardY - 2);
+    body.add(stamp);
+
+    const [improveBox, homeBox] = yapActionRow(cardW, [{}, {}], 0);
     if (improveBox !== undefined && homeBox !== undefined) {
       const improve = yapButton(this, {
-        x: innerX + improveBox.x,
+        x: cardX + improveBox.x,
         y: actions.rowY,
         width: improveBox.width,
         height: YAP_WIN_ROW_HEIGHT,
@@ -1799,7 +2075,7 @@ export class YapLevelScene extends Phaser.Scene {
         onPress: () => this.yapExitWin(),
       });
       const home = yapButton(this, {
-        x: innerX + homeBox.x,
+        x: cardX + homeBox.x,
         y: actions.rowY,
         width: homeBox.width,
         height: YAP_WIN_ROW_HEIGHT,
@@ -1809,43 +2085,20 @@ export class YapLevelScene extends Phaser.Scene {
       });
       body.add([improve.container, home.container]);
     }
-
-    // E2: navigator.share and the clipboard need transient user activation,
-    // which a touch grants on its release (touchend), not on pointerdown, so
-    // Share fires on the release over it. Phaser dispatches the DOM
-    // touchend/mouseup synchronously down to the button: the share runs inside
-    // the activation.
     const share = yapButton(this, {
-      x: innerX,
+      x: cardX,
       y: actions.shareY,
-      width: innerW,
+      width: cardW,
       label: yapI18n.t('win.share'),
       kind: 'primary',
       fireOn: 'up',
       onPress: () => this.yapOnWinShare(),
     });
     body.add(share.container);
-    // The 'image' variant needs its map File before the tap: fetch it now.
     if (yapResolveShareVariant() === 'image') {
       void yapPrepareShareImage(yapResolveShareDay(level.type, this.sys.settings.data));
     }
-    // the card settles in instead of snapping (skipped under reduced motion)
     yapFadeIn(this, body, 180, 12);
-  }
-
-  /**
-   * The action stack at the foot of the Win card: the centre line of Share,
-   * that of the row of Improve and Home 12 px above it, and the top of that
-   * row, which the content block and the toast stay above.
-   */
-  private yapWinActions(layout: YapBoardLayout): {
-    readonly shareY: number;
-    readonly rowY: number;
-    readonly top: number;
-  } {
-    const shareY = layout.viewHeight - YAP_WIN_SHARE_FROM_BOTTOM;
-    const rowY = shareY - YAP_BUTTON_HEIGHT / 2 - 12 - YAP_WIN_ROW_HEIGHT / 2;
-    return { shareY, rowY, top: rowY - YAP_WIN_ROW_HEIGHT / 2 };
   }
 
   /** Improve my score: back to the intact plan (attempts stay at the win). */
@@ -1904,7 +2157,13 @@ export class YapLevelScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
-    yapShowToast(this, chrome, layout.viewWidth / 2, this.yapWinActions(layout).top - 8, message);
+    yapShowToast(
+      this,
+      chrome,
+      layout.viewWidth / 2,
+      yapWinActions(layout.viewHeight).top - 8,
+      message,
+    );
   }
 
   /** Home (stub until D2): emits a scene event. */

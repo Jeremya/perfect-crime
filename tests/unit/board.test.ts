@@ -22,6 +22,7 @@ import {
   yapCellAt,
   yapCellRect,
   yapComputeLayout,
+  yapConsentTopBar,
   yapFitRows,
   yapLevelLayout,
   yapMixHex,
@@ -108,6 +109,18 @@ describe('the thin wall frame (plan style 3/6)', () => {
     expect(yapLevelLayout(360, 640, T1).cell).toBeGreaterThanOrEqual(44);
   });
 
+  it('the consent note pushes the board down', () => {
+    // first launch: the note (76 px) sits over the 64 px header band
+    const note = 76;
+    const layout = yapLevelLayout(390, 844, T1, YAP_TOP_BAR_HEIGHT + note);
+    expect(layout.originY).toBeGreaterThanOrEqual(YAP_TOP_BAR_HEIGHT + note);
+    expect(layout.originY + layout.boardHeight).toBeLessThanOrEqual(
+      844 - YAP_BOTTOM_BAR_HEIGHT - YAP_BOARD_INSET,
+    );
+    expect(yapConsentTopBar(note)).toBe(YAP_TOP_BAR_HEIGHT + note);
+    expect(yapConsentTopBar(0)).toBe(YAP_TOP_BAR_HEIGHT);
+  });
+
   it('gives the border cells the frame and the interior the cell', () => {
     const layout = yapLevelLayout(390, 844, T1);
     expect(yapCellRect(layout, { x: 0, y: 0 })).toEqual({
@@ -164,7 +177,10 @@ describe('the thin wall frame (plan style 3/6)', () => {
   });
 });
 
-describe('palette — gameplay information is readable', () => {
+// The legacy board palette still draws the OG previews (tools/og.ts, plan
+// style 6/6) and parts of the dev viewer; the plan-style board is covered by
+// the 'plan style tokens' tests below.
+describe('legacy palette — the OG previews and the dev viewer (until plan style 6/6)', () => {
   it('keeps cell boundaries at 3:1 or better against the floor', () => {
     expect(contrast(YAP_PALETTE['grid-line'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
   });
@@ -236,6 +252,29 @@ describe('plan style tokens — the board', () => {
     expect(YAP_GUARD_CONE_ALPHA).toBe(0.24);
     expect(YAP_CAMERA_CONE_ALPHA).toBe(0.18);
     expect(YAP_CONE_LINE_WIDTH).toBe(1.5);
+  });
+});
+
+describe('plan style tokens — the floor grid', () => {
+  it('the floor grid is faint by design', () => {
+    // spec §5: ink-soft, ink at 16% on paper — a plan's faint grid, visible
+    // but well under the outlines that carry the exact cells (cones, edges)
+    const seam = yapMixHex(YAP_PALETTE.ink, YAP_PALETTE.paper, YAP_INK_SOFT_ALPHA);
+    expect(contrast(seam, YAP_PALETTE.paper)).toBeGreaterThan(1.2);
+    expect(contrast(seam, YAP_PALETTE.paper)).toBeLessThan(2);
+    expect(contrast(YAP_PALETTE['guard-cone-edge'], YAP_PALETTE.paper)).toBeGreaterThan(
+      contrast(seam, YAP_PALETTE.paper),
+    );
+  });
+});
+
+describe('plan style tokens — the folder and the stars', () => {
+  it('the folder ink reads on kraft', () => {
+    expect(contrast(YAP_PALETTE['kraft-ink'], YAP_PALETTE.kraft)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('stars read on paper', () => {
+    expect(contrast(YAP_PALETTE.star, YAP_PALETTE.paper)).toBeGreaterThanOrEqual(3);
   });
 });
 
