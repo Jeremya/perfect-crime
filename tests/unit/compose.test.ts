@@ -117,6 +117,17 @@ describe('the telegram carries the stars', () => {
   });
 });
 
+describe('the telegram keeps its stars when trimmed', () => {
+  it('trims the emoji line only', () => {
+    const measure = (s: string): number => [...s].length * 8;
+    const out = yapTelegram('{line} · {ticks} ticks ⭐⭐⭐', '💥'.repeat(30), 26, 200, measure);
+    expect(measure(out)).toBeLessThanOrEqual(200);
+    expect(out).toContain('…');
+    expect(out).toContain('26 ticks');
+    expect(out.endsWith('⭐⭐⭐')).toBe(true);
+  });
+});
+
 describe('yapTelegram without Intl.Segmenter', () => {
   it('falls back to code points (older Firefox)', () => {
     vi.stubGlobal('Intl', { ...Intl, Segmenter: undefined });

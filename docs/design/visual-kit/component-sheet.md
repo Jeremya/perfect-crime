@@ -111,5 +111,5 @@ la carte défi est vide aux deux tiers et "Later" chevauche la bordure.
 | Étoiles du win, checkmarks, croix, sceau | Kenney UI Pack (familles Yellow / Green / Red) |
 | Pills top bar, badges 💡/pause, toasts | drawn in code |
 | Plateau, cones, lasers, route, patrouilles, émetteurs, mini-cartes | drawn in code (règle absolue) |
-| Thief / guards | sprites existants `public/assets/kenney/thief-hitman-stand.png`, `guard-man-brown-stand.png` (Top-down Shooter, CC0) — inchangés par X8 |
+| Thief / guards | drawn in code depuis le style plan 3/6 (les sprites Kenney ont été supprimés en 5/6) |
 | Main animée du premier lancement | storyboard `first-launch-hand.md` (code, ou curseur Kenney optionnel) |
