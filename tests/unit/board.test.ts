@@ -177,7 +177,10 @@ describe('the thin wall frame (plan style 3/6)', () => {
   });
 });
 
-describe('palette — gameplay information is readable', () => {
+// The legacy board palette still draws the OG previews (tools/og.ts, plan
+// style 6/6) and parts of the dev viewer; the plan-style board is covered by
+// the 'plan style tokens' tests below.
+describe('legacy palette — the OG previews and the dev viewer (until plan style 6/6)', () => {
   it('keeps cell boundaries at 3:1 or better against the floor', () => {
     expect(contrast(YAP_PALETTE['grid-line'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
   });
@@ -249,6 +252,19 @@ describe('plan style tokens — the board', () => {
     expect(YAP_GUARD_CONE_ALPHA).toBe(0.24);
     expect(YAP_CAMERA_CONE_ALPHA).toBe(0.18);
     expect(YAP_CONE_LINE_WIDTH).toBe(1.5);
+  });
+});
+
+describe('plan style tokens — the floor grid', () => {
+  it('the floor grid is faint by design', () => {
+    // spec §5: ink-soft, ink at 16% on paper — a plan's faint grid, visible
+    // but well under the outlines that carry the exact cells (cones, edges)
+    const seam = yapMixHex(YAP_PALETTE.ink, YAP_PALETTE.paper, YAP_INK_SOFT_ALPHA);
+    expect(contrast(seam, YAP_PALETTE.paper)).toBeGreaterThan(1.2);
+    expect(contrast(seam, YAP_PALETTE.paper)).toBeLessThan(2);
+    expect(contrast(YAP_PALETTE['guard-cone-edge'], YAP_PALETTE.paper)).toBeGreaterThan(
+      contrast(seam, YAP_PALETTE.paper),
+    );
   });
 });
 

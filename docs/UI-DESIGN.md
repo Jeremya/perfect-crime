@@ -159,6 +159,22 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
     and `yapPlanningRow`. Home's actions come from `yapHomeActions`
     (`src/game/home-layout.ts`). `kit-guard.test.ts` keeps private button
     helpers out of the scenes.
+  - Screen pieces (plan style 4/6) in `src/game/kit-screens.ts`, their
+    geometry in `src/game/compose.ts`: `yapStamp` (red double border, −9°, a
+    1.35 → 1 thump in 180 ms, static under reduced motion), `yapLeaderRow`
+    (label · dotted leader · value), `yapDayBoxRow` (the seven days, a red ✓
+    per won day, today ringed), `yapRuler` (the playback's progress),
+    `yapSeal` (wax seal, broken once a friend's plan opens) and `yapFolder`
+    (Home's kraft folder with its tilted paper sheet). Tokens `kraft`,
+    `kraft-edge`, `kraft-ink`, `star`.
+  - Screens: the execution ruler; the REPÉRÉ stamp once the failure replay
+    settles; the win report (board dimmed to 28%, fiche with leader rows and
+    the share telegram, CASSE RÉUSSI stamp, Share above Improve / Home);
+    Home's folder of the day with its status stamp, day boxes and countdown;
+    archive rows with weekday and stamp; the first-launch consent note that
+    moves the header and board down, and the hand that draws T1 until the
+    first touch; the challenge memo with a plan card, the wax seal and a
+    verdict stamp.
 - Top bar: level name, ticks/par, pauses remaining.
 - Bottom bar: Clear, the largest primary PLAY action, and Hint only when
   available. Put primary actions in the bottom third for one-thumb use.
