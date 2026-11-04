@@ -130,6 +130,24 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
   through `yapPointerView`. Create texts with `yapText`/`yapTextStyle` and bake
   textures with `yapBakeTexture`; the source guards `hidpi-guard.test.ts` and
   `text-guard.test.ts` enforce this.
+- Plan style kit (plan style 2/6, `docs/design/2026-10-30-plan-style-design.md`
+  §5): the chrome of every screen is paper and ink, with no glow and no
+  gradient.
+  - Tokens in `YAP_PALETTE`: `paper-page` (the page and the canvas clear
+    colour), `paper` (cards, secondary buttons), `ink` (text, outlines,
+    primary buttons), `ink-muted` (secondary text, ≥ 4.5:1 on paper) and
+    `ink-disabled` (a disabled primary). The board keeps its own tokens until
+    the board renderer (3/6).
+  - Text roles: `YAP_TEXT_ROLES` in `src/game/text.ts` (serif titles and
+    sentences, mono kickers, stats and buttons in capitals with tracking);
+    create them with `yapRoleText`. A tracked role drops its spacing for an
+    emoji (`yapCanTrack`).
+  - Components in `src/game/kit.ts`: `yapPaperPage`, `yapHeader`, `yapButton`
+    (primary or secondary, 52 px, 120 ms press, `fireOn: 'up'` for Share),
+    `yapCard`, `yapRule`, `yapShowToast`, and the row helpers `yapActionRow`
+    and `yapPlanningRow`. Home's actions come from `yapHomeActions`
+    (`src/game/home-layout.ts`). `kit-guard.test.ts` keeps private button
+    helpers out of the scenes.
 - Top bar: level name, ticks/par, pauses remaining.
 - Bottom bar: Clear, the largest primary PLAY action, and Hint only when
   available. Put primary actions in the bottom third for one-thumb use.
