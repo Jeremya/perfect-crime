@@ -24,6 +24,7 @@ import {
   yapComputeLayout,
   yapFitRows,
   yapLevelLayout,
+  yapMixHex,
 } from '../../src/game/board';
 
 /** Every shipped level, from the compiled levels/levels.json. */
@@ -238,6 +239,15 @@ describe('plan style tokens — the board', () => {
     expect(YAP_GUARD_CONE_ALPHA).toBe(0.24);
     expect(YAP_CAMERA_CONE_ALPHA).toBe(0.18);
     expect(YAP_CONE_LINE_WIDTH).toBe(1.5);
+  });
+});
+
+describe('yapMixHex — a colour laid over another at an opacity', () => {
+  it('mixes the faint route on paper without overlap artefacts', () => {
+    // marker at 30% over paper: what the route's unwalked part shows, drawn opaque
+    expect(yapMixHex('#D2403A', '#FCFBF6', 0.3)).toBe('#EFC3BE');
+    expect(yapMixHex('#D2403A', '#FCFBF6', 1)).toBe('#D2403A');
+    expect(yapMixHex('#D2403A', '#FCFBF6', 0)).toBe('#FCFBF6');
   });
 });
 

@@ -55,10 +55,10 @@ import {
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
-  YAP_DANGER_LINE_WIDTH,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
+  yapCellRect,
   yapLevelLayout,
   yapHexToInt,
   type YapBoardLayout,
@@ -93,8 +93,12 @@ import { yapStarThresholds } from './stars';
 import { track } from '../app/analytics';
 import { YAP_EXECUTION_TICK_EVENT, YAP_PATH_STEP_EVENT, yapAttachSound } from './sound';
 import {
+  YAP_PAUSE_BADGE_BARS,
+  YAP_PAUSE_BADGE_PAD,
   yapDrawCamera,
   yapDrawGuard,
+  yapDrawPauseBadge,
+  yapDrawRoute,
   yapDrawCone,
   yapDrawDiamond,
   yapDrawExit,
@@ -105,7 +109,7 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
-import { YAP_PENCIL_ALPHA } from './plan-geometry';
+import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapWalkedSteps } from './plan-geometry';
 import { yapRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
@@ -565,10 +569,6 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBadgeLayer = this.add.container(0, 0);
     board.add(this.yapBadgeLayer);
 
-    // C7: compact 💡 badge at the end of the revealed ghost path.
-    this.yapHintBadge = this.add.container(0, 0);
-    board.add(this.yapHintBadge);
-
     this.yapEntities = this.add.container(0, 0);
     board.add(this.yapEntities);
 
@@ -577,6 +577,11 @@ export class YapLevelScene extends Phaser.Scene {
     // plan after returning from a failure.
     this.yapMarksLayer = this.add.graphics();
     board.add(this.yapMarksLayer);
+
+    // C7: compact 💡 badge at the end of the revealed ghost path, above the
+    // marks: a label, it stays readable over the fatal-cell marker.
+    this.yapHintBadge = this.add.container(0, 0);
+    board.add(this.yapHintBadge);
 
     this.yapRedrawPath();
     // Chrome and displayed state of the current mode (planning, execution,
@@ -717,7 +722,12 @@ export class YapLevelScene extends Phaser.Scene {
     layer.add(g);
   }
 
-  /** Redraws the route line and the pause badges from the path-input state. */
+  /**
+   * Redraws the route and the pause badges from the path-input state. The
+   * route is a marker-red line (spec §7); during the playback the part the
+   * thief has not walked yet is faint (yapWalkedSteps), a static redraw per
+   * tick, so nothing animates under reduced motion.
+   */
   private yapRedrawPath(): void {
     const input = this.yapPathInput;
     const layout = this.yapLayout;
@@ -726,46 +736,28 @@ export class YapLevelScene extends Phaser.Scene {
     if (input === null || layout === null || g === null || badges === null) return;
     g.clear();
     const cells = input.yapPath();
-    const pts = cells.map((c) => yapCellCenter(layout, c));
-    if (pts.length >= 2) {
-      const outline = yapHexToInt(YAP_PALETTE['path-outline']);
-      const light = yapHexToInt(YAP_PALETTE['path-light']);
-      const wOut = Math.max(3, layout.cell * 0.36);
-      const wIn = Math.max(2, layout.cell * 0.22);
-      const pass = (w: number, col: number): void => {
-        g.lineStyle(w, col, 1);
-        for (let i = 0; i + 1 < pts.length; i += 1) {
-          const a = pts[i];
-          const b = pts[i + 1];
-          if (a !== undefined && b !== undefined) g.lineBetween(a.x, a.y, b.x, b.y);
-        }
-        g.fillStyle(col, 1);
-        for (const p of pts) g.fillCircle(p.x, p.y, w / 2);
-      };
-      pass(wOut, outline); // dark outline first, then the near-white core
-      pass(wIn, light);
-    }
-    // pause badges: compact "⏸ n" on the cells that hold pauses
+    const exec = this.yapExecution;
+    const walked = exec === null ? undefined : yapWalkedSteps(input.yapPlan(), exec.yapTick());
+    yapDrawRoute(g, layout, cells, YAP_ROUTE_WIDTH, 'marker', walked);
+    // pause badges: a paper pill with two marker bars and the count, on the
+    // cells that hold pauses
     badges.removeAll(true);
     const pauses = input.yapPauseCounts();
-    const badgeStyle = yapTextStyle(14, YAP_PALETTE['text-primary']);
     for (let i = 0; i < cells.length; i += 1) {
       const n = pauses[i] ?? 0;
       const c = cells[i];
       if (n <= 0 || c === undefined) continue;
       const p = yapCellCenter(layout, c);
-      const label = yapText(this, p.x, p.y, `⏸ ${n}`, badgeStyle).setOrigin(0.5);
-      const bg = this.add
-        .rectangle(
-          p.x,
-          p.y,
-          label.width + 10,
-          label.height + 4,
-          yapHexToInt(YAP_PALETTE['surface-panel']),
-          1,
-        )
-        .setStrokeStyle(2, yapHexToInt(YAP_PALETTE['path-outline']));
-      badges.add([bg, label]);
+      const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE.marker);
+      const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
+      const h = count.height + 4;
+      const pill = this.add.graphics();
+      yapDrawPauseBadge(pill, p, w, h);
+      count.setPosition(
+        Math.round(p.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
+        Math.round(p.y - count.height / 2),
+      );
+      badges.add([pill, count]);
     }
   }
 
@@ -792,8 +784,9 @@ export class YapLevelScene extends Phaser.Scene {
     if (this.yapExecution !== null || this.yapFailure !== null || this.yapWin !== null) return;
     const cells = hints.yapGhostCells();
     if (cells.length < 2) return;
-    const col = yapHexToInt(YAP_PALETTE['action-primary']);
-    const r = Math.max(2, layout.cell * 0.14);
+    // the pencil treatment (spec §7): graphite dots, never the route's red
+    const col = yapHexToInt(YAP_PALETTE.graphite);
+    const r = Math.max(2, layout.cell * 0.1);
     g.fillStyle(col, 0.9);
     for (let i = 0; i < cells.length; i += 1) {
       const c = cells[i];
@@ -806,28 +799,28 @@ export class YapLevelScene extends Phaser.Scene {
         g.fillCircle((p.x + q.x) / 2, (p.y + q.y) / 2, r * 0.8);
       }
     }
-    // compact status badge at the end of the ghost: 💡 shown/total steps
+    // compact status badge at the end of the ghost: 💡 shown/total steps, a
+    // paper pill with a graphite outline
     const plan = hints.yapOptimalPlan();
     const last = cells[cells.length - 1];
     if (plan !== null && last !== undefined && badge !== null) {
       const p = yapCellCenter(layout, last);
-      const label = yapText(
+      const label = yapRoleText(
         this,
         0,
         0,
         yapI18n.t('hints.badge', { shown: cells.length - 1, total: plan.length }),
-        yapTextStyle(14, YAP_PALETTE['path-light']),
+        'stat',
+        YAP_PALETTE.graphite,
       ).setOrigin(0.5);
+      const w = label.width + 12;
+      const h = label.height + 4;
       const bg = this.add
-        .rectangle(
-          0,
-          0,
-          label.width + 10,
-          label.height + 4,
-          yapHexToInt(YAP_PALETTE['action-primary']),
-          1,
-        )
-        .setStrokeStyle(2, yapHexToInt(YAP_PALETTE['path-outline']));
+        .graphics()
+        .fillStyle(yapHexToInt(YAP_PALETTE.paper), 1)
+        .fillRoundedRect(-w / 2, -h / 2, w, h, h / 2)
+        .lineStyle(1.5, col, 1)
+        .strokeRoundedRect(-w / 2, -h / 2, w, h, h / 2);
       const at = this.add.container(p.x, p.y);
       at.add([bg, label]);
       badge.add(at);
@@ -1210,6 +1203,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapDrawState(exec.yapFrame());
     this.yapRedrawMarks();
     this.yapRedrawGhost(); // C6: the ghost preview is cleared when PLAY starts
+    this.yapRedrawPath(); // tick 0: the whole route ahead of the thief is faint
     this.yapUpdateExecutionChrome();
     this.yapScheduleTick();
   }
@@ -1224,6 +1218,7 @@ export class YapLevelScene extends Phaser.Scene {
       return;
     }
     this.yapDrawState(frame);
+    this.yapRedrawPath(); // the walked part of the route follows the thief
     this.events.emit(YAP_EXECUTION_TICK_EVENT, frame);
     // Dev assertion: what is on screen is exactly the simulated frame.
     if (this.yapDisplayed !== null) exec.yapAssertDisplayedMatchesSim(this.yapDisplayed);
@@ -1604,18 +1599,23 @@ export class YapLevelScene extends Phaser.Scene {
     }
   }
 
-  /** The fatal-cell marker: a red ring with a bold X (icon + shape, not color). */
+  /**
+   * The fatal-cell marker (spec §7): a 3 px stamp-red outline on the cell, a
+   * ring and a bold X over the thief (icon + shape, not color alone).
+   */
   private yapDrawFatalMarker(
     g: Phaser.GameObjects.Graphics,
     layout: YapBoardLayout,
     cell: YapCell,
   ): void {
+    const rect = yapCellRect(layout, cell);
     const p = yapCellCenter(layout, cell);
     const r = layout.cell * 0.42;
-    const red = yapHexToInt(YAP_PALETTE['danger-laser']);
-    g.lineStyle(YAP_DANGER_LINE_WIDTH, red, 1).strokeCircle(p.x, p.y, r);
+    const red = yapHexToInt(YAP_PALETTE.stamp);
+    g.lineStyle(3, red, 1).strokeRect(rect.x + 1.5, rect.y + 1.5, rect.w - 3, rect.h - 3);
+    g.lineStyle(2, red, 1).strokeCircle(p.x, p.y, r);
     const s = r * 0.62;
-    g.lineStyle(Math.max(3, layout.cell * 0.09), red, 1)
+    g.lineStyle(Math.max(3, layout.cell * 0.08), red, 1)
       .lineBetween(p.x - s, p.y - s, p.x + s, p.y + s)
       .lineBetween(p.x - s, p.y + s, p.x + s, p.y - s);
   }

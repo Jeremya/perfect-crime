@@ -20,13 +20,16 @@ import {
   yapDirVector,
   yapHexToInt,
   yapLevelLayout,
+  yapMixHex,
   type YapBoardLayout,
   type YapPaletteToken,
+  type YapPoint,
 } from './board';
 import {
   YAP_HATCH_SPACING,
   YAP_HATCH_WIDTH,
   YAP_LASER_WIDTH,
+  YAP_ROUTE_UNWALKED_ALPHA,
   YAP_SEAM_WIDTH,
   YAP_WALL_EDGE_WIDTH,
   yapCameraAnchor,
@@ -474,6 +477,76 @@ export function yapDrawStart(
   g.lineStyle(1, color('ink-muted'), 1);
   yapOutlineCircle(g, p.x, p.y, layout.cell * 0.42, 3);
 }
+
+// ---------------------------------------------------------------------------
+// Route and pause badges
+// ---------------------------------------------------------------------------
+
+/**
+ * A route through the centres of `cells`: a `width` px line in `token` with
+ * round caps and joins (a disc at every vertex). With `walked` set (during
+ * the playback), the part up to cell `walked` is solid and the rest is at
+ * YAP_ROUTE_UNWALKED_ALPHA.
+ */
+export function yapDrawRoute(
+  g: Phaser.GameObjects.Graphics,
+  layout: YapBoardLayout,
+  cells: readonly YapCell[],
+  width: number,
+  token: YapPaletteToken,
+  walked?: number,
+): void {
+  const pts = cells.map((c) => yapCellCenter(layout, c));
+  if (pts.length < 2) return;
+  const solid = color(token);
+  // the faint part in its colour mixed over paper, opaque: translucent
+  // segments and joints would darken where they overlap
+  const faint = yapHexToInt(
+    yapMixHex(YAP_PALETTE[token], YAP_PALETTE.paper, YAP_ROUTE_UNWALKED_ALPHA),
+  );
+  const colourOf = (index: number): number =>
+    walked === undefined || index < walked ? solid : faint;
+  // faint first, so the walked part and the joint at the thief sit on top
+  for (const pass of [faint, solid]) {
+    for (let i = 0; i + 1 < pts.length; i += 1) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (a === undefined || b === undefined || colourOf(i) !== pass) continue;
+      g.lineStyle(width, pass, 1).lineBetween(a.x, a.y, b.x, b.y);
+      g.fillStyle(pass, 1)
+        .fillCircle(a.x, a.y, width / 2)
+        .fillCircle(b.x, b.y, width / 2);
+    }
+  }
+}
+
+/**
+ * A pause badge's pill (spec §7), centred at `at`, `width` × `height`: paper
+ * with a 1.5 px marker outline and two marker bars at its left. The scene
+ * writes the count beside the bars.
+ */
+export function yapDrawPauseBadge(
+  g: Phaser.GameObjects.Graphics,
+  at: YapPoint,
+  width: number,
+  height: number,
+): void {
+  const x = at.x - width / 2;
+  const y = at.y - height / 2;
+  const red = color('marker');
+  g.fillStyle(color('paper'), 1).fillRoundedRect(x, y, width, height, height / 2);
+  g.lineStyle(1.5, red, 1).strokeRoundedRect(x, y, width, height, height / 2);
+  const barH = height * 0.48;
+  const barY = at.y - barH / 2;
+  g.fillStyle(red, 1)
+    .fillRect(x + YAP_PAUSE_BADGE_PAD, barY, 2.5, barH)
+    .fillRect(x + YAP_PAUSE_BADGE_PAD + 5, barY, 2.5, barH);
+}
+
+/** Room left of a pause badge's bars, in px; the bars and their gap take 7.5. */
+export const YAP_PAUSE_BADGE_PAD = 7;
+/** Width of a pause badge's bars with the room after them, before the count. */
+export const YAP_PAUSE_BADGE_BARS = 12;
 
 /** Thickness of the thin wall frame on Home's mini-map, in px. */
 const YAP_MINI_MAP_FRAME = 4;

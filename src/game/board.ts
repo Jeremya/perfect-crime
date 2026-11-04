@@ -82,6 +82,21 @@ export const YAP_PALETTE = {
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
 
+/**
+ * `top` laid over `bottom` at opacity `alpha` (0..1), as an opaque #RRGGBB.
+ * Drawing a faint line in its mixed colour avoids the darker spots where
+ * translucent segments and joints overlap.
+ */
+export function yapMixHex(top: string, bottom: string, alpha: number): string {
+  const channel = (hex: string, i: number): number => Number.parseInt(hex.slice(i, i + 2), 16);
+  const mixed = [1, 3, 5].map((i) =>
+    Math.round(channel(top, i) * alpha + channel(bottom, i) * (1 - alpha))
+      .toString(16)
+      .padStart(2, '0'),
+  );
+  return `#${mixed.join('').toUpperCase()}`;
+}
+
 /** '#D99B32' -> 0xd99b32, for Phaser fillStyle/lineStyle. */
 export function yapHexToInt(hex: string): number {
   return Number.parseInt(hex.replace('#', ''), 16);
