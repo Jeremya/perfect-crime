@@ -12,25 +12,17 @@ import { visibleCells, type YapSimState } from '../core/sim';
 // ---------------------------------------------------------------------------
 
 export const YAP_PALETTE = {
+  // Legacy tokens: only the dev viewer's chrome (src/game/viewer-scene.ts) and
+  // `laser-off` still read them; every game screen and the share previews use
+  // the plan style tokens below (plan style 6/6).
   'surface-page': '#F4F2ED',
   'surface-panel': '#FFFFFF',
-  floor: '#D9D8D2',
-  wall: '#47515B',
-  // 3.2:1 against the floor: cell boundaries are gameplay (cones are exact
-  // cells), so they must stay legible in daylight, not just decorative.
   'grid-line': '#6F767B',
   'text-primary': '#202A33',
   'text-secondary': '#56616B',
   'action-primary': '#176B78',
   'action-secondary': '#E6E8E6',
-  'danger-guard': '#D99B32',
-  'danger-camera': '#8260A8',
-  'danger-laser': '#C74747',
   'laser-off': '#69727B',
-  // 3.3:1 against the floor (the old #00AFC2 was 1.9:1: the objective read as
-  // a pale smudge next to the exit).
-  'objective-diamond': '#007F8D',
-  'objective-exit': '#32865A',
   'path-light': '#FFFFFF',
   'path-outline': '#26313B',
   // -----------------------------------------------------------------------

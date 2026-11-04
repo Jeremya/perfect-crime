@@ -3,8 +3,10 @@
 // Pages /c/1 … /c/7 are generated at build time (Gate 1 spec, "Sharing and
 // previews"): the same app as /, each with its own og:title, og:description
 // and og:image tags so a pasted link looks right in WhatsApp / Messages.
-// The 1200 x 630 preview image shows the heist map and the daily title —
-// never a route or a solution (docs/UI-DESIGN.md, spoiler-free preview).
+// The 1200 x 630 preview image is a sheet of the plan style (plan style
+// 6/6): the paper page, the tagline and the daily title in typewriter
+// capitals, and the heist as a plan drawn with the game's own geometry —
+// never a route, a cone or a solution (docs/UI-DESIGN.md, spoiler-free).
 //
 // The image is rasterized here (rects + a small bitmap font) and encoded as
 // PNG with node:zlib — no new dependency, fully deterministic: the same
@@ -24,8 +26,27 @@ import { YAP_CORP } from '../src/app/brand';
 import { YAP_DOMAIN } from '../src/app/config';
 import { YAP_WEEK_DAYS } from '../src/app/daily';
 import { en } from '../src/app/i18n/en';
-import { YAP_PALETTE } from '../src/game/board';
-import type { YapLevel } from '../src/core/level';
+import {
+  YAP_INK_SOFT_ALPHA,
+  YAP_PALETTE,
+  yapCellCenter,
+  yapCellRect,
+  yapDirVector,
+  yapLevelLayout,
+  yapMixHex,
+  type YapBoardLayout,
+  type YapPoint,
+} from '../src/game/board';
+import {
+  yapCameraAnchor,
+  yapDashes,
+  yapDoorSide,
+  yapFloorSeams,
+  yapLaserBeam,
+  yapWallEdges,
+  type YapSegment,
+} from '../src/game/plan-geometry';
+import type { YapCell, YapLevel } from '../src/core/level';
 import { createInitialState } from '../src/core/sim';
 import { loadLevelEntries, YAP_LEVEL_DIRS, type YapLevelEntry } from './compile-levels';
 
@@ -360,6 +381,61 @@ class YapOgCanvas {
     }
   }
 
+  /** Fills a rect pixel by pixel with `paint(x, y, current)` (current = the pixel there now). */
+  fillPixels(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    paint: (px: number, py: number, current: YapRgb) => YapRgb,
+  ): void {
+    const x0 = Math.max(0, Math.floor(x));
+    const y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(this.width, Math.ceil(x + w));
+    const y1 = Math.min(this.height, Math.ceil(y + h));
+    for (let py = y0; py < y1; py++) {
+      for (let px = x0; px < x1; px++) {
+        const i = (py * this.width + px) * 4;
+        const current: YapRgb = [this.data[i] ?? 0, this.data[i + 1] ?? 0, this.data[i + 2] ?? 0];
+        const [r, g, b] = paint(px, py, current);
+        this.data[i] = r;
+        this.data[i + 1] = g;
+        this.data[i + 2] = b;
+        this.data[i + 3] = 255;
+      }
+    }
+  }
+
+  /** A rect outline `width` px thick, inside the rect. */
+  strokeRect(x: number, y: number, w: number, h: number, width: number, color: YapRgb): void {
+    this.fillRect(x, y, w, width, color);
+    this.fillRect(x, y + h - width, w, width, color);
+    this.fillRect(x, y, width, h, color);
+    this.fillRect(x + w - width, y, width, h, color);
+  }
+
+  /** A ring of `radius`, `width` px thick; with `dashes`, that many dashes around it. */
+  strokeCircle(
+    cx: number,
+    cy: number,
+    radius: number,
+    width: number,
+    color: YapRgb,
+    dashes = 0,
+  ): void {
+    const outer = radius + width / 2;
+    this.fillPixels(cx - outer, cy - outer, 2 * outer, 2 * outer, (px, py, current) => {
+      const dx = px + 0.5 - cx;
+      const dy = py + 0.5 - cy;
+      if (Math.abs(Math.hypot(dx, dy) - radius) > width / 2) return current;
+      if (dashes > 0) {
+        const turn = (Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI);
+        if (Math.floor(turn * dashes * 2) % 2 === 1) return current;
+      }
+      return color;
+    });
+  }
+
   /** Diamond (rotated square) — the loot marker. */
   fillDiamond(cx: number, cy: number, radius: number, color: YapRgb): void {
     for (let py = Math.floor(cy - radius); py <= Math.ceil(cy + radius); py++) {
@@ -486,127 +562,222 @@ export function yapEncodePng(
 // ---------------------------------------------------------------------------
 
 const YAP_OG_MARGIN = 80;
-const YAP_OG_CELL = 44;
+/** The thin wall frame of the preview's plan, in px (the game's is 10 at 59 px cells). */
+const YAP_OG_FRAME = 12;
+/** The box the plan is fitted into, on the right of the preview. */
+const YAP_OG_BOARD_BOX_W = 360;
+const YAP_OG_BOARD_BOX_H = 510;
 
-function yapDrawOgBoard(canvas: YapOgCanvas, level: YapLevel, ox: number, oy: number): void {
-  const cell = YAP_OG_CELL;
-  const boardW = level.width * cell;
-  const boardH = level.height * cell;
-  // Panel behind the map.
-  canvas.fillRect(
-    ox - 20,
-    oy - 20,
-    boardW + 40,
-    boardH + 40,
-    yapHexToRgb(YAP_PALETTE['surface-panel']),
+/** The colour of `top` laid over `bottom` at `alpha`, as RGB. */
+function yapOgMix(top: string, bottom: string, alpha: number): YapRgb {
+  return yapHexToRgb(yapMixHex(top, bottom, alpha));
+}
+
+/**
+ * The plan's layout on the preview: the game's own geometry (yapLevelLayout,
+ * thin wall frame included), fitted into the right-hand box and centred
+ * vertically.
+ */
+export function yapOgBoardLayout(level: YapLevel): YapBoardLayout {
+  const fitted = yapLevelLayout(
+    YAP_OG_BOARD_BOX_W,
+    YAP_OG_BOARD_BOX_H,
+    level,
+    0,
+    0,
+    YAP_OG_FRAME,
+    0,
   );
-  // Cells: walls dark slate, floor light warm gray (docs/UI-DESIGN.md tokens).
+  return {
+    ...fitted,
+    originX: YAP_OG_WIDTH - YAP_OG_MARGIN - fitted.boardWidth,
+    originY: Math.round((YAP_OG_HEIGHT - fitted.boardHeight) / 2),
+  };
+}
+
+/** A horizontal or vertical segment as a `width` px band. */
+function yapOgSegment(canvas: YapOgCanvas, s: YapSegment, width: number, color: YapRgb): void {
+  const x = Math.min(s.x1, s.x2);
+  const y = Math.min(s.y1, s.y2);
+  if (s.x1 === s.x2) canvas.fillRect(x - width / 2, y, width, Math.abs(s.y2 - s.y1), color);
+  else canvas.fillRect(x, y - width / 2, Math.abs(s.x2 - s.x1), width, color);
+}
+
+/**
+ * The heist as a plan sheet (plan style 6/6, spec §7): paper floor, an
+ * ink-soft grid between floor cells, hatched walls with an ink edge where
+ * floor meets wall, the double ink frame, the start, the diamond, the door,
+ * and the threats at tick 0 as their tokens — never a route or a cone.
+ */
+function yapDrawOgBoard(canvas: YapOgCanvas, level: YapLevel, layout: YapBoardLayout): void {
+  const ink = yapHexToRgb(YAP_PALETTE.ink);
+  const paper = yapHexToRgb(YAP_PALETTE.paper);
+  const hatch = yapHexToRgb(YAP_PALETTE['hatch-ground']);
+  // cells: paper floors; walls in hatch-ground with 45° ink hatching
   for (let y = 0; y < level.height; y++) {
-    const row = level.map[y] ?? '';
     for (let x = 0; x < level.width; x++) {
-      const ch = row.charAt(x);
-      const color = ch === '#' ? yapHexToRgb(YAP_PALETTE.wall) : yapHexToRgb(YAP_PALETTE.floor);
-      canvas.fillRect(ox + x * cell, oy + y * cell, cell, cell, color);
+      const r = yapCellRect(layout, { x, y });
+      if ((level.map[y]?.charAt(x) ?? '#') !== '#') {
+        canvas.fillRect(r.x, r.y, r.w, r.h, paper);
+        continue;
+      }
+      canvas.fillPixels(r.x, r.y, r.w, r.h, (px, py) => ((px + py) % 9 < 1.6 ? ink : hatch));
     }
   }
-  // Crisp cell boundaries.
-  const grid = yapHexToRgb(YAP_PALETTE['grid-line']);
-  for (let x = 0; x <= level.width; x++) canvas.fillRect(ox + x * cell, oy, 1, boardH, grid);
-  for (let y = 0; y <= level.height; y++) canvas.fillRect(ox, oy + y * cell, boardW, 1, grid);
+  const soft = yapOgMix(YAP_PALETTE.ink, YAP_PALETTE.paper, YAP_INK_SOFT_ALPHA);
+  for (const s of yapFloorSeams(level, layout)) yapOgSegment(canvas, s, 1, soft);
+  for (const s of yapWallEdges(level, layout)) yapOgSegment(canvas, s, 2, ink);
+  // the double ink frame: 2 px on the edge, 1 px inside it
+  const { originX: bx, originY: by, boardWidth: bw, boardHeight: bh } = layout;
+  canvas.strokeRect(bx, by, bw, bh, 2, ink);
+  canvas.strokeRect(bx + 4, by + 4, bw - 8, bh - 8, 1, ink);
 
-  const center = (c: { x: number; y: number }): [number, number] => [
-    ox + c.x * cell + cell / 2,
-    oy + c.y * cell + cell / 2,
-  ];
-
-  // Static level info only — never a path or a solution.
+  const cell = layout.cell;
+  const centre = (c: YapCell): YapPoint => yapCellCenter(layout, c);
+  // static level info only — never a path or a solution
   const state = createInitialState(level);
   for (const laser of state.lasers) {
-    const color = laser.active
-      ? yapHexToRgb(YAP_PALETTE['danger-laser'])
-      : yapHexToRgb(YAP_PALETTE['laser-off']);
-    for (const c of laser.cells) {
-      canvas.fillRect(
-        ox + c.x * cell + cell * 0.15,
-        oy + c.y * cell + cell * 0.15,
-        cell * 0.7,
-        cell * 0.7,
-        color,
+    const beam = yapLaserBeam(level, layout, laser.cells);
+    if (laser.active) {
+      const red = yapHexToRgb(YAP_PALETTE.stamp);
+      yapOgSegment(
+        canvas,
+        { x1: beam.from.x, y1: beam.from.y, x2: beam.to.x, y2: beam.to.y },
+        3,
+        red,
       );
+      for (const end of [beam.from, beam.to]) canvas.fillRect(end.x - 3, end.y - 3, 6, 6, red);
+    } else {
+      for (const s of yapDashes(beam.from, beam.to, 5, 5)) {
+        yapOgSegment(canvas, s, 2, yapHexToRgb(YAP_PALETTE['laser-off']));
+      }
     }
   }
   for (const camera of state.cameras) {
-    const [cx, cy] = center(camera.at);
-    canvas.fillRect(
-      cx - cell * 0.25,
-      cy - cell * 0.25,
-      cell * 0.5,
-      cell * 0.5,
-      yapHexToRgb(YAP_PALETTE['path-outline']),
-    );
-    canvas.fillRect(
-      cx - cell * 0.18,
-      cy - cell * 0.18,
-      cell * 0.36,
-      cell * 0.36,
-      yapHexToRgb(YAP_PALETTE['danger-camera']),
-    );
+    const { box, lens } = yapCameraAnchor(layout, camera.at, camera.facing);
+    canvas.fillRect(box.x, box.y, box.w, box.h, paper);
+    canvas.strokeRect(box.x, box.y, box.w, box.h, 2, ink);
+    canvas.fillCircle(lens.x, lens.y, cell * 0.09, yapHexToRgb(YAP_PALETTE['camera-cone']));
   }
   for (const guard of state.guards) {
-    const [cx, cy] = center(guard.pos);
-    canvas.fillCircle(cx, cy, cell * 0.32, yapHexToRgb(YAP_PALETTE['path-outline']));
-    canvas.fillCircle(cx, cy, cell * 0.24, yapHexToRgb(YAP_PALETTE['danger-guard']));
+    const p = centre(guard.pos);
+    const tokenInk = yapHexToRgb(YAP_PALETTE['guard-token-ink']);
+    canvas.fillCircle(p.x, p.y, cell * 0.3, tokenInk);
+    canvas.fillCircle(p.x, p.y, cell * 0.3 - 2, yapHexToRgb(YAP_PALETTE['guard-token']));
+    const g = 'G';
+    canvas.drawText(p.x - canvas.textWidth(g, 2) / 2, p.y - 7, g, 2, tokenInk);
   }
   {
-    const [cx, cy] = center(level.start);
-    canvas.fillCircle(cx, cy, cell * 0.3, yapHexToRgb(YAP_PALETTE['text-primary']));
+    // the start: a dashed ink-muted ring
+    const p = centre(level.start);
+    canvas.strokeCircle(p.x, p.y, cell * 0.42, 1.5, yapHexToRgb(YAP_PALETTE['ink-muted']), 12);
   }
   {
-    const [cx, cy] = center(level.loot);
-    canvas.fillDiamond(cx, cy, cell * 0.36, yapHexToRgb(YAP_PALETTE['objective-diamond']));
-  }
-  {
-    const [cx, cy] = center(level.exit);
+    // the diamond: an outlined gem
+    const p = centre(level.loot);
+    const r = cell * 0.27;
+    canvas.fillDiamond(p.x, p.y, r, yapHexToRgb(YAP_PALETTE['diamond-edge']));
+    canvas.fillDiamond(p.x, p.y, r - 2.5, yapHexToRgb(YAP_PALETTE['diamond-fill']));
     canvas.fillRect(
-      cx - cell * 0.28,
-      cy - cell * 0.28,
-      cell * 0.56,
-      cell * 0.56,
-      yapHexToRgb(YAP_PALETTE['objective-exit']),
+      p.x - r * 0.62,
+      p.y - r * 0.3,
+      r * 1.24,
+      1,
+      yapHexToRgb(YAP_PALETTE['diamond-edge']),
     );
+  }
+  {
+    // the exit: the door's quarter swing, tinted, its leaf and its threshold
+    const r = yapCellRect(layout, level.exit);
+    const side = yapDoorSide(level, level.exit);
+    const span = side === 'E' || side === 'W' ? r.h : r.w;
+    const leaf = span * 0.55;
+    const along = side === 'E' || side === 'W' ? { x: 0, y: 1 } : { x: 1, y: 0 };
+    const d = yapDirVector(side);
+    const start =
+      side === 'E'
+        ? { x: r.x + r.w, y: r.y }
+        : side === 'S'
+          ? { x: r.x, y: r.y + r.h }
+          : { x: r.x, y: r.y };
+    const hinge = { x: start.x + along.x * span * 0.4, y: start.y + along.y * span * 0.4 };
+    const into = { x: -d.x, y: -d.y };
+    const green = yapHexToRgb(YAP_PALETTE['exit-door']);
+    const tint = yapOgMix(YAP_PALETTE['exit-door'], YAP_PALETTE.paper, 0.12);
+    canvas.fillPixels(hinge.x - leaf, hinge.y - leaf, 2 * leaf, 2 * leaf, (px, py, under) => {
+      const vx = px + 0.5 - hinge.x;
+      const vy = py + 0.5 - hinge.y;
+      const dist = Math.hypot(vx, vy);
+      // inside the quarter between the open leaf (into) and the frame (along)
+      if (dist > leaf || vx * into.x + vy * into.y < 0 || vx * along.x + vy * along.y < 0)
+        return under;
+      return dist > leaf - 1.5 ? green : tint;
+    });
+    yapOgSegment(
+      canvas,
+      { x1: hinge.x, y1: hinge.y, x2: hinge.x + into.x * leaf, y2: hinge.y + into.y * leaf },
+      3,
+      green,
+    );
+    for (const s of yapDashes(
+      hinge,
+      { x: hinge.x + along.x * leaf, y: hinge.y + along.y * leaf },
+      3,
+      3,
+    )) {
+      yapOgSegment(canvas, s, 2, green);
+    }
   }
 }
 
-function yapRenderOg(level: YapLevel, title: string, subtitle: string, footer: string): Uint8Array {
+/**
+ * The preview's pixels (plan style 6/6): the paper page with its 20 px ink
+ * grid, a typewriter block on the left — kicker, title over a double ink
+ * rule, subtitle, footer — and the heist as a plan on the right.
+ */
+export function yapRenderOgPixels(
+  level: YapLevel,
+  title: string,
+  subtitle: string,
+  footer: string,
+): Uint8ClampedArray {
   const canvas = new YapOgCanvas(YAP_OG_WIDTH, YAP_OG_HEIGHT);
-  canvas.fillRect(0, 0, YAP_OG_WIDTH, YAP_OG_HEIGHT, yapHexToRgb(YAP_PALETTE['surface-page']));
-  // Text block on the left.
-  canvas.drawText(YAP_OG_MARGIN, 140, title, 7, yapHexToRgb(YAP_PALETTE['text-primary']));
-  canvas.fillRect(YAP_OG_MARGIN, 214, 120, 6, yapHexToRgb(YAP_PALETTE['action-primary']));
-  canvas.drawText(YAP_OG_MARGIN, 248, subtitle, 5, yapHexToRgb(YAP_PALETTE['text-secondary']));
-  canvas.drawText(YAP_OG_MARGIN, 330, footer, 3, yapHexToRgb(YAP_PALETTE['text-secondary']));
-  // Map on the right, vertically centered.
-  const boardW = level.width * YAP_OG_CELL;
-  const boardH = level.height * YAP_OG_CELL;
-  const ox = YAP_OG_WIDTH - YAP_OG_MARGIN - boardW;
-  const oy = Math.round((YAP_OG_HEIGHT - boardH) / 2);
-  yapDrawOgBoard(canvas, level, ox, oy);
-  return yapEncodePng(YAP_OG_WIDTH, YAP_OG_HEIGHT, canvas.data);
+  const page = yapHexToRgb(YAP_PALETTE['paper-page']);
+  const grid = yapOgMix(YAP_PALETTE.ink, YAP_PALETTE['paper-page'], 0.05);
+  canvas.fillPixels(0, 0, YAP_OG_WIDTH, YAP_OG_HEIGHT, (px, py) =>
+    px % 20 === 0 || py % 20 === 0 ? grid : page,
+  );
+  const ink = yapHexToRgb(YAP_PALETTE.ink);
+  const muted = yapHexToRgb(YAP_PALETTE['ink-muted']);
+  // the kicker: Home's tagline, in typewriter capitals
+  canvas.drawText(YAP_OG_MARGIN, 128, en.home.tagline.toUpperCase(), 3, muted);
+  canvas.drawText(YAP_OG_MARGIN, 170, title, 7, ink);
+  canvas.fillRect(YAP_OG_MARGIN, 236, 360, 3, ink);
+  canvas.fillRect(YAP_OG_MARGIN, 243, 360, 1, ink);
+  canvas.drawText(YAP_OG_MARGIN, 272, subtitle, 5, ink);
+  if (footer !== '') canvas.drawText(YAP_OG_MARGIN, 340, footer, 3, muted);
+  yapDrawOgBoard(canvas, level, yapOgBoardLayout(level));
+  return canvas.data;
+}
+
+function yapRenderOg(level: YapLevel, title: string, subtitle: string, footer: string): Uint8Array {
+  return yapEncodePng(
+    YAP_OG_WIDTH,
+    YAP_OG_HEIGHT,
+    yapRenderOgPixels(level, title, subtitle, footer),
+  );
 }
 
 /** Preview of /c/<day>: the daily title + that day's map. */
 export function yapRenderChallengeOgPng(level: YapLevel, day: number): Uint8Array {
-  return yapRenderOg(level, yapOgChallengeTitle(day), en.app.title, YAP_CORP.studio);
+  // the kicker already names the studio: no footer
+  return yapRenderOg(level, yapOgChallengeTitle(day), en.app.title, '');
 }
 
 /** Preview of /: the game name + the tutorial map. */
 export function yapRenderDefaultOgPng(level: YapLevel): Uint8Array {
-  return yapRenderOg(
-    level,
-    en.app.title,
-    YAP_CORP.studio,
-    yapOgChallengeTitle(1).replace(/#\d+$/, '#…'),
-  );
+  // the kicker already names the studio: the subtitle says what to expect
+  return yapRenderOg(level, en.app.title, yapOgChallengeTitle(1).replace(/#\d+$/, '#…'), '');
 }
 
 /** Renders every preview image: og-c-1…7 plus og-default. */

@@ -74,9 +74,9 @@ with the PDF's "simple vector shapes: no illustrations at gate 1".
 | `kraft` / `kraft-edge` / `kraft-ink` | `#E4D4AE` / `#B99E66` / `#5C4A24` | Home's folder |
 | `star` | `#B8860B` | Stars |
 
-The older board tokens (`surface-*`, `floor`, `wall`, `grid-line`, `text-*`,
-`action-*`, `danger-*`, `objective-*`, `path-*`) remain only for the share
-previews (`tools/og.ts`) and the dev viewer's chrome, until plan style 6/6.
+The older tokens (`surface-*`, `grid-line`, `text-*`, `action-*`, `path-*`)
+remain only for the dev viewer's chrome; the game screens and the share
+previews use the tokens above.
 
 **Type.** Two system stacks: serif (`ui-serif, "New York", Georgia, …`) for
 titles and sentences, mono (`ui-monospace, "SF Mono", Menlo, …`) for kickers,
@@ -228,9 +228,12 @@ dictionaries. As built:
 10. **First-encounter bubble:** one short sentence, tap to dismiss, never over
     the board's key area.
 
-The social preview image is 1200 × 630, spoiler-free, with the heist map and
-the title "Daily Heist #N"; never include a player path or solution. Its plan
-style is slice 6/6.
+The social preview image (`tools/og.ts`, built into `public/icons/`) is
+1200 × 630 and spoiler-free: a sheet of the file — the paper page, the tagline
+and the title "Daily heist #N" in typewriter capitals over a double ink rule,
+and the heist as a plan (hatched walls, the double frame, the start, the
+diamond, the door, the threats as their tokens at tick 0). Never a player
+path, a cone or a solution.
 
 ## Assets
 
