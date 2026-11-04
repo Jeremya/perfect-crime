@@ -44,10 +44,6 @@ export const fr: YapDictionary = {
     // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
     tagline: 'Un casse par jour · Yap Corp',
     dailyHeist: 'Casse du jour n°{day}',
-    statusToDo: 'À faire',
-    statusCleared: 'Réussi en {attempts} essais',
-    streak: 'Série : {count} jours',
-    nextHeistIn: 'Prochaine casse dans {time}',
     play: 'Jouer',
     share: 'Partager',
     archive: 'Archives',
@@ -162,7 +158,7 @@ export const fr: YapDictionary = {
   winScreen: {
     // Style plan 4/6 de C1 : le surtitre, le télégramme et le tampon du rapport
     report: "Rapport d'opération · nº {day}",
-    telegram: 'À partager {line} · {ticks} ticks',
+    telegram: 'À partager {line} · {ticks} ticks {stars}',
     stamp: 'Casse réussi',
     sharePreview: 'Aperçu du partage',
   },
@@ -229,11 +225,6 @@ export const fr: YapDictionary = {
     you: 'Toi',
     friend: 'Ami',
     hints: 'Indices',
-    verdictBetter: 'Tu as battu ton ami !',
-    verdictWorse: 'Ton ami est devant — revanche ?',
-    verdictTied: 'Égalité parfaite !',
-    planLocked:
-      'Son plan reste caché jusqu’à ce que tu réussisses cette casse — ou que tu prennes le deuxième indice.',
     planTitle: 'Son plan',
   },
   // Story X3 — aperçu du plan, l’« arc en pointillés » d’Angry Birds

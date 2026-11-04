@@ -264,6 +264,10 @@ export interface YapFolder {
 
 /** Height of the folder's tab, in px. */
 const YAP_FOLDER_TAB = 24;
+/** From the folder's top to its body's top, in px: the tab's band. */
+export const YAP_FOLDER_TAB_BAND = YAP_FOLDER_TAB - 4;
+/** How far the paper sheet sits inside the kraft body, in px. */
+export const YAP_FOLDER_INSET = 12;
 
 /**
  * Home's folder of the day (spec §5): a kraft body with a tab holding `tab`
@@ -286,7 +290,7 @@ export function yapFolder(
   const shadow = yapHexToInt(YAP_PALETTE.ink);
   const label = yapRoleText(scene, x + 14, y + 6, tab, 'kicker', YAP_PALETTE['kraft-ink']);
   const tabW = Math.min(width - 24, label.width + 28);
-  const bodyY = y + YAP_FOLDER_TAB - 4;
+  const bodyY = y + YAP_FOLDER_TAB_BAND;
   const bodyH = height - (bodyY - y);
   const g = scene.add.graphics();
   // soft shadows: the folder and its sheet are objects on the page
@@ -308,7 +312,12 @@ export function yapFolder(
   g.lineStyle(1.5, edge, 1).strokeRoundedRect(x, bodyY, width, bodyH, 4);
   // cover the tab's bottom edge so the tab and the body read as one piece
   g.fillStyle(kraft, 1).fillRect(x + 1.5, bodyY - 1, tabW - 3, 6);
-  const sheet: YapRect = { x: x + 12, y: bodyY + 12, w: width - 24, h: bodyH - 24 - footer };
+  const sheet: YapRect = {
+    x: x + YAP_FOLDER_INSET,
+    y: bodyY + YAP_FOLDER_INSET,
+    w: width - 2 * YAP_FOLDER_INSET,
+    h: bodyH - 2 * YAP_FOLDER_INSET - footer,
+  };
   const paper = scene.add.graphics();
   paper.fillStyle(shadow, 0.1).fillRect(-sheet.w / 2 + 2, -sheet.h / 2 + 3, sheet.w, sheet.h);
   paper

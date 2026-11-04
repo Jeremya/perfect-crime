@@ -6,6 +6,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import type { YapLevel } from '../../src/core/level';
+import { en } from '../../src/app/i18n/en';
+import { fr } from '../../src/app/i18n/fr';
 import {
   yapDayBoxes,
   yapFitStamp,
@@ -102,6 +104,16 @@ describe('yapTelegram — the share line of the win report', () => {
     expect(out).toContain('26 ticks');
     // never half an emoji: no lone surrogate left in the line
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(out)).toBe(false);
+  });
+});
+
+describe('the telegram carries the stars', () => {
+  it('ends with the stars the share text sends, in both languages', () => {
+    for (const template of [en.winScreen.telegram, fr.winScreen.telegram]) {
+      expect(template).toContain('{line}');
+      expect(template).toContain('{ticks}');
+      expect(template).toContain('{stars}');
+    }
   });
 });
 

@@ -52,7 +52,13 @@ import { yapStorage, type YapStorage } from '../app/storage';
 import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapFitRows, yapLevelLayout } from './board';
 import { yapHeistFacts, yapWeekday } from './compose';
-import { yapDayBoxRow, yapFolder, yapStamp } from './kit-screens';
+import {
+  YAP_FOLDER_INSET,
+  YAP_FOLDER_TAB_BAND,
+  yapDayBoxRow,
+  yapFolder,
+  yapStamp,
+} from './kit-screens';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapHomeActions } from './home-layout';
 import { yapButton, yapCard, yapHeader, yapPaperPage, yapRule, yapShowToast } from './kit';
@@ -486,11 +492,11 @@ export class YapHomeScene extends Phaser.Scene {
     const footer = 44;
     // the folder's geometry (yapFolder): a 20 px tab band, then the body with
     // the sheet 12 px in and the footer under it
-    const tabBand = 20;
-    const sheetX = x + 12;
-    const sheetY = top + tabBand + 12;
-    const sheetW = w - 24;
-    const maxSheetH = maxH - tabBand - 24 - footer;
+    const tabBand = YAP_FOLDER_TAB_BAND;
+    const sheetX = x + YAP_FOLDER_INSET;
+    const sheetY = top + tabBand + YAP_FOLDER_INSET;
+    const sheetW = w - 2 * YAP_FOLDER_INSET;
+    const maxSheetH = maxH - tabBand - 2 * YAP_FOLDER_INSET - footer;
 
     // the sheet's text first (it sets the sheet's height), on the right of
     // the mini plan, which takes 44% of the sheet
@@ -532,7 +538,7 @@ export class YapHomeScene extends Phaser.Scene {
       maxSheetH,
       Math.max(withMap ? (natural ?? 0) + 2 * pad : 0, ty - sheetY + 16),
     );
-    const h = tabBand + sheetH + 24 + footer;
+    const h = tabBand + sheetH + 2 * YAP_FOLDER_INSET + footer;
     const folder = yapFolder(
       this,
       x,
