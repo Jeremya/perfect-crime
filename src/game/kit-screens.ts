@@ -259,7 +259,8 @@ const YAP_FOLDER_TAB = 24;
  * Home's folder of the day (spec §5): a kraft body with a tab holding `tab`
  * (mono capitals in kraft-ink), and a paper sheet inside it, tilted about
  * −1.2°, both with a soft shadow — physical objects. `sheet` is the sheet's
- * box, where the caller draws its content.
+ * box, where the caller draws its content; `footer` px stay free on the
+ * kraft under the sheet (Home puts the status stamp there).
  */
 export function yapFolder(
   scene: Phaser.Scene,
@@ -268,6 +269,7 @@ export function yapFolder(
   width: number,
   height: number,
   tab: string,
+  footer = 0,
 ): YapFolder {
   const kraft = yapHexToInt(YAP_PALETTE.kraft);
   const edge = yapHexToInt(YAP_PALETTE['kraft-edge']);
@@ -296,7 +298,7 @@ export function yapFolder(
   g.lineStyle(1.5, edge, 1).strokeRoundedRect(x, bodyY, width, bodyH, 4);
   // cover the tab's bottom edge so the tab and the body read as one piece
   g.fillStyle(kraft, 1).fillRect(x + 1.5, bodyY - 1, tabW - 3, 6);
-  const sheet: YapRect = { x: x + 12, y: bodyY + 12, w: width - 24, h: bodyH - 24 };
+  const sheet: YapRect = { x: x + 12, y: bodyY + 12, w: width - 24, h: bodyH - 24 - footer };
   const paper = scene.add.graphics();
   paper.fillStyle(shadow, 0.1).fillRect(-sheet.w / 2 + 2, -sheet.h / 2 + 3, sheet.w, sheet.h);
   paper

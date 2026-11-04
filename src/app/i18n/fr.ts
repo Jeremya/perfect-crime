@@ -30,6 +30,16 @@ export const fr: YapDictionary = {
     decline: 'Non merci',
   },
   home: {
+    // Style plan 4/6 de C1 : le dossier du jour, son tampon, la série
+    folderTab: 'Dossier nº {day} · {weekday}',
+    dailyKicker: 'Casse du jour',
+    status: 'Statut',
+    stampToDo: 'À faire',
+    stampCleared: 'Réussi · {attempts} essais',
+    stampSoon: 'Bientôt',
+    stampWeekOver: 'Semaine terminée',
+    streakKicker: 'Série · {count} jours',
+    nextFile: 'Prochain dossier dans {time}',
     // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
     tagline: 'Un casse par jour · Yap Corp',
     dailyHeist: 'Casse du jour n°{day}',
@@ -91,7 +101,23 @@ export const fr: YapDictionary = {
     shareMyResult: 'Partager mon résultat',
     home: 'Accueil',
   },
+  // Style plan 4/6 de C1 : les jours (dimanche = d0) et ce qu'un casse contient
+  weekdays: {
+    d0: 'dimanche',
+    d1: 'lundi',
+    d2: 'mardi',
+    d3: 'mercredi',
+    d4: 'jeudi',
+    d5: 'vendredi',
+    d6: 'samedi',
+  },
+  facts: {
+    guard: 'Garde',
+    camera: 'Caméra',
+    laser: 'Laser',
+  },
   archive: {
+    rowTitle: 'Nº {day} · {weekday}',
     title: 'Archives',
     playPastDay: 'Rejouer un jour passé — sans effet sur la série',
   },

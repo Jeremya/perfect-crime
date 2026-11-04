@@ -29,6 +29,16 @@ export const en = {
     decline: 'No thanks',
   },
   home: {
+    // C1 plan style 4/6: the folder of the day, its stamp, the streak
+    folderTab: 'File No. {day} · {weekday}',
+    dailyKicker: 'Daily heist',
+    status: 'Status',
+    stampToDo: 'To do',
+    stampCleared: 'Cleared · {attempts} tries',
+    stampSoon: 'Soon',
+    stampWeekOver: 'Week over',
+    streakKicker: 'Streak · {count} days',
+    nextFile: 'Next file in {time}',
     // C1 plan style: the kicker of Home's header (shown in capitals)
     tagline: 'One heist a day · Yap Corp',
     dailyHeist: 'Daily heist #{day}',
@@ -90,7 +100,23 @@ export const en = {
     shareMyResult: 'Share my result',
     home: 'Home',
   },
+  // C1 plan style 4/6: weekdays (Sunday = d0) and what a heist holds
+  weekdays: {
+    d0: 'Sunday',
+    d1: 'Monday',
+    d2: 'Tuesday',
+    d3: 'Wednesday',
+    d4: 'Thursday',
+    d5: 'Friday',
+    d6: 'Saturday',
+  },
+  facts: {
+    guard: 'Guard',
+    camera: 'Camera',
+    laser: 'Laser',
+  },
   archive: {
+    rowTitle: 'No. {day} · {weekday}',
     title: 'Archive',
     playPastDay: 'Play a past day — no effect on the streak',
   },
