@@ -7,7 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#F4F2ED" />
+    <meta name="theme-color" content="#F2EFE6" />
     <!-- Story E3: this file is the shell of every page. At build time
          tools/og.ts (wired in vite.config.ts) generates /c/1 … /c/7 from it,
          each with its own og:title / og:description / og:image (daily title +
@@ -18,8 +18,9 @@
       body {
         margin: 0;
         padding: 0;
-        /* docs/UI-DESIGN.md: light theme only, surface-page #F4F2ED. */
-        background: #f4f2ed;
+        /* Light theme only. paper-page #F2EFE6 (docs/design/2026-10-30-plan-style-design.md
+           §5), the same colour as theme-color above and YAP_PALETTE['paper-page']. */
+        background: #f2efe6;
         height: 100%;
         overscroll-behavior: none;
       }

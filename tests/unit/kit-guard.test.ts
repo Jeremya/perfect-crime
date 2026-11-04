@@ -1,0 +1,57 @@
+// Source guard for story C1, visual pass 3 — plan style 2/6, the component kit.
+//
+// Every player-facing button comes from src/game/kit.ts (yapButton): one look
+// (paper and ink), one press acknowledgement, one tap event, one way to fit a
+// label at 360 px. A scene that kept a private button helper would drift from
+// all of that. This guard scans the scenes for one, as hidpi-guard.test.ts
+// does for the device-pixel APIs. The board's own rounded shapes stay out of
+// scope until the board renderer (plan style 3/6).
+import { readdirSync, readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+const GAME_ROOT = new URL('../../src/game/', import.meta.url);
+/** The one module that makes buttons. */
+const KIT_FILE = 'src/game/kit.ts';
+
+/** Every src/game/*.ts file, as [path from the repo root, source]. */
+function yapScannedSources(): (readonly [string, string])[] {
+  return readdirSync(GAME_ROOT)
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => [`src/game/${name}`, readFileSync(new URL(name, GAME_ROOT), 'utf8')] as const);
+}
+
+/** `file:line: code` for every line matching `pattern`, outside kit.ts. */
+function yapOffenders(pattern: RegExp): string[] {
+  const found: string[] = [];
+  for (const [file, source] of yapScannedSources()) {
+    if (file === KIT_FILE) continue;
+    source.split('\n').forEach((line, index) => {
+      if (pattern.test(line)) found.push(`${file}:${index + 1}: ${line.trim()}`);
+    });
+  }
+  return found;
+}
+
+describe('buttons come from src/game/kit.ts', () => {
+  it('scans every scene', () => {
+    // a guard over an empty file list would pass for nothing
+    const files = yapScannedSources().map(([file]) => file);
+    for (const expected of [
+      'src/game/level-scene.ts',
+      'src/game/home-scene.ts',
+      'src/game/challenge-scene.ts',
+      'src/game/consent-scene.ts',
+      KIT_FILE,
+    ]) {
+      expect(files).toContain(expected);
+    }
+  });
+
+  it('buttons come from the kit', () => {
+    expect(yapOffenders(/\byapMake\w*Button\b/)).toEqual([]);
+  });
+
+  it('no scene reaches the retired X8b ui-kit', () => {
+    expect(yapOffenders(/from '\.\/ui-kit'/)).toEqual([]);
+  });
+});

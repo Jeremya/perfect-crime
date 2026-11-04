@@ -371,9 +371,14 @@ describe('YapSound — scene events to sounds and vibration', () => {
     );
     expect(levelScene).toContain("const YAP_PLAY_EVENT = 'yap-play'");
     expect(levelScene).toContain("const YAP_EXECUTION_END_EVENT = 'yap-execution-end'");
-    for (const name of ['YAP_PATH_STEP_EVENT', 'YAP_UI_TAP_EVENT', 'YAP_EXECUTION_TICK_EVENT']) {
+    for (const name of ['YAP_PATH_STEP_EVENT', 'YAP_EXECUTION_TICK_EVENT']) {
       expect(levelScene).toContain(`this.events.emit(${name}`);
     }
+    // the button taps: the scene's buttons come from the kit, whose button
+    // emits the tap on the events of the scene it is given (C1 visual pass 3)
+    const kit = readFileSync(new URL('../../src/game/kit.ts', import.meta.url), 'utf8');
+    expect(levelScene).toContain('yapButton(this,');
+    expect(kit).toContain('scene.events.emit(YAP_UI_TAP_EVENT)');
     expect(levelScene).toContain('yapAttachSound(this)');
   });
 });

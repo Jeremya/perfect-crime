@@ -29,6 +29,8 @@ export const en = {
     decline: 'No thanks',
   },
   home: {
+    // C1 plan style: the kicker of Home's header (shown in capitals)
+    tagline: 'One heist a day · Yap Corp',
     dailyHeist: 'Daily heist #{day}',
     statusToDo: 'To do',
     statusCleared: 'Cleared in {attempts} attempts',
@@ -46,14 +48,13 @@ export const en = {
     pausesLeft: 'Pauses left: {count}',
     clear: 'Clear',
     play: 'PLAY',
-    // C1 visual pass: one compact stats line under the level name.
-    statsTicks: '{ticks} ticks',
+    // C1 visual pass: the par in the right block of the Win screen's header.
     statsPar: 'par {par}',
-    statsPauses: '{count} pauses',
-    statsSeparator: ' · ',
     drawRoute: 'Draw your route',
     hint: 'Hint',
     grabDiamond: 'Grab the diamond, then get out',
+    // X1: the star targets, in the footer caption once the plan can run.
+    starTargets: '★★★ at {par} ticks · ★★ up to {twoStarMax}',
   },
   execution: {
     stop: 'Stop',
@@ -116,10 +117,6 @@ export const en = {
     unsolved: 'Not clearable within {max} ticks',
     noBundled: 'No .lvl file bundled',
   },
-  // Story C3 — Execution screen (playback of the plan).
-  executionPlayback: {
-    tick: 'Tick {tick}/{max}',
-  },
   // Story C4 — Failure screen (slow-motion replay, written cause, retry).
   failureReplay: {
     spottedByCamera: 'Spotted by the camera',
@@ -181,6 +178,10 @@ export const en = {
   // taken the second hint. The card line and the actions reuse challenge.*
   // and comparison.* above.
   challengeFlow: {
+    // C1 plan style: the challenge screen's header (src/game/challenge-scene.ts)
+    kicker: 'Message received · heist No. {day}',
+    title: 'A challenge from {nickname}',
+    titleAnonymous: 'A challenge',
     expressNote: 'New here? A quick 3-level tutorial comes first.',
     you: 'You',
     friend: 'Friend',
@@ -199,6 +200,29 @@ export const en = {
   preview: {
     button: '👁 Preview',
     running: 'Previewing your plan…',
+  },
+  // C1 visual pass 3 — the header of the level scene (src/game/kit.ts): the
+  // kicker above the title, which the kicker role shows in capitals, and the
+  // stats of the right block. The playback's tick counter under `tick` is
+  // digits only ("07/26").
+  header: {
+    tutorial: 'Tutorial · {n} / 5',
+    daily: 'Heist No. {day}',
+    archive: 'Archive · No. {day}',
+    challenge: 'Challenge · No. {day}',
+    running: '{kicker} — running',
+    ticks: 'Ticks {ticks}/{par}',
+    pauses: 'Pauses {count}',
+    tick: 'Tick',
+  },
+  // C1 visual pass 3 — the titles of the five tutorial levels: the lesson
+  // names of the Gate 1 spec. Daily heists keep their level names.
+  tutorialLessons: {
+    t1: 'The plan',
+    t2: 'The gaze',
+    t3: 'The patrol',
+    t4: 'The pause',
+    t5: 'The camera',
   },
 } as const;
 

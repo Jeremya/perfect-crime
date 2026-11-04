@@ -3,7 +3,8 @@
 // "Consent is a non-blocking banner on the first-launch tutorial; it must not
 // prevent play or obscure the route-critical board area").
 //
-// The banner is a strip over the 64 px top bar — it never covers the bottom
+// The banner is a note (C1 plan style: paper, a 1.5 px ink border and the
+// card shadow, src/game/kit.ts) pinned over the 64 px top bar — it never covers the bottom
 // action bar (Clear / PLAY stay visible and tappable). While it is up it
 // hides the plan / par / pauses readout, which comes back as soon as the
 // player answers. The spec copy is shown verbatim at the 14 px minimum text
@@ -19,9 +20,10 @@ import Phaser from 'phaser';
 import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
-import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt } from './board';
+import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
-import { yapText, yapTextStyle } from './text';
+import { yapButton, yapCard } from './kit';
+import { yapRoleText } from './text';
 
 /** Minimum height of the banner strip: exactly the top bar zone. */
 const YAP_BANNER_MIN_HEIGHT = YAP_TOP_BAR_HEIGHT;
@@ -78,26 +80,19 @@ export class YapConsentScene extends Phaser.Scene {
     const copy = this.yapShowDetail
       ? yapI18n.t('consentBanner.detail')
       : `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
-    const text = yapText(
-      this,
-      textLeft,
-      0,
-      copy,
-      yapTextStyle(YAP_BANNER_FONT_SIZE, YAP_PALETTE['text-primary'], {
-        wordWrap: { width: textWidth },
-      }),
-    );
+    // the body role, at the 14 px minimum of the banner rather than 16
+    const text = yapRoleText(this, textLeft, 0, copy, 'body', YAP_PALETTE.ink, {
+      wordWrap: { width: textWidth },
+    }).setFontSize(YAP_BANNER_FONT_SIZE);
     const height = Math.max(YAP_BANNER_MIN_HEIGHT, Math.ceil(text.height) + 2 * YAP_BANNER_GAP);
     text.setOrigin(0, 0.5).setY(height / 2);
 
-    // Panel: opaque over the top bar readout, and interactive so a tap on
-    // the banner itself never reaches the level scene underneath.
-    const panel = this.add.graphics();
-    panel
-      .fillStyle(yapHexToInt(YAP_PALETTE['surface-panel']), 1)
-      .fillRect(0, 0, width, height)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-      .lineBetween(0, height - 0.5, width, height - 0.5);
+    // Panel: a note pinned to the top, opaque over the header, and
+    // interactive so a tap on the banner itself never reaches the level scene
+    // underneath. Its side and top borders sit just off the view, so the
+    // bottom border and the shadow under it are what shows.
+    const border = 2;
+    const panel = yapCard(this, -border, -border, width + 2 * border, height + border);
     const blocker = this.add.zone(0, 0, width, height).setOrigin(0, 0).setInteractive();
     const textZone = this.add
       .zone(textLeft, 0, textWidth, height)
@@ -108,28 +103,29 @@ export class YapConsentScene extends Phaser.Scene {
       this.yapBuild();
     });
 
-    // Buttons on the right, vertically centred in the strip.
+    // Buttons on the right, vertically centred in the strip: OK primary,
+    // No thanks secondary, 44 px tall.
     const btnY = height / 2;
-    const acceptX = width - YAP_BANNER_GAP - YAP_ACCEPT_WIDTH / 2;
-    const declineX = acceptX - YAP_ACCEPT_WIDTH / 2 - YAP_BANNER_GAP - YAP_DECLINE_WIDTH / 2;
-    const decline = this.yapMakeButton(
-      declineX,
-      btnY,
-      YAP_DECLINE_WIDTH,
-      yapI18n.t('consent.decline'),
-      'action-secondary',
-      YAP_PALETTE['text-primary'],
-      () => this.yapAnswer('refused'),
-    );
-    const accept = this.yapMakeButton(
-      acceptX,
-      btnY,
-      YAP_ACCEPT_WIDTH,
-      yapI18n.t('consent.accept'),
-      'action-primary',
-      YAP_PALETTE['path-light'],
-      () => this.yapAnswer('granted'),
-    );
+    const acceptX = width - YAP_BANNER_GAP - YAP_ACCEPT_WIDTH;
+    const declineX = acceptX - YAP_BANNER_GAP - YAP_DECLINE_WIDTH;
+    const decline = yapButton(this, {
+      x: declineX,
+      y: btnY,
+      width: YAP_DECLINE_WIDTH,
+      height: YAP_BANNER_BUTTON_HEIGHT,
+      label: yapI18n.t('consent.decline'),
+      kind: 'secondary',
+      onPress: () => this.yapAnswer('refused'),
+    });
+    const accept = yapButton(this, {
+      x: acceptX,
+      y: btnY,
+      width: YAP_ACCEPT_WIDTH,
+      height: YAP_BANNER_BUTTON_HEIGHT,
+      label: yapI18n.t('consent.accept'),
+      kind: 'primary',
+      onPress: () => this.yapAnswer('granted'),
+    });
     banner.add([panel, blocker, text, textZone, decline.container, accept.container]);
   }
 
@@ -137,36 +133,5 @@ export class YapConsentScene extends Phaser.Scene {
   private yapAnswer(choice: 'granted' | 'refused'): void {
     yapAnswerConsent(choice, yapStorage);
     this.scene.stop();
-  }
-
-  /** A rounded button drawn in code: graphics + zone hit area + label. */
-  private yapMakeButton(
-    x: number,
-    y: number,
-    w: number,
-    labelText: string,
-    fillToken: 'action-primary' | 'action-secondary',
-    textColor: string,
-    onPress: () => void,
-  ): { container: Phaser.GameObjects.Container } {
-    const container = this.add.container(x, y);
-    const bg = this.add.graphics();
-    bg.fillStyle(yapHexToInt(YAP_PALETTE[fillToken]), 1)
-      .fillRoundedRect(-w / 2, -YAP_BANNER_BUTTON_HEIGHT / 2, w, YAP_BANNER_BUTTON_HEIGHT, 8)
-      .lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1)
-      .strokeRoundedRect(-w / 2, -YAP_BANNER_BUTTON_HEIGHT / 2, w, YAP_BANNER_BUTTON_HEIGHT, 8);
-    const zone = this.add
-      .zone(0, 0, w, YAP_BANNER_BUTTON_HEIGHT)
-      .setInteractive({ useHandCursor: true });
-    const label = yapText(
-      this,
-      0,
-      0,
-      labelText,
-      yapTextStyle(YAP_BANNER_FONT_SIZE, textColor),
-    ).setOrigin(0.5);
-    zone.on('pointerdown', onPress);
-    container.add([bg, zone, label]);
-    return { container };
   }
 }

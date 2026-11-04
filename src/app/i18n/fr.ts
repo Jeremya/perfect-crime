@@ -30,6 +30,8 @@ export const fr: YapDictionary = {
     decline: 'Non merci',
   },
   home: {
+    // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
+    tagline: 'Un casse par jour · Yap Corp',
     dailyHeist: 'Casse du jour n°{day}',
     statusToDo: 'À faire',
     statusCleared: 'Réussi en {attempts} essais',
@@ -47,14 +49,13 @@ export const fr: YapDictionary = {
     pausesLeft: 'Pauses restantes : {count}',
     clear: 'Effacer',
     play: 'PLAY',
-    // Passe visuelle C1 : une seule ligne de stats sous le nom du niveau.
-    statsTicks: '{ticks} ticks',
+    // Passe visuelle C1 : le par dans le bloc de droite de l'en-tête de victoire.
     statsPar: 'par {par}',
-    statsPauses: '{count} pauses',
-    statsSeparator: ' · ',
     drawRoute: 'Trace ta route',
     hint: 'Indice',
     grabDiamond: 'Prends le diamant, puis sors',
+    // X1 : les objectifs d'étoiles, dans la légende du bas dès que le plan peut partir.
+    starTargets: "★★★ à {par} ticks · ★★ jusqu'à {twoStarMax}",
   },
   execution: {
     stop: 'Stop',
@@ -116,10 +117,6 @@ export const fr: YapDictionary = {
     error: "Ce niveau ne s'ouvre pas : {message}",
     unsolved: 'Pas terminable en {max} ticks',
     noBundled: 'Aucun fichier .lvl embarqué',
-  },
-  // Story C3 — écran d'exécution (rejeu du plan).
-  executionPlayback: {
-    tick: 'Tick {tick}/{max}',
   },
   // Story C4 — écran d'échec (rejeu au ralenti, cause écrite, réessayer).
   failureReplay: {
@@ -183,6 +180,10 @@ export const fr: YapDictionary = {
   // jusqu'au deuxième indice. La ligne de la carte et les actions réutilisent
   // challenge.* et comparison.* ci-dessus.
   challengeFlow: {
+    // Style plan de C1 : l'en-tête de l'écran défi (src/game/challenge-scene.ts)
+    kicker: 'Message reçu · casse nº {day}',
+    title: 'Défi lancé par {nickname}',
+    titleAnonymous: 'Un défi',
     expressNote: 'Nouveau ici ? Un tutoriel rapide en 3 niveaux d’abord.',
     you: 'Toi',
     friend: 'Ami',
@@ -201,5 +202,28 @@ export const fr: YapDictionary = {
   preview: {
     button: '👁 Aperçu',
     running: 'Aperçu de ton plan…',
+  },
+  // Passe visuelle 3 de C1 — l'en-tête de l'écran de niveau (src/game/kit.ts) :
+  // le surtitre au-dessus du titre, que son rôle affiche en capitales, et les
+  // stats du bloc de droite. Le compteur de ticks du rejeu sous `tick` n'est
+  // fait que de chiffres (« 07/26 »).
+  header: {
+    tutorial: 'Tutoriel · {n} / 5',
+    daily: 'Casse nº {day}',
+    archive: 'Archives · nº {day}',
+    challenge: 'Défi · nº {day}',
+    running: '{kicker} — en cours',
+    ticks: 'Ticks {ticks}/{par}',
+    pauses: 'Pauses {count}',
+    tick: 'Tick',
+  },
+  // Passe visuelle 3 de C1 — les titres des cinq niveaux du tutoriel : les noms
+  // de leçon de la spec Gate 1. Les casses du jour gardent leur nom de niveau.
+  tutorialLessons: {
+    t1: 'Le plan',
+    t2: 'Le regard',
+    t3: 'La ronde',
+    t4: 'La pause',
+    t5: 'La caméra',
   },
 };
