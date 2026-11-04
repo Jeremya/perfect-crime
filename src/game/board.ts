@@ -50,6 +50,34 @@ export const YAP_PALETTE = {
   'ink-muted': '#4E6480',
   /** Disabled primary button: ink at 28% over paper. */
   'ink-disabled': '#BEC5CC',
+  // Plan style board tokens (spec §5 and §7, plan style 3/6): the board as an
+  // architect's plan. The floor is `paper` and the wall edges are `ink`.
+  /** Wall fill under the 45° ink hatching. */
+  'hatch-ground': '#DDE4EE',
+  /** The player's route and the pause badges: a red marker. */
+  marker: '#D2403A',
+  /** The caught state: the detector's cone, the fatal cell, the active laser. */
+  stamp: '#C9302C',
+  /** Guard cone tint (at YAP_GUARD_CONE_ALPHA). */
+  'guard-cone': '#E8A030',
+  /** Guard cone outline, 3:1 on paper. */
+  'guard-cone-edge': '#C27A16',
+  /** Camera cone tint (at YAP_CAMERA_CONE_ALPHA), its outline and the lens. */
+  'camera-cone': '#7A54A8',
+  /** Diamond outline and facets. */
+  'diamond-edge': '#0E7C88',
+  /** Diamond fill. */
+  'diamond-fill': '#D3F0F2',
+  /** The door symbol of the exit. */
+  'exit-door': '#2E7D4F',
+  /** Guard token fill. */
+  'guard-token': '#F6DDAE',
+  /** Guard token outline, its "G" and its facing wedge. */
+  'guard-token-ink': '#8A5600',
+  /** Thief token disc (with a paper mask band and ring). */
+  'thief-token': '#1B1F24',
+  /** Pencil treatment of the ghost preview and the hint. */
+  graphite: '#5B6470',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
@@ -63,6 +91,14 @@ export function yapHexToInt(hex: string): number {
 export const YAP_CONE_FILL_ALPHA = 0.3;
 /** Danger overlays get the 2 px outline of docs/UI-DESIGN.md. */
 export const YAP_DANGER_LINE_WIDTH = 2;
+/** `ink-soft`: the grid between floor cells is ink at 16% (spec §5). */
+export const YAP_INK_SOFT_ALPHA = 0.16;
+/** Guard cone tint opacity (spec §5: rgba(232,160,48,.24)). */
+export const YAP_GUARD_CONE_ALPHA = 0.24;
+/** Camera cone tint opacity (spec §5: rgba(122,84,168,.18)). */
+export const YAP_CAMERA_CONE_ALPHA = 0.18;
+/** Cone outlines are crisp 1.5 px lines (spec §7). */
+export const YAP_CONE_LINE_WIDTH = 1.5;
 
 // ---------------------------------------------------------------------------
 // Layout — the grid fills the space between the top and bottom bars.

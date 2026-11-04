@@ -9,6 +9,10 @@ import { describe, expect, it } from 'vitest';
 import {
   YAP_BOARD_INSET,
   YAP_BOTTOM_BAR_HEIGHT,
+  YAP_CAMERA_CONE_ALPHA,
+  YAP_CONE_LINE_WIDTH,
+  YAP_GUARD_CONE_ALPHA,
+  YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
   YAP_TOP_BAR_HEIGHT,
   yapComputeLayout,
@@ -74,9 +78,9 @@ describe('palette — gameplay information is readable', () => {
   });
 
   it('keeps the primary action readable in both states', () => {
-    expect(contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary'])).toBeGreaterThanOrEqual(
-      4.5,
-    );
+    expect(
+      contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary']),
+    ).toBeGreaterThanOrEqual(4.5);
     expect(
       contrast(YAP_PALETTE['action-primary'], YAP_PALETTE['action-primary-soft']),
     ).toBeGreaterThanOrEqual(4.5);
@@ -100,6 +104,41 @@ describe('plan style tokens — paper and ink', () => {
     // enabled: a paper label on the ink fill; disabled: an ink label on ink at 28%
     expect(contrast(YAP_PALETTE.paper, YAP_PALETTE.ink)).toBeGreaterThanOrEqual(4.5);
     expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['ink-disabled'])).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('plan style tokens — the board', () => {
+  it('marks read on paper at 3:1', () => {
+    for (const token of [
+      'guard-cone-edge',
+      'camera-cone',
+      'marker',
+      'stamp',
+      'diamond-edge',
+      'exit-door',
+      'thief-token',
+      'laser-off',
+      'graphite',
+    ] as const) {
+      expect(contrast(YAP_PALETTE[token], YAP_PALETTE.paper), token).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('the guard letter reads on its token', () => {
+    expect(
+      contrast(YAP_PALETTE['guard-token-ink'], YAP_PALETTE['guard-token']),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('ink edges read on the hatching', () => {
+    expect(contrast(YAP_PALETTE.ink, YAP_PALETTE['hatch-ground'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('pins the tints and the outline of the cones', () => {
+    expect(YAP_INK_SOFT_ALPHA).toBe(0.16);
+    expect(YAP_GUARD_CONE_ALPHA).toBe(0.24);
+    expect(YAP_CAMERA_CONE_ALPHA).toBe(0.18);
+    expect(YAP_CONE_LINE_WIDTH).toBe(1.5);
   });
 });
 
