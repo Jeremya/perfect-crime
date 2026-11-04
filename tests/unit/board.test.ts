@@ -181,9 +181,6 @@ describe('palette — gameplay information is readable', () => {
     expect(
       contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary']),
     ).toBeGreaterThanOrEqual(4.5);
-    expect(
-      contrast(YAP_PALETTE['action-primary'], YAP_PALETTE['action-primary-soft']),
-    ).toBeGreaterThanOrEqual(4.5);
   });
 });
 

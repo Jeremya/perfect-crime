@@ -57,13 +57,11 @@ shape, outline, and icon.
 | `surface-panel` | `#FFFFFF` | Cards and controls |
 | `floor` | `#D9D8D2` | Walkable cells |
 | `wall` | `#47515B` | Walls and slate structures |
-| `wall-detail` | `#77818A` | Desaturated wall furniture/detail |
 | `grid-line` | `#767C81` | Cell boundaries (≈2.7:1 on the floor) |
 | `text-primary` | `#202A33` | Main text and thief outline |
 | `text-secondary` | `#56616B` | Supporting text |
 | `action-primary` | `#176B78` | PLAY and primary Share action |
 | `action-secondary` | `#E6E8E6` | Secondary controls |
-| `action-primary-soft` | `#D7E6E8` | Disabled primary action (keeps the brand hue) |
 | `danger-guard` | `#D99B32` | Guard cone tint only, at about 30% opacity |
 | `danger-guard-outline` | `#8A5600` | Guard cone cell outline |
 | `danger-camera` | `#8260A8` | Camera cone tint and outline |
@@ -88,30 +86,43 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
 
 ## Board and world rendering
 
-- Board: top-down building on an 8-column × 12-row grid, origin at the top
-  left. Floor is light warm gray; walls are dark slate. The board is a card:
-  a 6 px inset from the page edge, a soft shadow and a 2 px frame, so the grid
-  reads as one object rather than tiles floating on the background.
-- Thief: one Kenney Top-down Shooter character in its **stand** pose, no
-  weapon, dark enough to remain visible over danger cells, with a light edge.
-- Guards: a different **stand** character from the same pack, no weapon;
-  tint all guards consistently. Make facing readable.
-- Guard cone: amber cells at about 30% fill opacity plus a crisp dark amber
-  outline (`danger-guard-outline`) that stays visible against the floor.
-- Camera cone: violet cells at about 30% fill opacity plus a crisp violet
-  outline. Include a camera icon/marker so it remains distinct from guards.
-- Laser: red solid line/cell treatment while active; gray dashed treatment
-  while inactive. Show the cycle at the emitter with small on/off ticks.
-- Diamond: cyan and visibly distinct from floor; exit: green door icon.
-- Planned path: thick rounded near-white line with a dark outline. Pause
-  badges use a compact form such as `⏸ 2`.
-- Patrols: thin dotted line with small direction arrows; keep them secondary
-  to the active danger cells and player's path.
-- Caught state: flash/mark the fatal cells in red, add a clear icon and the
-  localized cause label (guard, camera, or laser). No blood or impact imagery.
-- Ghost preview: show the guard positions and their exact cones at the tick
-  under the finger; use reduced opacity and an explicit ghost treatment so
-  it cannot be confused with the tick-0 state.
+- Board (plan style 3/6, `docs/design/2026-10-30-plan-style-design.md` §7):
+  a top-down plan of an 8-column × 12-row grid, origin at the top left. The
+  border walls render as a thin 10 px frame (uniform cells for a level whose
+  border is not all walls), so the interior cells take the room: 59 px at
+  390 × 844. One geometry (`yapLevelLayout`, `yapCellRect`, `yapCellAt` in
+  `src/game/board.ts`) serves drawing, input, the ghost, the failure zoom,
+  the viewer and the e2e strokes.
+- Plan sheet: paper floor, an ink-soft (ink at 16%) 0.8 px grid between floor
+  cells only, walls in `hatch-ground` with 45° ink hatching, a 1.8 px ink edge
+  wherever floor meets wall, and a double ink frame (2 px + 0.8 px). No card
+  shadow, no rounded board corners.
+- Thief: a dark `thief-token` disc with a paper mask band and two eyes, and a
+  2.5 px paper ring so it stays visible over any cone.
+- Guards: a `guard-token` disc with a "G" and a filled facing wedge just
+  outside it.
+- Guard cone: exact cells tinted `guard-cone` at 24% with a crisp 1.5 px
+  `guard-cone-edge` outline. Camera cone: `camera-cone` at 18% with a 1.5 px
+  outline. Cameras are a paper box with an ink outline on their wall cell (on
+  the frame for a border camera) and a violet lens on the side they face.
+- Laser: a thin 2.5 px `stamp` beam with emitter nubs and a faint red cell
+  tint while active; a dashed `laser-off` line while inactive. The cycle shows
+  at the emitter with small on/off ticks.
+- Diamond: an outlined gem with facets; exit: an architectural door symbol
+  (threshold, open leaf, quarter-circle swing) on its wall side.
+- Planned path: a 5.5 px `marker` line with round caps and joins, thicker than
+  a laser and without nubs. During the playback the part not yet walked is at
+  about 30%. Pause badges are a paper pill with a marker outline, two bars and
+  the count.
+- Patrols: an ink dashed line (4/4) at 55% with small arrowheads; secondary to
+  the cones and the route.
+- Caught state: the detector's cone turns `stamp` red, and the fatal cell gets
+  a 3 px red outline, a ring and an X, with the localized cause label (guard,
+  camera, or laser). No blood or impact imagery.
+- Ghost preview: the guard positions and their exact cones at the tick under
+  the finger, in pencil (graphite, dashed outlines, about 50% opacity) so it
+  cannot be confused with the tick-0 state. The hint route is graphite dots,
+  never red; the friend's plan is a solid ink line.
 - Draw floors, cones, lasers, patrol lines, and the plan in Phaser/code or
   pre-made cell sprites. Do not rely on a decorative tileset to define game
   rules or walkability.

@@ -16,7 +16,6 @@ export const YAP_PALETTE = {
   'surface-panel': '#FFFFFF',
   floor: '#D9D8D2',
   wall: '#47515B',
-  'wall-detail': '#77818A',
   // 3.2:1 against the floor: cell boundaries are gameplay (cones are exact
   // cells), so they must stay legible in daylight, not just decorative.
   'grid-line': '#6F767B',
@@ -24,8 +23,6 @@ export const YAP_PALETTE = {
   'text-secondary': '#56616B',
   'action-primary': '#176B78',
   'action-secondary': '#E6E8E6',
-  /** Disabled primary action: keeps the brand hue instead of a dead grey. */
-  'action-primary-soft': '#D7E6E8',
   'danger-guard': '#D99B32',
   'danger-camera': '#8260A8',
   'danger-laser': '#C74747',
@@ -102,10 +99,6 @@ export function yapHexToInt(hex: string): number {
   return Number.parseInt(hex.replace('#', ''), 16);
 }
 
-/** Cone fill opacity: "about 30%" per docs/UI-DESIGN.md. */
-export const YAP_CONE_FILL_ALPHA = 0.3;
-/** Danger overlays get the 2 px outline of docs/UI-DESIGN.md. */
-export const YAP_DANGER_LINE_WIDTH = 2;
 /** `ink-soft`: the grid between floor cells is ink at 16% (spec §5). */
 export const YAP_INK_SOFT_ALPHA = 0.16;
 /** Guard cone tint opacity (spec §5: rgba(232,160,48,.24)). */
@@ -124,9 +117,8 @@ export const YAP_TOP_BAR_HEIGHT = 64;
 /** Bottom action bar height in px (Clear, PLAY, Hint) — docs/UI-DESIGN.md. */
 export const YAP_BOTTOM_BAR_HEIGHT = 96;
 /**
- * Gap between the board and the page edge, in px. It holds the board frame and
- * its soft shadow, so the grid reads as one object instead of tiles glued to
- * the screen (docs/UI-DESIGN.md, Board and world rendering).
+ * Gap between the board and the page edge, in px: the page shows around the
+ * plan sheet's double ink frame (plan style 3/6).
  */
 export const YAP_BOARD_INSET = 6;
 
