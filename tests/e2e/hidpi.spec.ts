@@ -248,9 +248,18 @@ test.describe('on a 390×844 phone at 3x', () => {
     await yapDraw(page, T2, T2_CAUGHT);
     await yapPressPlay(page);
     await yapWaitPhase(page, 'failure');
-    // one tap anywhere goes back to the intact plan...
+    // the replay settles and the SPOTTED stamp lands near the fatal cell...
+    await page.waitForFunction(
+      () => (window as unknown as { __yapStamp?: string | null }).__yapStamp === 'SPOTTED',
+      undefined,
+      { timeout: 20_000 },
+    );
+    // one tap anywhere goes back to the intact plan, without the stamp...
     await yapTapCentre(page);
     await yapWaitPhase(page, 'planning');
+    expect(
+      await page.evaluate(() => (window as unknown as { __yapStamp?: string | null }).__yapStamp),
+    ).toBeNull();
     // ... whose PLAY is under the finger again once the zoom is undone
     await yapPressPlay(page);
     await yapWaitPhase(page, 'failure');

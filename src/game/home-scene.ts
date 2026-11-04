@@ -706,8 +706,10 @@ export class YapHomeScene extends Phaser.Scene {
     const titleText = yapRoleText(this, 14, tight ? 3 : 7, title, 'body', YAP_PALETTE.ink);
     const statusStamp = yapStamp(this, 0, 0, status, toDo ? 'stamp' : 'ink', {
       angle: -4,
-      maxWidth: w * 0.45,
-      size: tight ? 10 : 11,
+      maxWidth: w * 0.5,
+      size: 12,
+      // "RÉUSSI · 12 ESSAIS" too wide at 12 px: "RÉUSSI" (the stars say the rest)
+      fallback: yapI18n.t('home.stampClearedShort'),
     });
     statusStamp.setPosition(
       Math.round(16 + statusStamp.width / 2),

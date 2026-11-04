@@ -36,6 +36,7 @@ export const fr: YapDictionary = {
     status: 'Statut',
     stampToDo: 'À faire',
     stampCleared: 'Réussi · {attempts} essais',
+    stampClearedShort: 'Réussi',
     stampSoon: 'Bientôt',
     stampWeekOver: 'Semaine terminée',
     streakKicker: 'Série · {count} jours',

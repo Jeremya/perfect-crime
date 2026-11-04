@@ -35,6 +35,7 @@ export const en = {
     status: 'Status',
     stampToDo: 'To do',
     stampCleared: 'Cleared · {attempts} tries',
+    stampClearedShort: 'Cleared',
     stampSoon: 'Soon',
     stampWeekOver: 'Week over',
     streakKicker: 'Streak · {count} days',

@@ -57,7 +57,6 @@ import {
   YAP_BOTTOM_BAR_HEIGHT,
   YAP_PALETTE,
   YAP_CONSENT_HEIGHT_KEY,
-  YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
   yapConsentTopBar,
   yapDirVector,
@@ -117,8 +116,14 @@ import {
 } from './render';
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
 import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
-import { YAP_WIN_ROW_HEIGHT, yapHandPose, yapTelegram, yapWinActions } from './compose';
-import { yapRoleCase, yapRoleText, yapText, yapTextStyle } from './text';
+import {
+  YAP_WIN_ROW_HEIGHT,
+  yapHandPose,
+  yapPlanningBand,
+  yapTelegram,
+  yapWinActions,
+} from './compose';
+import { yapRoleCase, yapRoleText, yapSetRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
   YAP_PLANNING_CLEAR_WIDTH,
@@ -265,6 +270,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapHandStart = 0;
   /** The run has had its first touch: the hand never comes back. */
   private yapHandDone = false;
+  /** The REPÉRÉ stamp's holder while it is on the board (null otherwise). */
+  private yapFailureStamp: Phaser.GameObjects.Container | null = null;
   /** The failure replay has settled: its REPÉRÉ stamp is down. */
   private yapFailureSettled = false;
   // --- Failure (C4) ---
@@ -363,7 +370,25 @@ export class YapLevelScene extends Phaser.Scene {
    * instead of sleeping. Read-only, no gameplay effect, absent outside a
    * browser.
    */
+  /**
+   * End-to-end hook beside `__yapPhase`: the failure stamp's text while it is
+   * on the board, null otherwise. Read-only, absent outside a browser.
+   */
+  private yapPublishStamp(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        const on = this.yapFailureStamp !== null && this.yapFailureStamp.active;
+        (window as unknown as Record<string, unknown>)['__yapStamp'] = on
+          ? yapRoleCase('buttonPrimary', yapI18n.t('failure.stamp'))
+          : null;
+      }
+    } catch {
+      // no window (node tests): nothing to publish
+    }
+  }
+
   private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win' | 'preview'): void {
+    this.yapPublishStamp();
     try {
       if (typeof window !== 'undefined') {
         (window as unknown as Record<string, unknown>)['__yapPhase'] = phase;
@@ -1632,6 +1657,8 @@ export class YapLevelScene extends Phaser.Scene {
     const replay = new YapFailureReplay(exec.yapFrames(), exec.yapOutcome());
     this.yapFailure = replay;
     this.yapFailureSettled = false;
+    this.yapFailureStamp?.destroy();
+    this.yapFailureStamp = null;
     this.yapExecution = null; // the playback is over; the failure drives now
     this.yapFatalMarker = replay.yapFatalCell();
     this.yapChrome?.destroy();
@@ -1688,6 +1715,8 @@ export class YapLevelScene extends Phaser.Scene {
     const holder = this.add.container(x, y).setScale(1 / zoom);
     holder.add(yapStamp(this, 0, 0, yapI18n.t('failure.stamp'), 'stamp', { thump }));
     board.add(holder);
+    this.yapFailureStamp = holder;
+    this.yapPublishStamp();
   }
 
   /** (Re)starts the slow-motion replay timer (quarter speed). */
@@ -1714,6 +1743,9 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapRemoveFailureTimer();
     this.yapFailure = null;
     this.yapFailureSettled = false;
+    // the stamp lives on the board, which outlives the failure screen
+    this.yapFailureStamp?.destroy();
+    this.yapFailureStamp = null;
     this.yapResetCamera();
     const level = this.yapLevel;
     const layout = this.yapLayout;
@@ -1746,12 +1778,9 @@ export class YapLevelScene extends Phaser.Scene {
     const a = yapCellCenter(layout, { x: Math.floor(focus.x), y: Math.floor(focus.y) });
     const b = yapCellCenter(layout, { x: Math.ceil(focus.x), y: Math.ceil(focus.y) });
     const cam = this.cameras.main;
-    cam.setViewport(
-      0,
-      YAP_TOP_BAR_HEIGHT * YAP_DPR,
-      layout.viewWidth * YAP_DPR,
-      (layout.viewHeight - YAP_TOP_BAR_HEIGHT - YAP_BOTTOM_BAR_HEIGHT) * YAP_DPR,
-    );
+    // the band under the header (itself under the first-launch consent note)
+    const band = yapPlanningBand(layout.viewHeight, this.yapConsentNote);
+    cam.setViewport(0, band.y * YAP_DPR, layout.viewWidth * YAP_DPR, band.height * YAP_DPR);
     // keep the zoomed view on the grid, never on the empty margins around it
     cam.setBounds(layout.originX, layout.originY, layout.boardWidth, layout.boardHeight);
     cam.setZoom(replay.yapZoomFactor(layout) * YAP_DPR);
@@ -2015,15 +2044,17 @@ export class YapLevelScene extends Phaser.Scene {
       win.yapEmojiLine(),
       win.yapTicks(),
       innerW,
-      (candidate) => telegram.setText(yapRoleCase('stat', candidate)).width,
+      (candidate) => yapSetRoleText(telegram, 'stat', candidate).width,
     );
-    telegram.setText(yapRoleCase('stat', line));
+    // through the emoji guard: the empty text took the role's letter spacing,
+    // which would split an astral emoji (👁️ 📷 🔴 💡) in two
+    yapSetRoleText(telegram, 'stat', line);
     content.add(telegram);
     y += telegram.height;
 
     const padY = 20;
     const cardH = Math.round(y + padTop + padY);
-    const top = YAP_TOP_BAR_HEIGHT + 24;
+    const top = yapConsentTopBar(this.yapConsentNote) + 24;
     const room = actions.top - 16 - top;
     const cardY = Math.round(top + Math.max(0, (room - cardH) / 2));
     content.setY(cardY + padTop);

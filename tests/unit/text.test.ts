@@ -18,6 +18,7 @@ import {
   YAP_TEXT_ROLES,
   yapCanTrack,
   yapRoleCase,
+  yapSetRoleText,
   yapRoleStyle,
   yapRoleText,
   yapRoleTracking,
@@ -273,6 +274,19 @@ describe('yapRoleText — a Text made from a role', () => {
   it('shows content in the case of its role', () => {
     expect(yapRoleCase('stat', 'Next heist in 05:12:33')).toBe('NEXT HEIST IN 05:12:33');
     expect(yapRoleCase('body', 'Cleared in 2 attempts')).toBe('Cleared in 2 attempts');
+  });
+
+  it('a text changed later keeps the emoji guard', () => {
+    // the win telegram is made empty, then measured and set: an astral emoji
+    // set later must drop the spacing the empty text took
+    const setLetterSpacing = vi.fn<(value: number) => unknown>().mockReturnThis();
+    const setText = vi.fn<(value: string) => unknown>().mockReturnThis();
+    const text = { setText, setLetterSpacing } as unknown as Phaser.GameObjects.Text;
+    yapSetRoleText(text, 'stat', 'To share 👁️✅ · 13 ticks');
+    expect(setText).toHaveBeenLastCalledWith('TO SHARE 👁️✅ · 13 TICKS');
+    expect(setLetterSpacing).toHaveBeenLastCalledWith(0);
+    yapSetRoleText(text, 'stat', 'To share ✅ · 10 ticks');
+    expect(setLetterSpacing).toHaveBeenLastCalledWith(yapRoleTracking('stat'));
   });
 
   it('serif roles keep case and spacing', () => {

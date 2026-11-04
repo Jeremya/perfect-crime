@@ -6,6 +6,7 @@
 // (./kit.ts) and the scenes draw with these; the unit tests pin them.
 import { YAP_TEST_START_DATE } from '../app/config';
 import type { YapLevel } from '../core/level';
+import { YAP_BOTTOM_BAR_HEIGHT, yapConsentTopBar } from './board';
 import { YAP_BUTTON_HEIGHT, type YapBox } from './kit';
 
 /** Room a leader keeps clear on each side, next to its texts, in px. */
@@ -48,6 +49,9 @@ export function yapHeistFacts(level: YapLevel): ('guard' | 'camera' | 'laser')[]
 
 /** The glyphs of `text`, whole (an emoji with its modifiers stays one). */
 function yapGlyphs(text: string): string[] {
+  // Intl.Segmenter keeps an emoji and its modifiers together; browsers
+  // without it (Firefox before 125) get code points, never half a surrogate pair
+  if (typeof Intl.Segmenter !== 'function') return Array.from(text);
   const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
   return Array.from(segmenter.segment(text), (s) => s.segment);
 }
@@ -80,6 +84,34 @@ export function yapTelegram(
 export function yapFitStamp(textWidth: number, max: number): number {
   if (textWidth <= max) return 1;
   return Math.max(0.7, max / textWidth);
+}
+
+/**
+ * The font size (px) at which a stamp's text, `textWidth` px wide at `base`
+ * px, fits a stamp at most `maxWidth` wide (its padding is `pad` px): `base`
+ * when it fits, smaller down to `min` (12 px, the decorative floor), or null
+ * when even `min` does not fit — the caller then uses a shorter text.
+ */
+export function yapStampFont(
+  textWidth: number,
+  base: number,
+  maxWidth: number,
+  pad = 24,
+  min = 12,
+): number | null {
+  const room = maxWidth - pad;
+  if (textWidth <= room) return base;
+  const size = Math.floor((base * room) / textWidth);
+  return size >= min ? size : null;
+}
+
+/**
+ * The band of the view the board shows in: under the header, itself under
+ * the first-launch consent note (`note` px), and above the bottom bar.
+ */
+export function yapPlanningBand(viewHeight: number, note: number): { y: number; height: number } {
+  const y = yapConsentTopBar(note);
+  return { y, height: viewHeight - y - YAP_BOTTOM_BAR_HEIGHT };
 }
 
 /** Height of the win report's secondary row (Improve, Home), in px. */

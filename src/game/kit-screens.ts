@@ -12,9 +12,9 @@ import {
   type YapPaletteToken,
   type YapRect,
 } from './board';
-import { yapDayBoxes, yapFitStamp, yapLeaderDots, yapRulerMarks } from './compose';
+import { yapDayBoxes, yapLeaderDots, yapRulerMarks, yapStampFont } from './compose';
 import { yapPrefersReducedMotion } from './motion';
-import { yapRoleText } from './text';
+import { yapRoleText, yapSetRoleText } from './text';
 
 // ---------------------------------------------------------------------------
 // Stamp
@@ -24,6 +24,8 @@ import { yapRoleText } from './text';
 export const YAP_STAMP_ANGLE = -9;
 /** A stamp's font size, in px: heavy mono capitals. */
 const YAP_STAMP_FONT = 18;
+/** The smallest a stamp's text goes, in px: the decorative floor. */
+const YAP_STAMP_MIN_FONT = 12;
 /** The stamp's thump (spec §9): from 1.35 to 1 over 180 ms. */
 const YAP_STAMP_THUMP_SCALE = 1.35;
 const YAP_STAMP_THUMP_MS = 180;
@@ -37,6 +39,8 @@ export interface YapStampOptions {
   readonly maxWidth?: number;
   /** Font size in px before fitting; 18 by default. */
   readonly size?: number;
+  /** A shorter text, for when `text` does not fit `maxWidth` at 12 px. */
+  readonly fallback?: string;
 }
 
 /**
@@ -54,13 +58,19 @@ export function yapStamp(
   options: YapStampOptions = {},
 ): Phaser.GameObjects.Container {
   const hex = YAP_PALETTE[color];
+  const base = options.size ?? YAP_STAMP_FONT;
   const label = yapRoleText(scene, 0, 0, text, 'buttonPrimary', hex);
-  label.setFontSize(options.size ?? YAP_STAMP_FONT);
+  label.setFontSize(base);
   const padX = 12;
   const padY = 7;
   if (options.maxWidth !== undefined) {
-    const scale = yapFitStamp(label.width + 2 * padX, options.maxWidth);
-    if (scale < 1) label.setFontSize(Math.floor((options.size ?? YAP_STAMP_FONT) * scale));
+    // never under the 12 px decorative floor: a shorter text instead
+    let size = yapStampFont(label.width, base, options.maxWidth, 2 * padX);
+    if (size === null && options.fallback !== undefined) {
+      yapSetRoleText(label, 'buttonPrimary', options.fallback);
+      size = yapStampFont(label.width, base, options.maxWidth, 2 * padX);
+    }
+    label.setFontSize(size ?? YAP_STAMP_MIN_FONT);
   }
   label.setOrigin(0.5);
   const w = label.width + 2 * padX;

@@ -4,7 +4,7 @@
 // the first-launch hand. Phaser draws with these; the drawing is checked in
 // screenshots.
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { YapLevel } from '../../src/core/level';
 import {
   yapDayBoxes,
@@ -12,7 +12,9 @@ import {
   yapHandPose,
   yapHeistFacts,
   yapLeaderDots,
+  yapPlanningBand,
   yapRulerMarks,
+  yapStampFont,
   yapTelegram,
   yapWeekday,
   yapWinActions,
@@ -100,6 +102,35 @@ describe('yapTelegram — the share line of the win report', () => {
     expect(out).toContain('26 ticks');
     // never half an emoji: no lone surrogate left in the line
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(out)).toBe(false);
+  });
+});
+
+describe('yapTelegram without Intl.Segmenter', () => {
+  it('falls back to code points (older Firefox)', () => {
+    vi.stubGlobal('Intl', { ...Intl, Segmenter: undefined });
+    try {
+      const out = yapTelegram('{line} · {ticks}', '💥'.repeat(20), 9, 80, (s) => [...s].length * 8);
+      expect(out).toContain('…');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('yapStampFont — a stamp never goes under 12 px', () => {
+  it('fits down to 12 px, else says it does not fit', () => {
+    // text 200 px wide at 14 px (+24 px padding) into 150 px: 14 × 126/200 → 8, too small
+    expect(yapStampFont(200, 14, 150)).toBeNull();
+    expect(yapStampFont(100, 14, 150)).toBe(14);
+    // 140 px at 14 into 150 (126 for the text): 12.6 → 12
+    expect(yapStampFont(140, 14, 150)).toBe(12);
+  });
+});
+
+describe('yapPlanningBand — the band the board shows in', () => {
+  it('starts under the consent note', () => {
+    expect(yapPlanningBand(844, 0)).toEqual({ y: 64, height: 844 - 64 - 96 });
+    expect(yapPlanningBand(844, 76)).toEqual({ y: 140, height: 844 - 140 - 96 });
   });
 });
 
