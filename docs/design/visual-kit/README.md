@@ -4,6 +4,16 @@
 > sur `main` (`docs/design/visual-kit/*.md`, `public/design/*.svg`). Ce README
 > trace l'implémentation côté code (tâche **X8b**, `tasks/X8b.md`).
 
+## Décision produit (2026-11-04) — direction « plan d'architecte » partout
+
+Le product owner a tranché le choix laissé ouvert par `style-tile.md` §6 : la
+direction **« plan d'architecte »** (`docs/design/2026-10-30-plan-style-design.md`)
+habille tous les écrans. L'intégration X8b-1 (`src/game/ui-kit.ts`, les tokens
+dégradé/glow/or/ombre douce de `YAP_PALETTE`, l'accueil « fancy ») est
+**retirée** par la passe 2/6 du plan style : l'accueil passe par
+`src/game/kit.ts` (papier, encre, fiches). X8b-2 n'aura pas lieu. Ce dossier
+reste une archive de la proposition.
+
 ## Décision produit actée (2026-10-30) — 100% code
 
 Aucun sprite du **Kenney UI Pack** n'est intégré

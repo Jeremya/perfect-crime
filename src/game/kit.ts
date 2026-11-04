@@ -24,7 +24,14 @@ import type Phaser from 'phaser';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapHexToInt, type YapPaletteToken } from './board';
 import { YAP_MOTION_FAST, yapPrefersReducedMotion } from './motion';
 import { YAP_UI_TAP_EVENT } from './sound';
-import { YAP_TEXT_ROLES, yapRoleText, yapRoleTracking, type YapTextRole } from './text';
+import {
+  YAP_TEXT_ROLES,
+  yapCanTrack,
+  yapRoleCase,
+  yapRoleText,
+  yapRoleTracking,
+  type YapTextRole,
+} from './text';
 
 // ---------------------------------------------------------------------------
 // Rows of buttons: where a row sits and how wide each button is
@@ -195,25 +202,6 @@ export function yapEllipsize(
     }
   }
   return start(best);
-}
-
-/**
- * What a Text of `role` shows for `content`: the content in capitals for an
- * uppercase role, as yapRoleText makes it when it creates the Text. The kit
- * keeps some Texts (the label of a button, the right lines of a header) and
- * changes their content later, which must be in capitals too.
- */
-function yapRoleContent(role: YapTextRole, content: string): string {
-  return YAP_TEXT_ROLES[role].upper === true ? content.toUpperCase() : content;
-}
-
-/**
- * Whether `content` can be drawn with letter spacing. Phaser draws a spaced
- * Text one UTF-16 unit at a time, so a character beyond them (an emoji, as in
- * "💡 Hint") would be split into two halves drawn as two broken glyphs.
- */
-function yapCanTrack(content: string): boolean {
-  return !/[\uD800-\uDFFF]/.test(content);
 }
 
 /** A measure for yapEllipsize: the width `text` takes once it shows `candidate`. */
@@ -513,7 +501,7 @@ export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapBu
     setLabel(next) {
       if (next === current) return;
       current = next;
-      label.setText(yapRoleContent(role, next));
+      label.setText(yapRoleCase(role, next));
       fitLabel();
     },
     setEnabled(next) {
@@ -674,7 +662,7 @@ export function yapHeader(
         entry = { role, text };
         right[index] = entry;
       } else {
-        entry.text.setText(yapRoleContent(role, line)).setY(y);
+        entry.text.setText(yapRoleCase(role, line)).setY(y);
       }
       y += entry.text.height;
     });

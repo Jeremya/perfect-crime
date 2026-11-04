@@ -21,6 +21,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
+import { YAP_TEST_START_DATE } from '../../src/app/config';
+import { yapHomeActions } from '../../src/game/home-layout';
 import {
   YAP_MOBILE_UA as MOBILE_UA,
   yapCanvasView,
@@ -29,6 +31,7 @@ import {
   yapPlanCells,
   yapPressPlay,
   yapStartDistServer,
+  yapTap,
   yapWaitPhase,
   type YapCanvasView,
   type YapDistServer,
@@ -203,9 +206,7 @@ test.describe('share flow on a phone (mobile UA + touch)', () => {
     });
   });
 
-  test('default variant: the share sheet gets the text with the link inside', async ({
-    page,
-  }) => {
+  test('default variant: the share sheet gets the text with the link inside', async ({ page }) => {
     const view = await yapWinTutorialT1(page);
     await yapTapShareUntil(page, view, async () => (await yapShareCalls(page)).length > 0);
 
@@ -235,7 +236,9 @@ test.describe('share flow on a phone (mobile UA + touch)', () => {
     expect(data.url).toBe('https://yap-corp-perfect-crime.pages.dev/');
     expect(data.files).toEqual([]);
     // The body carries no link: it is the url field's job in this variant.
-    expect(data.text).toMatch(/^Perfect Crime 🕵️ tutorial cleared in 1 try\n✅ · \d+ ticks ⭐+\nYour turn:$/);
+    expect(data.text).toMatch(
+      /^Perfect Crime 🕵️ tutorial cleared in 1 try\n✅ · \d+ ticks ⭐+\nYour turn:$/,
+    );
     expect(data.text).not.toContain('https://');
     // The URL choice is remembered under the yapcorp: prefix.
     await expect
@@ -265,6 +268,55 @@ test.describe('share flow on a phone (mobile UA + touch)', () => {
     if (data === undefined) throw new Error('no share call with the map file');
     expect(data.files).toEqual([{ name: 'perfect-crime-0.png', type: 'image/png' }]);
     expect(data.text).toContain('Your turn: https://yap-corp-perfect-crime.pages.dev/');
+  });
+  test('Home Share opens the share sheet', async ({ context, page }) => {
+    // noon local time on day 3 of the test week; the clock keeps running (a
+    // fixed time would freeze the game loop and the fade-in of Home)
+    const [year, month, date] = YAP_TEST_START_DATE.split('-').map(Number);
+    await page.clock.setSystemTime(new Date(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 2, 12));
+    // a known player (tutorial done) who cleared today's heist, day 3
+    await context.addInitScript(() => {
+      localStorage.setItem(
+        'yapcorp:levels',
+        JSON.stringify({
+          cleared: ['tutorial/t1', 'tutorial/t2', 'tutorial/t3', 'tutorial/t4', 'tutorial/t5'],
+          done: true,
+        }),
+      );
+      localStorage.setItem(
+        'yapcorp:days',
+        JSON.stringify({
+          '3': {
+            winningAttempt: 2,
+            bestTicks: 20,
+            stars: 2,
+            hints: 0,
+            causes: [],
+            par: 20,
+            plan: [],
+          },
+        }),
+      );
+    });
+    await page.goto(`${baseUrl}/`);
+    const view = await yapCanvasView(page);
+    // Home on day 3: Share, Archive (days 1 and 2) and Tutorial; Share first
+    const share = yapHomeActions(view.width, view.height, 3).secondary[0];
+    if (share === undefined) throw new Error('no secondary row');
+    const point = {
+      x: share.x + share.width / 2,
+      y: yapHomeActions(view.width, view.height, 3).secondaryY,
+    };
+    // Home has no phase hook: tap until the share happens (a tap before the
+    // screen is drawn does nothing), then make sure it happened once
+    const deadline = Date.now() + 15_000;
+    while ((await yapShareCalls(page)).length === 0 && Date.now() < deadline) {
+      await yapTap(page, point);
+      await page.waitForTimeout(400);
+    }
+    const calls = await yapShareCalls(page);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.text).toContain('Daily Heist #3');
   });
 });
 

@@ -16,6 +16,8 @@ import type Phaser from 'phaser';
 import {
   YAP_FONT_STACKS,
   YAP_TEXT_ROLES,
+  yapCanTrack,
+  yapRoleCase,
   yapRoleStyle,
   yapRoleText,
   yapRoleTracking,
@@ -255,6 +257,22 @@ describe('yapRoleText — a Text made from a role', () => {
     } finally {
       toLocaleUpperCase.mockRestore();
     }
+  });
+
+  it('a tracked role drops its spacing for an emoji', () => {
+    const { scene, text, setLetterSpacing } = yapFakeScene();
+    // Phaser spaces one UTF-16 unit at a time: tracked, 🔥 would be split in two
+    yapRoleText(scene, 0, 0, '🔥 Streak: 2 days', 'stat', '#111');
+
+    expect(text).toHaveBeenCalledWith(0, 0, '🔥 STREAK: 2 DAYS', yapRoleStyle('stat', '#111'));
+    expect(setLetterSpacing).not.toHaveBeenCalled();
+    expect(yapCanTrack('Tick 07/26')).toBe(true);
+    expect(yapCanTrack('💡 Hint')).toBe(false);
+  });
+
+  it('shows content in the case of its role', () => {
+    expect(yapRoleCase('stat', 'Next heist in 05:12:33')).toBe('NEXT HEIST IN 05:12:33');
+    expect(yapRoleCase('body', 'Cleared in 2 attempts')).toBe('Cleared in 2 attempts');
   });
 
   it('serif roles keep case and spacing', () => {

@@ -50,26 +50,14 @@ import {
 } from '../app/router';
 import { yapStorage, type YapStorage } from '../app/storage';
 import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
-import {
-  YAP_PALETTE,
-  YAP_TOP_BAR_HEIGHT,
-  yapFitRows,
-  yapHexToInt,
-} from './board';
+import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapFitRows, yapHexToInt } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
+import { yapHomeActions } from './home-layout';
+import { yapButton, yapCard, yapHeader, yapPaperPage, yapRule, yapShowToast } from './kit';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
-import { yapText, yapTextStyle } from './text';
-import {
-  yapButton,
-  yapDrawButtonChrome,
-  yapDrawPanelChrome,
-  yapDrawShadow,
-  yapPageBackground,
-  yapPill,
-  yapStrokeFrame,
-} from './ui-kit';
+import { yapRoleCase, yapRoleText, type YapTextRole } from './text';
 import { YapAttemptLog, YapWinScreen, yapEmojiLineFor } from './win';
 import {
   yapBuildShareContent,
@@ -94,6 +82,14 @@ const YAP_EXECUTION_END_EVENT = 'yap-execution-end';
 const YAP_WIN_HOME_EVENT = 'yap-win-home';
 /** Streak icon of the spec's Home line (an icon, like the Win emoji line). */
 const YAP_STREAK_ICON = '🔥';
+
+/** An action of Home's secondary row. */
+interface YapHomeAction {
+  readonly label: string;
+  readonly onPress: () => void;
+  /** As in YapButtonOptions: Share fires on the release. */
+  readonly fireOn?: 'down' | 'up';
+}
 
 const YAP_HOME_ROUTE: YapRoute = { kind: 'home' };
 
@@ -223,6 +219,8 @@ export class YapHomeScene extends Phaser.Scene {
   private yapRoot: Phaser.GameObjects.Container | null = null;
   private yapModel: YapHomeModel | null = null;
   private yapCountdownText: Phaser.GameObjects.Text | null = null;
+  /** Top edge of the actions (yapHomeActions): the share note sits above it. */
+  private yapActionsTop = 0;
   private yapTimer: Phaser.Time.TimerEvent | null = null;
   /** The archive panel is open instead of the daily heist card (story O1). */
   private yapArchiveOpen = false;
@@ -232,7 +230,7 @@ export class YapHomeScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(YAP_PALETTE['surface-page']);
+    this.cameras.main.setBackgroundColor(YAP_PALETTE['paper-page']);
     this.yapBuild();
     this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
@@ -262,7 +260,7 @@ export class YapHomeScene extends Phaser.Scene {
     }
     this.yapModel = next;
     const label = this.yapCountdownLabel(next);
-    if (label !== null) this.yapCountdownText?.setText(label);
+    if (label !== null) this.yapCountdownText?.setText(yapRoleCase('stat', label));
   };
 
   /** "Next heist in 05:12:33" (or the first heist, or the last of the week). */
@@ -293,65 +291,52 @@ export class YapHomeScene extends Phaser.Scene {
     const root = this.add.container(0, 0);
     this.yapRoot = root;
 
-    // X8b style tile: the page background is a vertical gradient (drawn first,
-    // behind everything); the camera background stays the flat token as base
-    root.add(yapPageBackground(this, width, height));
+    // C1 plan style: the paper page with its grid, at the back
+    root.add(yapPaperPage(this, width, height));
 
-    const textStyle = (
-      size: number,
-      color: string,
-      bold = false,
-      wrap = 0,
-    ): Phaser.Types.GameObjects.Text.TextStyle =>
-      yapTextStyle(size, color, {
-        ...(bold ? { fontStyle: 'bold' } : {}),
-        ...(wrap > 0 ? { wordWrap: { width: wrap } } : {}),
-      });
-
-    // top bar: the game name on the page gradient, with the streak and the
-    // week's star total as pills (X8b style tile; icons + digits, no new text)
-    root.add(
-      yapText(
-        this,
-        16,
-        YAP_TOP_BAR_HEIGHT / 2,
-        yapI18n.t('app.title'),
-        textStyle(20, YAP_PALETTE['text-primary'], true),
-      ).setOrigin(0, 0.5),
-    );
-    // story X2: the week's star total — "★ x/21", the sum of the best stars
-    // of the 7 daily records (tutorials never count) — as a header pill
+    // The header (spec §8): the tagline over the game name, and the week's
+    // star total on the right (story X2: "★ x/21", the best stars of the 7
+    // daily records; tutorials never count)
     const totalStars = yapTotalStars(loadYapDays(yapStorage));
-    const headerY = YAP_TOP_BAR_HEIGHT / 2;
-    const starsPill = yapPill(this, {
-      x: 0,
-      y: headerY,
-      text: `★ ${totalStars}/${YAP_MAX_WEEK_STARS}`,
-      fontSize: 16,
+    const header = yapHeader(this, width, {
+      kicker: yapI18n.t('home.tagline'),
+      title: yapI18n.t('app.title'),
+      right: [`★ ${totalStars}/${YAP_MAX_WEEK_STARS}`],
     });
-    starsPill.container.setX(width - 16 - starsPill.width / 2);
-    root.add(starsPill.container);
-    const streakPill = yapPill(this, {
-      x: 0,
-      y: headerY,
-      text: `${YAP_STREAK_ICON} ${model.streak}`,
-      fontSize: 16,
-    });
-    streakPill.container.setX(
-      starsPill.container.x - starsPill.width / 2 - 8 - streakPill.width / 2,
-    );
-    root.add(streakPill.container);
+    root.add(header.container);
 
-    // Actions live in the bottom third; their top edge is needed by the
-    // archive list, which must fit above them (O1).
-    const btnW = Math.min(width - 32, 420);
-    const cx = width / 2;
-    const primaryH = 56;
-    const secondaryH = 48;
-    const primaryY = height - 16 - primaryH / 2;
-    const secondaryY = primaryY - primaryH / 2 - 12 - secondaryH / 2;
-    const hasSecondary = model.play !== null || archiveDays.length > 0;
-    const actionsTop = hasSecondary ? secondaryY - secondaryH / 2 : primaryY - primaryH / 2;
+    // The actions live in the bottom third (one-thumb use), from
+    // yapHomeActions; their top edge bounds the archive list (O1).
+    const play = model.play;
+    const archiveToggle = (): void => {
+      this.yapArchiveOpen = !archiveOpen;
+      this.yapBuild();
+    };
+    const archiveLabel = archiveOpen ? yapI18n.t('common.close') : yapI18n.t('home.archive');
+    const secondaryActions: YapHomeAction[] = [];
+    if (play !== null) {
+      if (model.canShare) {
+        // Share fires on the release: a browser grants the share sheet the
+        // user activation of the release of a touch (as on the Win screen)
+        secondaryActions.push({
+          label: yapI18n.t('home.share'),
+          onPress: () => this.yapShareDay(model.day),
+          fireOn: 'up',
+        });
+      }
+      if (archiveDays.length > 0) {
+        secondaryActions.push({ label: archiveLabel, onPress: archiveToggle });
+      }
+      secondaryActions.push({
+        label: yapI18n.t('home.tutorial'),
+        onPress: () => yapFlow.yapGo(this, model.tutorial),
+      });
+    } else if (archiveDays.length > 0) {
+      // after day 7 the archive is the main entry: a secondary action
+      secondaryActions.push({ label: archiveLabel, onPress: archiveToggle });
+    }
+    const actions = yapHomeActions(width, height, secondaryActions.length);
+    this.yapActionsTop = actions.top;
 
     // the daily heist card: number, status, stars, streak, countdown
     const cardX = 16;
@@ -359,32 +344,26 @@ export class YapHomeScene extends Phaser.Scene {
     const cardW = width - 32;
     const innerX = cardX + 16;
     const innerW = cardW - 32;
-    const card = this.add.graphics();
-    root.add(card);
-    let y = cardY + 20;
+    // the card goes under its content, once its height is known
+    const content: Phaser.GameObjects.GameObject[] = [];
+    let y = cardY + 18;
     const line = (
       text: string,
-      size: number,
+      role: YapTextRole,
       color: string,
-      bold: boolean,
       gapAfter: number,
     ): Phaser.GameObjects.Text => {
-      const t = yapText(this, innerX, y, text, textStyle(size, color, bold, innerW)).setOrigin(
-        0,
-        0,
-      );
-      root.add(t);
+      const t = yapRoleText(this, innerX, y, text, role, color, { wordWrap: { width: innerW } });
+      content.push(t);
       y += t.height + gapAfter;
       return t;
     };
-    // dividers are stroked after the card fill, which needs the final height
-    const dividerYs: number[] = [];
     const divider = (): void => {
-      dividerYs.push(y);
-      y += 16;
+      content.push(yapRule(this, innerX, innerX + innerW, Math.round(y) + 0.5));
+      y += 14;
     };
-    const primary = YAP_PALETTE['text-primary'];
-    const secondary = YAP_PALETTE['text-secondary'];
+    const ink = YAP_PALETTE.ink;
+    const muted = YAP_PALETTE['ink-muted'];
     const countdown = this.yapCountdownLabel(model);
 
     if (archiveOpen) {
@@ -393,11 +372,11 @@ export class YapHomeScene extends Phaser.Scene {
       // to fit between the card top and the actions, so the week never runs
       // under the Close/Tutorial buttons (found on a 400 × 797 phone).
       const compact = height < 700;
-      line(yapI18n.t('archive.title'), compact ? 20 : 24, primary, true, compact ? 4 : 8);
-      if (!compact) line(yapI18n.t('archive.playPastDay'), 16, secondary, false, 16);
+      line(yapI18n.t('archive.title'), 'cardTitle', ink, compact ? 4 : 6);
+      if (!compact) line(yapI18n.t('archive.playPastDay'), 'body', muted, 14);
       else y += 8;
       divider();
-      const metrics = yapFitRows(actionsTop - 16 - y, archiveDays.length);
+      const metrics = yapFitRows(actions.top - 16 - 16 - y, archiveDays.length);
       const days = loadYapDays(yapStorage);
       for (const day of [...archiveDays].reverse()) {
         const record = days.get(day) ?? null;
@@ -405,10 +384,10 @@ export class YapHomeScene extends Phaser.Scene {
           record === null
             ? yapI18n.t('home.statusToDo')
             : yapI18n.t('home.statusCleared', { attempts: record.winningAttempt });
-        root.add(
+        content.push(
           this.yapMakeRow(
-            innerX + innerW / 2,
-            y + metrics.height / 2,
+            innerX,
+            y,
             innerW,
             metrics.height,
             yapI18n.t('home.dailyHeist', { day }),
@@ -421,36 +400,31 @@ export class YapHomeScene extends Phaser.Scene {
         y += metrics.height + metrics.gap;
       }
       y -= metrics.gap; // no gap after the last row
+      y += 8; // the last row's shadow stays inside the card
     } else if (model.phase === 'week') {
-      line(yapI18n.t('home.dailyHeist', { day: model.day }), 24, primary, true, 8);
+      line(yapI18n.t('home.dailyHeist', { day: model.day }), 'cardTitle', ink, 4);
       // story X2: the star thresholds of today's heist, visible before the
       // attempt — glyphs and digits only ("★3=22 ★2≤26"), no i18n key
       const heist = yapLevelById(`daily/d${model.day}`);
-      if (heist !== null) line(yapStarThresholdText(heist.par), 14, secondary, false, 8);
+      if (heist !== null) line(yapStarThresholdText(heist.par), 'stat', muted, 10);
       const record = model.record;
       if (record === null) {
-        line(yapI18n.t('home.statusToDo'), 16, secondary, false, 0);
+        line(yapI18n.t('home.statusToDo'), 'body', muted, 0);
       } else {
-        line(
-          yapI18n.t('home.statusCleared', { attempts: record.winningAttempt }),
-          16,
-          primary,
-          true,
-          4,
-        );
+        line(yapI18n.t('home.statusCleared', { attempts: record.winningAttempt }), 'body', ink, 2);
         // stars as filled/empty glyphs: a shape cue, not color alone (as on Win)
-        line('★'.repeat(record.stars) + '☆'.repeat(3 - record.stars), 24, primary, false, 0);
+        line('★'.repeat(record.stars) + '☆'.repeat(3 - record.stars), 'cardTitle', ink, 0);
       }
-      y += 16;
+      y += 14;
       divider();
       const streakText = line(
         `${YAP_STREAK_ICON} ${yapI18n.t('home.streak', { count: model.streak })}`,
-        16,
-        primary,
-        false,
+        'stat',
+        ink,
         8,
       );
-      // seven pips: the streak at a glance, one filled dot per day (max 7)
+      // seven pips: the streak at a glance, one filled dot per day (max 7),
+      // an outlined dot for the others (a shape cue, not color alone)
       const pips = this.add.graphics();
       const filled = Math.max(0, Math.min(7, model.streak));
       const pipR = 3.5;
@@ -459,126 +433,65 @@ export class YapHomeScene extends Phaser.Scene {
       const pipY = streakText.y + streakText.height / 2;
       for (let i = 0; i < 7; i += 1) {
         const px = pipX + i * pipGap;
-        if (i < filled) {
-          pips.fillStyle(yapHexToInt(YAP_PALETTE['action-primary']), 1).fillCircle(px, pipY, pipR);
-        } else {
-          pips
-            .lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1)
-            .strokeCircle(px, pipY, pipR);
-        }
+        if (i < filled) pips.fillStyle(yapHexToInt(ink), 1).fillCircle(px, pipY, pipR);
+        else pips.lineStyle(1, yapHexToInt(muted), 1).strokeCircle(px, pipY, pipR);
       }
-      root.add(pips);
+      content.push(pips);
     } else if (model.phase === 'before') {
-      line(yapI18n.t('homeFlow.beforeTitle'), 24, primary, true, 8);
-      line(yapI18n.t('homeFlow.beforeHint'), 16, secondary, false, 16);
+      line(yapI18n.t('homeFlow.beforeTitle'), 'cardTitle', ink, 6);
+      line(yapI18n.t('homeFlow.beforeHint'), 'body', muted, 14);
       divider();
     } else {
-      line(yapI18n.t('homeFlow.afterTitle'), 24, primary, true, 8);
-      line(yapI18n.t('homeFlow.afterMessage'), 16, secondary, false, 16);
+      line(yapI18n.t('homeFlow.afterTitle'), 'cardTitle', ink, 6);
+      line(yapI18n.t('homeFlow.afterMessage'), 'body', muted, 14);
       divider();
       line(
         `${YAP_STREAK_ICON} ${yapI18n.t('homeFlow.bestStreak', { count: model.bestStreak })}`,
-        16,
-        primary,
-        false,
+        'stat',
+        ink,
         8,
       );
     }
     if (countdown !== null && !archiveOpen) {
-      this.yapCountdownText = line(countdown, 16, secondary, false, 8);
+      this.yapCountdownText = line(countdown, 'stat', muted, 8);
     }
-    y += 12; // bottom padding (20) minus the last line gap (8)
-    // X8b style tile: the card is a ui-kit panel — soft shadow, radius 18,
-    // 1.5 px ink outline at 15% (drawn last, once its height is known)
-    yapDrawPanelChrome(card, cardX, cardY, cardW, y - cardY);
-    card.lineStyle(1, yapHexToInt(YAP_PALETTE['grid-line']), 1);
-    for (const dy of dividerYs) {
-      card.lineBetween(innerX, dy + 0.5, innerX + innerW, dy + 0.5);
-    }
-
+    y += 10; // bottom padding (18) minus the last line gap (8)
+    root.add(yapCard(this, cardX, cardY, cardW, Math.round(y - cardY)));
+    root.add(content);
     const cardBottom = y;
-    // actions in the bottom third, the primary one lowest (one-thumb reach)
-    const play = model.play;
-    const archiveToggle = (): void => {
-      this.yapArchiveOpen = !archiveOpen;
-      this.yapBuild();
-    };
-    const archiveLabel = archiveOpen ? yapI18n.t('common.close') : yapI18n.t('home.archive');
-    if (play !== null) {
+
+    // the actions: the primary one lowest, the secondary row above it
+    root.add(
+      yapButton(this, {
+        x: actions.primary.x,
+        y: actions.primaryY,
+        width: actions.primary.width,
+        // before / after the week there is no heist to play: the tutorial leads
+        label: play !== null ? yapI18n.t('home.play') : yapI18n.t('home.tutorial'),
+        kind: 'primary',
+        onPress: () => yapFlow.yapGo(this, play ?? model.tutorial),
+      }).container,
+    );
+    secondaryActions.forEach((action, i) => {
+      const box = actions.secondary[i];
+      if (box === undefined) return;
       root.add(
         yapButton(this, {
-          x: cx,
-          y: primaryY,
-          w: btnW,
-          h: primaryH,
-          label: yapI18n.t('home.play'),
-          variant: 'primary',
-          onPress: () => yapFlow.yapGo(this, play),
+          x: box.x,
+          y: actions.secondaryY,
+          width: box.width,
+          label: action.label,
+          kind: 'secondary',
+          onPress: action.onPress,
+          ...(action.fireOn === undefined ? {} : { fireOn: action.fireOn }),
         }).container,
       );
-      const secondaryActions: { label: string; onPress: () => void }[] = [];
-      if (model.canShare) {
-        secondaryActions.push({
-          label: yapI18n.t('home.share'),
-          onPress: () => this.yapShareDay(model.day),
-        });
-      }
-      if (archiveDays.length > 0) {
-        secondaryActions.push({ label: archiveLabel, onPress: archiveToggle });
-      }
-      secondaryActions.push({
-        label: yapI18n.t('home.tutorial'),
-        onPress: () => yapFlow.yapGo(this, model.tutorial),
-      });
-      const gap = 8;
-      const eachW = (btnW - gap * (secondaryActions.length - 1)) / secondaryActions.length;
-      secondaryActions.forEach((action, i) => {
-        const x = cx - btnW / 2 + eachW / 2 + i * (eachW + gap);
-        root.add(
-          yapButton(this, {
-            x,
-            y: secondaryY,
-            w: eachW,
-            h: secondaryH,
-            label: action.label,
-            variant: 'secondary',
-            onPress: action.onPress,
-          }).container,
-        );
-      });
-    } else {
-      // before / after the week there is no heist to play: the tutorial leads
-      root.add(
-        yapButton(this, {
-          x: cx,
-          y: primaryY,
-          w: btnW,
-          h: primaryH,
-          label: yapI18n.t('home.tutorial'),
-          variant: 'primary',
-          onPress: () => yapFlow.yapGo(this, model.tutorial),
-        }).container,
-      );
-      // after day 7 the archive is the main entry: offer it as a secondary action
-      if (archiveDays.length > 0) {
-        root.add(
-          yapButton(this, {
-            x: cx,
-            y: secondaryY,
-            w: btnW,
-            h: secondaryH,
-            label: archiveLabel,
-            variant: 'secondary',
-            onPress: archiveToggle,
-          }).container,
-        );
-      }
-    }
+    });
 
     // The middle band was empty: show the spoiler-free map of the heist the
     // screen is about (today's during the week, the last one afterwards). It
-    // stops above the action row, secondary row included.
-    this.yapDrawPreview(model, cardBottom, cx, innerW, actionsTop);
+    // stops above the actions, secondary row included.
+    this.yapDrawPreview(model, cardBottom, width / 2, innerW, actions.top);
 
     // The 'image' share variant needs its map File before the tap (E2).
     if (model.canShare && yapResolveShareVariant() === 'image') {
@@ -593,7 +506,8 @@ export class YapHomeScene extends Phaser.Scene {
   /**
    * The spoiler-free map of the heist the Home screen is about, framed like
    * the level board. Today's heist during the week; before the week the first
-   * one; after it, the last cleared day (day 7 by default).
+   * one; after it, the last cleared day (day 7 by default). The board itself
+   * moves to the plan style with the board renderer (plan style 3/6).
    */
   private yapDrawPreview(
     model: YapHomeModel,
@@ -624,12 +538,20 @@ export class YapHomeScene extends Phaser.Scene {
     const x = Math.round(cx - boardW / 2);
     const y = Math.round(top + (bottom - top - boardH) / 2);
     const g = this.add.graphics();
-    // X8b style tile: the mini-map is a framed card — soft shadow under the
-    // cells, crisp 2 px rounded frame over them (ui-kit); the cells inside
-    // stay exact (yapDrawMiniMap)
-    yapDrawShadow(g, x, y, boardW, boardH, 18);
+    // the same elevation as the level board: shadow + crisp frame
+    g.fillStyle(yapHexToInt(YAP_PALETTE['path-outline']), 0.08).fillRect(
+      x + 1,
+      y + 4,
+      boardW,
+      boardH,
+    );
     yapDrawMiniMap(g, level, x, y, cell);
-    yapStrokeFrame(g, x, y, boardW, boardH, 18);
+    g.lineStyle(2, yapHexToInt(YAP_PALETTE['path-outline']), 1).strokeRect(
+      x + 1,
+      y + 1,
+      boardW - 2,
+      boardH - 2,
+    );
     this.yapRoot?.add(g);
   }
 
@@ -670,42 +592,22 @@ export class YapHomeScene extends Phaser.Scene {
     }).then((report) => this.yapShowShareToast(report));
   }
 
-  /** Transient "Copied" (or failure) message above the primary action. */
+  /** Transient "Copied" (or failure) note above the actions. */
   private yapShowShareToast(report: YapShareReport): void {
     let message: string | null = null;
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
-    if (message === null) return;
-    const view = yapViewSize(this);
-    const toast = yapText(
-      this,
-      view.width / 2,
-      view.height - 96,
-      message,
-      yapTextStyle(16, YAP_PALETTE['path-light'], {
-        backgroundColor: YAP_PALETTE['text-primary'],
-        padding: { x: 12, y: 8 },
-      }),
-    )
-      .setOrigin(0.5, 1)
-      .setAlpha(0);
-    this.yapRoot?.add(toast);
-    this.tweens.add({ targets: toast, alpha: 1, duration: 120 });
-    this.tweens.add({
-      targets: toast,
-      alpha: 0,
-      delay: 1400,
-      duration: 200,
-      onComplete: () => toast.destroy(),
-    });
+    const root = this.yapRoot;
+    if (message === null || root === null) return;
+    yapShowToast(this, root, yapViewSize(this).width / 2, this.yapActionsTop - 8, message);
   }
 
   /**
-   * A tappable archive row (story O1): heist number and status on the left,
-   * Play on the right. Story X2 adds the stars of the day record as
-   * filled/empty glyphs, right-aligned just left of Play (null = no record).
-   * Drawn in code like the other buttons; 64 px tall, a comfortable touch
-   * target.
+   * A tappable archive row (story O1), an index card at (x, y), its top-left
+   * corner: heist number and status on the left, Play on the right. Story X2
+   * adds the stars of the day record as filled/empty glyphs, right-aligned
+   * just left of Play (null = no record). Between 44 and 64 px tall
+   * (yapFitRows), a comfortable touch target.
    */
   private yapMakeRow(
     x: number,
@@ -718,45 +620,44 @@ export class YapHomeScene extends Phaser.Scene {
     onPress: () => void,
   ): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
-    const bg = this.add.graphics();
-    // X8b style tile: the row is a secondary ui-kit button (radius 14, soft
-    // shadow, 1.5 px ink outline) with its own two-line content on top
-    yapDrawButtonChrome(bg, w, h, 'secondary', 'idle');
-    const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
+    const zone = this.add.zone(0, 0, w, h).setOrigin(0, 0).setInteractive({ useHandCursor: true });
     // two-line row that also survives the compact height of a small phone
     const tight = h < 56;
-    const titleText = yapText(
+    const titleText = yapRoleText(this, 14, tight ? 3 : 8, title, 'body', YAP_PALETTE.ink);
+    const statusText = yapRoleText(
       this,
-      -w / 2 + 16,
-      -h / 2 + (tight ? 6 : 10),
-      title,
-      yapTextStyle(tight ? 15 : 16, YAP_PALETTE['text-primary'], { fontStyle: 'bold' }),
-    ).setOrigin(0, 0);
-    const statusText = yapText(
-      this,
-      -w / 2 + 16,
-      -h / 2 + (tight ? 23 : 34),
+      14,
+      tight ? 22 : 30,
       status,
-      yapTextStyle(tight ? 13 : 14, YAP_PALETTE['text-secondary']),
-    ).setOrigin(0, 0);
-    const playText = yapText(
+      'caption',
+      YAP_PALETTE['ink-muted'],
+    );
+    const playText = yapRoleText(
       this,
-      w / 2 - 16,
-      0,
+      w - 14,
+      h / 2,
       yapI18n.t('home.play'),
-      yapTextStyle(16, YAP_PALETTE['text-primary']),
+      'button',
+      YAP_PALETTE.ink,
     ).setOrigin(1, 0.5);
-    const parts: Phaser.GameObjects.GameObject[] = [bg, zone, titleText, statusText, playText];
+    const parts: Phaser.GameObjects.GameObject[] = [
+      yapCard(this, 0, 0, w, h),
+      zone,
+      titleText,
+      statusText,
+      playText,
+    ];
     if (stars !== null) {
       // the record's stars as a shape cue, not color alone (as on Win)
       const clamped = Math.max(0, Math.min(3, stars));
       parts.push(
-        yapText(
+        yapRoleText(
           this,
-          w / 2 - 16 - playText.width - 12,
-          0,
+          w - 14 - playText.width - 12,
+          h / 2,
           '★'.repeat(clamped) + '☆'.repeat(3 - clamped),
-          yapTextStyle(16, YAP_PALETTE['text-primary']),
+          'body',
+          YAP_PALETTE.ink,
         ).setOrigin(1, 0.5),
       );
     }

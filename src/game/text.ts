@@ -178,11 +178,31 @@ export function yapRoleTracking(role: YapTextRole): number {
 }
 
 /**
+ * `content` as `role` shows it: upper-cased for a role in capitals.
+ * toUpperCase, not toLocaleUpperCase: on a Turkish device the latter turns an
+ * i into İ, and the app's languages need no locale-specific casing.
+ */
+export function yapRoleCase(role: YapTextRole, content: string): string {
+  return YAP_TEXT_ROLES[role].upper === true ? content.toUpperCase() : content;
+}
+
+/**
+ * Whether `content` can be drawn with letter spacing. Phaser draws a spaced
+ * Text one UTF-16 unit at a time, so a character beyond them (an emoji, as in
+ * "💡 Hint" or "🔥 Streak") would be split into two halves drawn as two broken
+ * glyphs.
+ */
+export function yapCanTrack(content: string): boolean {
+  return !/[\uD800-\uDFFF]/.test(content);
+}
+
+/**
  * Creates a Text on `scene` for `role`, through yapText. A role in capitals
- * shows `content` upper-cased, and a tracked role sets its letter spacing on
- * the Text once it exists, which wins over a `letterSpacing` in `extra`.
- * Phaser draws a spaced Text glyph by glyph, so the tracked roles are for
- * short labels, not for paragraphs.
+ * shows `content` upper-cased (yapRoleCase), and a tracked role sets its
+ * letter spacing on the Text once it exists, which wins over a
+ * `letterSpacing` in `extra` — unless `content` holds an emoji, which
+ * letter spacing would break (yapCanTrack). Phaser draws a spaced Text glyph
+ * by glyph, so the tracked roles are for short labels, not for paragraphs.
  */
 export function yapRoleText(
   scene: Phaser.Scene,
@@ -193,10 +213,8 @@ export function yapRoleText(
   color: string,
   extra: YapTextExtra = {},
 ): Phaser.GameObjects.Text {
-  // toUpperCase, not toLocaleUpperCase: on a Turkish device the latter turns an i into İ
-  const shown = YAP_TEXT_ROLES[role].upper ? content.toUpperCase() : content;
-  const text = yapText(scene, x, y, shown, yapRoleStyle(role, color, extra));
-  const spacing = yapRoleTracking(role);
+  const text = yapText(scene, x, y, yapRoleCase(role, content), yapRoleStyle(role, color, extra));
+  const spacing = yapCanTrack(content) ? yapRoleTracking(role) : 0;
   if (spacing !== 0) text.setLetterSpacing(spacing);
   return text;
 }

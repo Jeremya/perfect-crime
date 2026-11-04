@@ -30,6 +30,8 @@ export const fr: YapDictionary = {
     decline: 'Non merci',
   },
   home: {
+    // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
+    tagline: 'Un casse par jour · Yap Corp',
     dailyHeist: 'Casse du jour n°{day}',
     statusToDo: 'À faire',
     statusCleared: 'Réussi en {attempts} essais',

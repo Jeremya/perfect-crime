@@ -29,6 +29,8 @@ export const en = {
     decline: 'No thanks',
   },
   home: {
+    // C1 plan style: the kicker of Home's header (shown in capitals)
+    tagline: 'One heist a day · Yap Corp',
     dailyHeist: 'Daily heist #{day}',
     statusToDo: 'To do',
     statusCleared: 'Cleared in {attempts} attempts',
