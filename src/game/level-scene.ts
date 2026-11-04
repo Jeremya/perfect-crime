@@ -62,6 +62,7 @@ import {
   yapLevelLayout,
   yapHexToInt,
   type YapBoardLayout,
+  type YapPaletteToken,
 } from './board';
 import {
   YAP_DPR,
@@ -109,9 +110,10 @@ import {
   yapDrawStart,
   yapDrawThief,
 } from './render';
-import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapWalkedSteps } from './plan-geometry';
-import { yapRuler, yapStamp, type YapRuler } from './kit-screens';
-import { yapRoleText, yapText, yapTextStyle } from './text';
+import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
+import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
+import { YAP_WIN_ROW_HEIGHT, yapTelegram, yapWinActions } from './compose';
+import { yapRoleCase, yapRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
   YAP_PLANNING_CLEAR_WIDTH,
@@ -174,14 +176,6 @@ const YAP_HEIST_KICKERS: Readonly<Record<'daily' | 'archive' | 'challenge', YapK
 
 /** Room the planning caption keeps from the rule above it and the row below it, in px. */
 const YAP_CAPTION_CLEARANCE = 4;
-
-/**
- * Centre line of the Win screen's Share, up from the bottom of the view: where
- * it has been since C5, and where tests/e2e/share.spec.ts taps it.
- */
-const YAP_WIN_SHARE_FROM_BOTTOM = 60;
-/** Height of Improve my score and Home on the Win card, in px. */
-const YAP_WIN_ROW_HEIGHT = 48;
 
 /** Width of a line of text in a footer: the width of a row of buttons, margins apart. */
 function yapLineRoom(viewWidth: number): number {
@@ -1761,86 +1755,132 @@ export class YapLevelScene extends Phaser.Scene {
    * Home, and at its foot the dominant Share: the action lives inside the card
    * that it concludes.
    */
+  /**
+   * The win report (spec §8): the final board dimmed to about 28% behind a
+   * fiche — the report's kicker, the level title, leader rows (Attempts,
+   * Ticks, Par, Stars in gold) and, under a dashed rule, the telegram Share
+   * sends — with the CASSE RÉUSSI stamp over its top-right corner. Under it,
+   * Share (primary, full width), then Improve and Home or Next level.
+   */
   private yapBuildWinChrome(level: YapLevel, layout: YapBoardLayout): void {
     this.yapSetPhase('win');
     const chrome = this.yapNewChrome();
     const win = this.yapWin;
     if (win === null) return;
+    // the final board, dimmed to about 28% behind the report
+    chrome.add(
+      this.add
+        .rectangle(
+          0,
+          0,
+          layout.viewWidth,
+          layout.viewHeight,
+          yapHexToInt(YAP_PALETTE['paper-page']),
+          0.72,
+        )
+        .setOrigin(0, 0),
+    );
     this.yapBuildHeader(chrome, layout, level, [
       yapI18n.t('planning.statsPar', { par: level.par }),
     ]);
 
     const body = this.add.container(0, 0);
     chrome.add(body);
-    const panelX = 12;
-    const panelY = YAP_TOP_BAR_HEIGHT + 8;
-    const panelW = layout.viewWidth - 24;
-    const panelH = layout.viewHeight - 16 - panelY;
-    const innerX = panelX + 16;
-    const innerW = panelW - 32;
-    const cx = layout.viewWidth / 2;
+    const actions = yapWinActions(layout.viewHeight);
+    const cardX = 16;
+    const cardW = layout.viewWidth - 32;
+    const innerX = cardX + 20;
+    const innerW = cardW - 40;
 
-    const actions = this.yapWinActions(layout);
+    // CASSE RÉUSSI across the fiche's top-right corner: centred on its top
+    // edge, its tilted box kept inside the card's width (placed below)
+    const stamp = yapStamp(this, 0, 0, yapI18n.t('winScreen.stamp'), 'stamp', {
+      thump: true,
+      maxWidth: Math.min(200, cardW * 0.6),
+      size: 15,
+    });
+    const tilt = (Math.abs(YAP_STAMP_ANGLE) * Math.PI) / 180;
+    const halfSpan = (stamp.width * Math.cos(tilt) + stamp.height * Math.sin(tilt)) / 2;
+    const stampX = Math.round(cardX + cardW - halfSpan - 6);
+    // its lowest corner, the bottom-left one (the stamp tilts up to the right),
+    // relative to the card's top edge
+    const cornerX =
+      stampX - (stamp.width / 2) * Math.cos(tilt) + (stamp.height / 2) * Math.sin(tilt);
+    const cornerY = -2 + (stamp.width / 2) * Math.sin(tilt) + (stamp.height / 2) * Math.cos(tilt);
 
-    // content block, centred between the card top and the action stack, so the
-    // card has no dead half and the eye lands on the result first
-    const rows: readonly (readonly [string, string])[] = [
-      [yapI18n.t('win.attempts'), String(win.yapAttempts())],
-      [yapI18n.t('win.ticks'), String(win.yapTicks())],
-      [yapI18n.t('win.par'), String(win.yapPar())],
-      [yapI18n.t('win.stars'), win.yapStarsText()],
-    ];
-    const rowGap = 26;
-    const titleH = 32;
-    const emojiH = 28;
-    const contentH = titleH + 14 + rows.length * rowGap + 8 + 20 + emojiH;
-    const top = panelY + 20;
-    const bottom = actions.top - 20;
-    let y = Math.round(top + Math.max(0, (bottom - top - contentH) / 2));
-
-    body.add(yapCard(this, panelX, panelY, panelW, panelH));
-
-    // centred lines start on a whole pixel, so they stay crisp
-    const title = yapRoleText(this, 0, y, yapI18n.t('win.title'), 'cardTitle', YAP_PALETTE.ink);
-    title.setX(Math.round(cx - title.width / 2));
-    body.add(title);
-    y += titleH + 14;
-
-    // stats rows: the label on the left and the value on the right, on one
-    // baseline although the two roles differ in size
-    for (const [label, value] of rows) {
-      const name = yapRoleText(this, innerX, y, label, 'body', YAP_PALETTE['ink-muted']);
-      const stat = yapRoleText(this, innerX + innerW, y, value, 'stat', YAP_PALETTE.ink);
-      stat
-        .setOrigin(1, 0)
-        .setY(Math.round(y + name.getTextMetrics().ascent - stat.getTextMetrics().ascent));
-      body.add([name, stat]);
-      y += rowGap;
+    // the report's content, laid out from 0, then the card sized to it
+    const content = this.add.container(0, 0);
+    let y = 0;
+    const { day, mode } = this.yapSceneData;
+    const heading = this.yapHeaderText(level, false);
+    const kicker =
+      mode === 'tutorial' || day === undefined || day <= 0
+        ? heading.kicker
+        : yapI18n.t('winScreen.report', { day });
+    // the content starts below the stamp's corner when the kicker would run under it
+    let padTop = 20;
+    if (kicker !== '') {
+      const kick = yapRoleText(this, innerX, y, kicker, 'kicker', YAP_PALETTE['ink-muted']);
+      content.add(kick);
+      if (innerX + kick.width + 6 > cornerX) padTop = Math.max(padTop, Math.ceil(cornerY + 8));
+      y += 20;
     }
-    y += 8;
-
-    // the emoji line that will go into the share, as a preview
-    const preview = yapRoleText(
-      this,
-      0,
-      y,
-      yapI18n.t('winScreen.sharePreview'),
-      'kicker',
-      YAP_PALETTE['ink-muted'],
+    // the title leaves room on the right for the stamp
+    const title = yapRoleText(this, innerX, y, heading.title, 'cardTitle', YAP_PALETTE.ink, {
+      wordWrap: { width: innerW - 70 },
+    });
+    content.add(title);
+    y += title.height + 12;
+    const rows: readonly (readonly [string, string, YapPaletteToken])[] = [
+      [yapI18n.t('win.attempts'), String(win.yapAttempts()), 'ink'],
+      [yapI18n.t('win.ticks'), String(win.yapTicks()), 'ink'],
+      [yapI18n.t('win.par'), String(win.yapPar()), 'ink'],
+      [yapI18n.t('win.stars'), win.yapStarsText(), 'star'],
+    ];
+    for (const [label, value, colour] of rows) {
+      content.add(yapLeaderRow(this, innerX, y, innerW, label, value, colour));
+      y += 28;
+    }
+    y += 6;
+    // the telegram: what Share sends, under a dashed rule
+    const dashes = this.add.graphics().lineStyle(1, yapHexToInt(YAP_PALETTE.ink), 0.35);
+    for (const s of yapDashes(
+      { x: innerX, y: y + 0.5 },
+      { x: innerX + innerW, y: y + 0.5 },
+      4,
+      3,
+    )) {
+      dashes.lineBetween(s.x1, s.y1, s.x2, s.y2);
+    }
+    content.add(dashes);
+    y += 12;
+    const telegram = yapRoleText(this, innerX, y, '', 'stat', YAP_PALETTE.ink);
+    const line = yapTelegram(
+      yapI18n.t('winScreen.telegram'),
+      win.yapEmojiLine(),
+      win.yapTicks(),
+      innerW,
+      (candidate) => telegram.setText(yapRoleCase('stat', candidate)).width,
     );
-    preview.setX(Math.round(cx - preview.width / 2));
-    body.add(preview);
-    y += 20;
-    const emoji = yapText(this, 0, y, win.yapEmojiLine(), yapTextStyle(22, YAP_PALETTE.ink));
-    emoji.setX(Math.round(cx - emoji.width / 2));
-    body.add(emoji);
+    telegram.setText(yapRoleCase('stat', line));
+    content.add(telegram);
+    y += telegram.height;
 
-    // Improve my score + Home, side by side across the card's inner width,
-    // above the dominant Share action
-    const [improveBox, homeBox] = yapActionRow(innerW, [{}, {}], 0);
+    const padY = 20;
+    const cardH = Math.round(y + padTop + padY);
+    const top = YAP_TOP_BAR_HEIGHT + 24;
+    const room = actions.top - 16 - top;
+    const cardY = Math.round(top + Math.max(0, (room - cardH) / 2));
+    content.setY(cardY + padTop);
+    body.add(yapCard(this, cardX, cardY, cardW, cardH));
+    body.add(content);
+    stamp.setPosition(stampX, cardY - 2);
+    body.add(stamp);
+
+    const [improveBox, homeBox] = yapActionRow(cardW, [{}, {}], 0);
     if (improveBox !== undefined && homeBox !== undefined) {
       const improve = yapButton(this, {
-        x: innerX + improveBox.x,
+        x: cardX + improveBox.x,
         y: actions.rowY,
         width: improveBox.width,
         height: YAP_WIN_ROW_HEIGHT,
@@ -1849,7 +1889,7 @@ export class YapLevelScene extends Phaser.Scene {
         onPress: () => this.yapExitWin(),
       });
       const home = yapButton(this, {
-        x: innerX + homeBox.x,
+        x: cardX + homeBox.x,
         y: actions.rowY,
         width: homeBox.width,
         height: YAP_WIN_ROW_HEIGHT,
@@ -1859,43 +1899,20 @@ export class YapLevelScene extends Phaser.Scene {
       });
       body.add([improve.container, home.container]);
     }
-
-    // E2: navigator.share and the clipboard need transient user activation,
-    // which a touch grants on its release (touchend), not on pointerdown, so
-    // Share fires on the release over it. Phaser dispatches the DOM
-    // touchend/mouseup synchronously down to the button: the share runs inside
-    // the activation.
     const share = yapButton(this, {
-      x: innerX,
+      x: cardX,
       y: actions.shareY,
-      width: innerW,
+      width: cardW,
       label: yapI18n.t('win.share'),
       kind: 'primary',
       fireOn: 'up',
       onPress: () => this.yapOnWinShare(),
     });
     body.add(share.container);
-    // The 'image' variant needs its map File before the tap: fetch it now.
     if (yapResolveShareVariant() === 'image') {
       void yapPrepareShareImage(yapResolveShareDay(level.type, this.sys.settings.data));
     }
-    // the card settles in instead of snapping (skipped under reduced motion)
     yapFadeIn(this, body, 180, 12);
-  }
-
-  /**
-   * The action stack at the foot of the Win card: the centre line of Share,
-   * that of the row of Improve and Home 12 px above it, and the top of that
-   * row, which the content block and the toast stay above.
-   */
-  private yapWinActions(layout: YapBoardLayout): {
-    readonly shareY: number;
-    readonly rowY: number;
-    readonly top: number;
-  } {
-    const shareY = layout.viewHeight - YAP_WIN_SHARE_FROM_BOTTOM;
-    const rowY = shareY - YAP_BUTTON_HEIGHT / 2 - 12 - YAP_WIN_ROW_HEIGHT / 2;
-    return { shareY, rowY, top: rowY - YAP_WIN_ROW_HEIGHT / 2 };
   }
 
   /** Improve my score: back to the intact plan (attempts stay at the win). */
@@ -1954,7 +1971,13 @@ export class YapLevelScene extends Phaser.Scene {
     if (report.outcome === 'error') message = yapI18n.t('share.failed');
     else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
     if (message === null) return;
-    yapShowToast(this, chrome, layout.viewWidth / 2, this.yapWinActions(layout).top - 8, message);
+    yapShowToast(
+      this,
+      chrome,
+      layout.viewWidth / 2,
+      yapWinActions(layout.viewHeight).top - 8,
+      message,
+    );
   }
 
   /** Home (stub until D2): emits a scene event. */

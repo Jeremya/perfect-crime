@@ -132,6 +132,10 @@ export const en = {
   // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
   // preview that will go into the share.
   winScreen: {
+    // C1 plan style 4/6: the win report's kicker, telegram and stamp
+    report: 'Operation report · No. {day}',
+    telegram: 'To share {line} · {ticks} ticks',
+    stamp: 'Heist pulled off',
     sharePreview: 'Share preview',
   },
   // Story G2 — consent banner (first launch, non-blocking top strip).

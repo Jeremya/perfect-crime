@@ -133,6 +133,10 @@ export const fr: YapDictionary = {
   // Story C5 — panneau de l'écran de victoire (src/game/win.ts) : label de
   // l'aperçu de la ligne d'emojis qui ira dans le partage.
   winScreen: {
+    // Style plan 4/6 de C1 : le surtitre, le télégramme et le tampon du rapport
+    report: "Rapport d'opération · nº {day}",
+    telegram: 'À partager {line} · {ticks} ticks',
+    stamp: 'Casse réussi',
     sharePreview: 'Aperçu du partage',
   },
   // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
