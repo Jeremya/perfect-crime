@@ -43,10 +43,6 @@ export const en = {
     // C1 plan style: the kicker of Home's header (shown in capitals)
     tagline: 'One heist a day · Yap Corp',
     dailyHeist: 'Daily heist #{day}',
-    statusToDo: 'To do',
-    statusCleared: 'Cleared in {attempts} attempts',
-    streak: 'Streak: {count} days',
-    nextHeistIn: 'Next heist in {time}',
     play: 'Play',
     share: 'Share',
     archive: 'Archive',
@@ -161,7 +157,7 @@ export const en = {
   winScreen: {
     // C1 plan style 4/6: the win report's kicker, telegram and stamp
     report: 'Operation report · No. {day}',
-    telegram: 'To share {line} · {ticks} ticks',
+    telegram: 'To share {line} · {ticks} ticks {stars}',
     stamp: 'Heist pulled off',
     sharePreview: 'Share preview',
   },
@@ -227,10 +223,6 @@ export const en = {
     you: 'You',
     friend: 'Friend',
     hints: 'Hints',
-    verdictBetter: 'You beat your friend!',
-    verdictWorse: 'Your friend is ahead — rematch?',
-    verdictTied: 'Dead heat!',
-    planLocked: 'Their plan stays hidden until you clear this heist — or take the second hint.',
     planTitle: 'Their plan',
   },
   // Story X3 — plan preview, the Angry Birds "dotted arc"

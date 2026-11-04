@@ -50,6 +50,7 @@ import {
   yapResolveShareDay,
   yapResolveShareVariant,
   yapShare,
+  yapShareStars,
   type YapShareReport,
 } from '../app/share';
 import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
@@ -272,6 +273,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapHandDone = false;
   /** The REPÉRÉ stamp's holder while it is on the board (null otherwise). */
   private yapFailureStamp: Phaser.GameObjects.Container | null = null;
+  /** The win's CASSE RÉUSSI stamp has landed: a rebuild shows it without the thump. */
+  private yapWinStampLanded = false;
   /** The failure replay has settled: its REPÉRÉ stamp is down. */
   private yapFailureSettled = false;
   // --- Failure (C4) ---
@@ -843,7 +846,7 @@ export class YapLevelScene extends Phaser.Scene {
     }
     const hand = this.add.graphics().setAlpha(0.85);
     // the ghost under the pieces (the thief stays on top of it), the hand above all
-    const layer = this.add.container(0, 0, [ghost, hand]);
+    const layer = this.add.container(0, 0, [hand]);
     const entities = this.yapEntities;
     if (entities !== null) board.addAt(ghost, board.getIndex(entities));
     this.yapHandGhosts.push(ghost);
@@ -1924,6 +1927,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapHints?.yapHintsUsed() ?? 0,
     );
     this.yapWinFrame = exec.yapFrame(); // the won frame stays on the board
+    this.yapWinStampLanded = false; // a new win: its stamp lands again
     this.yapExecution = null; // the playback is over; the Win screen drives now
     this.yapChrome?.destroy();
     this.yapChrome = null;
@@ -1979,7 +1983,7 @@ export class YapLevelScene extends Phaser.Scene {
     // CASSE RÉUSSI across the fiche's top-right corner: centred on its top
     // edge, its tilted box kept inside the card's width (placed below)
     const stamp = yapStamp(this, 0, 0, yapI18n.t('winScreen.stamp'), 'stamp', {
-      thump: true,
+      thump: !this.yapWinStampLanded,
       maxWidth: Math.min(200, cardW * 0.6),
       size: 15,
     });
@@ -2040,7 +2044,8 @@ export class YapLevelScene extends Phaser.Scene {
     y += 12;
     const telegram = yapRoleText(this, innerX, y, '', 'stat', YAP_PALETTE.ink);
     const line = yapTelegram(
-      yapI18n.t('winScreen.telegram'),
+      // the stars as the share sends them (one ⭐ each); {line} and {ticks} stay
+      yapI18n.t('winScreen.telegram', { stars: yapShareStars(win.yapStars()) }),
       win.yapEmojiLine(),
       win.yapTicks(),
       innerW,
@@ -2062,6 +2067,7 @@ export class YapLevelScene extends Phaser.Scene {
     body.add(content);
     stamp.setPosition(stampX, cardY - 2);
     body.add(stamp);
+    this.yapWinStampLanded = true; // it thumps once per win, not on a rebuild
 
     const [improveBox, homeBox] = yapActionRow(cardW, [{}, {}], 0);
     if (improveBox !== undefined && homeBox !== undefined) {

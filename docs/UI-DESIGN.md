@@ -2,25 +2,26 @@
 
 This document is the visual companion to `Gate 1 — Specs and backlog.pdf`.
 The PDF remains the source of truth for game rules, screen behavior, and
-product scope. This document defines how Gate 1 should look and feel. If a
-visual choice appears to change a rule or add a feature, follow the PDF and
-ask the product owner before expanding scope.
+product scope. This document defines how Gate 1 looks and feels. If a visual
+choice appears to change a rule or add a feature, follow the PDF and ask the
+product owner before expanding scope.
 
-The visual brief that produced this document is the explicit design direction
-for this project. It makes a narrow visual exception to the PDF's “simple
-vector shapes: no illustrations at gate 1” line: use the specified Kenney
-stand sprites for the thief and guards, and the Kenney UI Pack for controls.
-This exception affects only those character and control assets; keep the board,
-cones, lasers, routes, emitters, and other marks as crisp code-drawn shapes.
-The PDF remains authoritative for rules, screen behavior, copy, and scope.
+The direction is **"plan d'architecte"**: every screen is a sheet of an
+architect's file — paper and ink, a typewriter for the facts, a serif for the
+words, red for what the player marks and what catches them. It was approved
+screen by screen on 2026-10-30; its design is
+`docs/design/2026-10-30-plan-style-design.md` and its mockups are in
+`docs/design/plan-style/`. Everything is drawn in code: characters, threats,
+controls and the board alike. There is no sprite pack and no web font, in line
+with the PDF's "simple vector shapes: no illustrations at gate 1".
 
 ## Product and device
 
 - Game: **Perfect Crime** by Yap Corp; daily heist stealth puzzle.
 - Mobile web, portrait first; desktop play is centered in a narrow frame.
-- Light theme only for Gate 1. Use system fonts only; do not add a web font.
-- Keep the initial download under 3 MB. Prefer code-drawn geometry and small
-  vector/raster assets; justify any dependency or large asset.
+- Light theme only for Gate 1. System fonts only; no web font.
+- Keep the initial download under 3 MB. Prefer code-drawn geometry; justify
+  any dependency or asset.
 - This is a stealth puzzle. Do not use weapons, blood, or violent imagery.
 
 ## Non-negotiable readability rules
@@ -31,80 +32,105 @@ The PDF remains authoritative for rules, screen behavior, copy, and scope.
   `visibleCells`: tinted cells with a crisp outline. Never use smooth,
   triangular, gradient, blurred, shadowed, or glowing cones. The cells shown
   as visible must be exactly the cells that can detect the thief.
-- Keep floors, walls, and furniture neutral and desaturated. Reserve saturated
-  colors for danger, the diamond, and the exit.
-- Never communicate danger with color alone: pair a tint with an outline and
-  an icon or other clear marker. Check the design in grayscale and for
-  common color-vision deficiencies.
-- Put furniture and decorative detail only on wall cells. Walkable floor
-  cells stay visually open and unambiguous.
+- Keep the plan neutral: paper floors, hatched walls, ink lines. Reserve
+  saturated colour for danger, the diamond, the exit and the player's route.
+- Never communicate danger with colour alone: pair a tint with an outline and
+  a token shape (the guard's "G", the camera's box, the laser's nubs). Check
+  the design in grayscale and for common colour-vision deficiencies.
+- Walkable floor cells stay visually open and unambiguous; detail lives on
+  wall cells only.
 - Do not put explanatory text on the grid. Allow only compact path/status
   badges that are needed during play.
-- Keep cell boundaries and danger overlays legible in sunlight and at phone
-  size. Avoid visual effects that obscure the board.
+- Keep danger overlays legible in sunlight and at phone size. Nothing may
+  obscure the board: notes and stamps never cover a cell that matters.
+- No glow and no gradient anywhere. Hard offset shadows for cards, soft
+  shadows only for physical objects (Home's folder and its sheet).
 
 ## Visual tokens
 
-These named hex tokens establish a starting point for implementation. Adjust
-them when rendering shows a contrast or readability problem, while keeping
-the semantic color logic above. Check text and control contrast against WCAG
-AA where applicable; game overlays also need to remain distinguishable by
-shape, outline, and icon.
+`YAP_PALETTE` in `src/game/board.ts` holds every colour. Text meets WCAG AA
+(4.5:1 for regular text, 3:1 for large text); meaningful non-text marks reach
+3:1 against their surface. `tests/unit/board.test.ts` pins these floors.
 
-| Token | Initial value | Use |
+| Token | Value | Use |
 |---|---|---|
-| `surface-page` | `#F4F2ED` | App background |
-| `surface-panel` | `#FFFFFF` | Cards and controls |
-| `floor` | `#D9D8D2` | Walkable cells |
-| `wall` | `#47515B` | Walls and slate structures |
-| `grid-line` | `#767C81` | Cell boundaries (≈2.7:1 on the floor) |
-| `text-primary` | `#202A33` | Main text and thief outline |
-| `text-secondary` | `#56616B` | Supporting text |
-| `action-primary` | `#176B78` | PLAY and primary Share action |
-| `action-secondary` | `#E6E8E6` | Secondary controls |
-| `danger-guard` | `#D99B32` | Guard cone tint only, at about 30% opacity |
-| `danger-guard-outline` | `#8A5600` | Guard cone cell outline |
-| `danger-camera` | `#8260A8` | Camera cone tint and outline |
-| `danger-laser` | `#C74747` | Active laser and caught state |
+| `paper-page` | `#F2EFE6` | Page and canvas clear colour (with a 20 px grid of ink at 5%), `index.html` shell and `theme-color` |
+| `paper` | `#FCFBF6` | Board floor, cards, secondary buttons, notes |
+| `ink` | `#1E3A5F` | Text, outlines, wall edges, primary buttons |
+| `ink-muted` | `#4E6480` | Secondary text (≥ 4.5:1 on paper) |
+| `ink-disabled` | `#BEC5CC` | Disabled primary (ink at 28% on paper) |
+| ink-soft | `ink` at 16% | The faint grid between floor cells |
+| `hatch-ground` | `#DDE4EE` | Wall fill under the 45° ink hatching |
+| `marker` | `#D2403A` | The player's route, pause badges, streak checks |
+| `stamp` | `#C9302C` | Stamps, the caught state, the fatal cell, the active laser |
+| `guard-cone` / `guard-cone-edge` | `#E8A030` at 24% / `#C27A16` | Guard cones |
+| `camera-cone` | `#7A54A8` (18% tint and outline) | Camera cones and lens |
 | `laser-off` | `#69727B` | Inactive dashed laser |
-| `objective-diamond` | `#007F8D` | Diamond and objective marker (≈3.3:1 on the floor) |
-| `objective-exit` | `#32865A` | Exit and door icon |
-| `path-light` | `#FFFFFF` | Planned route fill |
-| `path-outline` | `#26313B` | Route outline |
+| `diamond-edge` / `diamond-fill` | `#0E7C88` / `#D3F0F2` | Diamond |
+| `exit-door` | `#2E7D4F` | Door symbol |
+| `guard-token` / `guard-token-ink` | `#F6DDAE` / `#8A5600` | Guard token, its "G" and wedge |
+| `thief-token` | `#1B1F24` | Thief disc (paper mask band and ring) |
+| `graphite` | `#5B6470` | Pencil: the ghost preview and the hint |
+| `kraft` / `kraft-edge` / `kraft-ink` | `#E4D4AE` / `#B99E66` / `#5C4A24` | Home's folder |
+| `star` | `#B8860B` | Stars |
 
-Motion is short and quiet: 120 ms for a press acknowledgement, 180 ms for a
-screen or panel entrance (fade plus a 12 px rise), and nothing at all under
-`prefers-reduced-motion: reduce`.
+The older board tokens (`surface-*`, `floor`, `wall`, `grid-line`, `text-*`,
+`action-*`, `danger-*`, `objective-*`, `path-*`) remain only for the share
+previews (`tools/og.ts`) and the dev viewer's chrome, until plan style 6/6.
 
-Use the type scale `12 / 14 / 16 / 20 / 24 / 32 px`; body and control labels
-must be at least 14 px. Use an 8 px spacing scale (`4 px` is permitted only
-for fine alignment), rounded control corners around 8 px and card corners
-around 12 px. Use a 1 px default outline and a 2 px outline for focus, danger,
-and critical selection. Text follows WCAG AA contrast (4.5:1 for regular text,
-3:1 for large text); meaningful non-text outlines and icons should reach 3:1
-against their adjacent surface. Primary touch targets are at least 44 × 44 px.
+**Type.** Two system stacks: serif (`ui-serif, "New York", Georgia, …`) for
+titles and sentences, mono (`ui-monospace, "SF Mono", Menlo, …`) for kickers,
+numbers, stats and buttons, in capitals with tracking. The roles live in
+`YAP_TEXT_ROLES` (`src/game/text.ts`):
+
+| Role | Family, size | Use |
+|---|---|---|
+| `screenTitle` | serif 27 | Header title (fitted down to 18) |
+| `cardTitle` | serif 22 | Card and fiche titles |
+| `body` | serif 16 | Sentences, row labels |
+| `caption` | serif 15 italic | Captions, notes |
+| `kicker` | mono 12, capitals, 0.12 em | Decorative kickers only |
+| `stat` | mono 14, capitals, 0.12 em | Stats, countdowns, facts |
+| `statLarge` | mono 22 bold, 0.12 em | The playback's tick counter |
+| `button` / `buttonPrimary` | mono 14 / 15 bold, capitals | Button labels |
+
+Essential text is at least 14 px; only decorative kickers and stamps may go to
+12 px, never below. A label that does not fit at 360 px loses its tracking,
+then wraps. A tracked text drops its spacing for an emoji (`yapCanTrack`), which
+Phaser would otherwise split in two.
+
+**Lines and shapes.** Ink lines of 1.5–2 px; buttons radius 6 px, 52 px tall;
+cards radius 3 px with a hard shadow (4, 5 px, ink at 15%); touch targets at
+least 44 × 44 px.
+
+**Motion.** 120 ms for a press acknowledgement, 180 ms for an entrance (fade
+plus a 12 px rise), a stamp's thump from 1.35× to its size in 180 ms, the
+first-launch hand's loop (1.6 s drawing, 0.8 s rest), the route fading behind
+the thief during the playback. Under `prefers-reduced-motion: reduce`
+everything is static: stamps simply appear, the hand stays still.
 
 ## Board and world rendering
 
-- Board (plan style 3/6, `docs/design/2026-10-30-plan-style-design.md` §7):
-  a top-down plan of an 8-column × 12-row grid, origin at the top left. The
-  border walls render as a thin 10 px frame (uniform cells for a level whose
-  border is not all walls), so the interior cells take the room: 59 px at
-  390 × 844. One geometry (`yapLevelLayout`, `yapCellRect`, `yapCellAt` in
+- Board (`docs/design/2026-10-30-plan-style-design.md` §7): a top-down plan of
+  an 8-column × 12-row grid, origin at the top left. The border walls render
+  as a thin 10 px frame (uniform cells for a level whose border is not all
+  walls), so the interior cells take the room: 59 px at 390 × 844. One
+  geometry (`yapLevelLayout`, `yapCellRect`, `yapCellAt` in
   `src/game/board.ts`) serves drawing, input, the ghost, the failure zoom,
   the viewer and the e2e strokes.
-- Plan sheet: paper floor, an ink-soft (ink at 16%) 0.8 px grid between floor
-  cells only, walls in `hatch-ground` with 45° ink hatching, a 1.8 px ink edge
-  wherever floor meets wall, and a double ink frame (2 px + 0.8 px). No card
-  shadow, no rounded board corners.
+- Plan sheet: paper floor, an ink-soft 0.8 px grid between floor cells only,
+  walls in `hatch-ground` with 45° ink hatching, a 1.8 px ink edge wherever
+  floor meets wall, and a double ink frame (2 px + 0.8 px). No card shadow, no
+  rounded board corners.
 - Thief: a dark `thief-token` disc with a paper mask band and two eyes, and a
   2.5 px paper ring so it stays visible over any cone.
 - Guards: a `guard-token` disc with a "G" and a filled facing wedge just
   outside it.
 - Guard cone: exact cells tinted `guard-cone` at 24% with a crisp 1.5 px
   `guard-cone-edge` outline. Camera cone: `camera-cone` at 18% with a 1.5 px
-  outline. Cameras are a paper box with an ink outline on their wall cell (on
-  the frame for a border camera) and a violet lens on the side they face.
+  outline. Cameras are a paper box with an ink outline on their wall cell —
+  flush with the board's edge, across the frame, for a border camera — and a
+  violet lens on the side they face.
 - Laser: a thin 2.5 px `stamp` beam with emitter nubs and a faint red cell
   tint while active; a dashed `laser-off` line while inactive. The cycle shows
   at the emitter with small on/off ticks.
@@ -116,153 +142,112 @@ against their adjacent surface. Primary touch targets are at least 44 × 44 px.
   the count.
 - Patrols: an ink dashed line (4/4) at 55% with small arrowheads; secondary to
   the cones and the route.
-- Caught state: the detector's cone turns `stamp` red, and the fatal cell gets
-  a 3 px red outline, a ring and an X, with the localized cause label (guard,
-  camera, or laser). No blood or impact imagery.
+- Caught state: the detector's cone turns `stamp` red, the fatal cell gets a
+  3 px red outline, a ring and an X, and the REPÉRÉ stamp lands beside it once
+  the replay settles, with the localized cause label. No blood or impact
+  imagery.
 - Ghost preview: the guard positions and their exact cones at the tick under
   the finger, in pencil (graphite, dashed outlines, about 50% opacity) so it
   cannot be confused with the tick-0 state. The hint route is graphite dots,
   never red; the friend's plan is a solid ink line.
-- Draw floors, cones, lasers, patrol lines, and the plan in Phaser/code or
-  pre-made cell sprites. Do not rely on a decorative tileset to define game
-  rules or walkability.
 
 ## Layout and interaction
 
 - Portrait 9:16 composition. On desktop, center the game in a frame no wider
   than 480 px.
 - Design and inspect at **390 × 844** and **360 × 640**. Keep the entire grid
-  visible between a 64 px top bar and a 96 px bottom action bar where the
-  viewport allows; adapt cell size and safe areas without hiding essential
-  state on the smaller viewport.
+  visible between the 64 px header and the 96 px footer; adapt the cell size
+  without hiding essential state on the smaller viewport.
 - Rendering density: the canvas renders at the device pixel ratio, capped at 3,
   read once at boot: a later change (browser zoom, another screen) applies on
   reload. Scenes lay out in CSS px through `yapViewSize` and read pointers
-  through `yapPointerView`. Create texts with `yapText`/`yapTextStyle` and bake
-  textures with `yapBakeTexture`; the source guards `hidpi-guard.test.ts` and
-  `text-guard.test.ts` enforce this.
-- Plan style kit (plan style 2/6, `docs/design/2026-10-30-plan-style-design.md`
-  §5): the chrome of every screen is paper and ink, with no glow and no
-  gradient.
-  - Tokens in `YAP_PALETTE`: `paper-page` (the page and the canvas clear
-    colour), `paper` (cards, secondary buttons), `ink` (text, outlines,
-    primary buttons), `ink-muted` (secondary text, ≥ 4.5:1 on paper) and
-    `ink-disabled` (a disabled primary). The board keeps its own tokens until
-    the board renderer (3/6).
-  - Text roles: `YAP_TEXT_ROLES` in `src/game/text.ts` (serif titles and
-    sentences, mono kickers, stats and buttons in capitals with tracking);
-    create them with `yapRoleText`. A tracked role drops its spacing for an
-    emoji (`yapCanTrack`).
-  - Components in `src/game/kit.ts`: `yapPaperPage`, `yapHeader`, `yapButton`
-    (primary or secondary, 52 px, 120 ms press, `fireOn: 'up'` for Share),
-    `yapCard`, `yapRule`, `yapShowToast`, and the row helpers `yapActionRow`
-    and `yapPlanningRow`. Home's actions come from `yapHomeActions`
-    (`src/game/home-layout.ts`). `kit-guard.test.ts` keeps private button
-    helpers out of the scenes.
-  - Screen pieces (plan style 4/6) in `src/game/kit-screens.ts`, their
-    geometry in `src/game/compose.ts`: `yapStamp` (red double border, −9°, a
-    1.35 → 1 thump in 180 ms, static under reduced motion), `yapLeaderRow`
-    (label · dotted leader · value), `yapDayBoxRow` (the seven days, a red ✓
-    per won day, today ringed), `yapRuler` (the playback's progress),
-    `yapSeal` (wax seal, broken once a friend's plan opens) and `yapFolder`
-    (Home's kraft folder with its tilted paper sheet). Tokens `kraft`,
-    `kraft-edge`, `kraft-ink`, `star`.
-  - Screens: the execution ruler; the REPÉRÉ stamp once the failure replay
-    settles; the win report (board dimmed to 28%, fiche with leader rows and
-    the share telegram, CASSE RÉUSSI stamp, Share above Improve / Home);
-    Home's folder of the day with its status stamp, day boxes and countdown;
-    archive rows with weekday and stamp; the first-launch consent note that
-    moves the header and board down, and the hand that draws T1 until the
-    first touch; the challenge memo with a plan card, the wax seal and a
-    verdict stamp.
-- Top bar: level name, ticks/par, pauses remaining.
-- Bottom bar: Clear, the largest primary PLAY action, and Hint only when
-  available. Put primary actions in the bottom third for one-thumb use.
-- Keep all touch targets at least 44 × 44 px and text at least 14 px except
-  nonessential decorative metadata.
+  through `yapPointerView`. Create texts with the text factory (`yapText`,
+  `yapRoleText`) and bake textures with `yapBakeTexture`; the source guards
+  `hidpi-guard.test.ts` and `text-guard.test.ts` enforce this.
+- Header (every screen): a mono kicker over the serif title on the left, the
+  stats on the right, a hairline under it.
+- Planning footer: the caption, then Clear, Hint (only when available) or
+  Preview (once the route is complete), and the widest primary PLAY. Primary
+  actions sit in the bottom third for one-thumb use.
+- First launch: the consent note sits at the very top; the header and the
+  board move down under it, so it covers no board cell and the stats stay
+  visible. It never blocks play.
 - First-encounter guidance is one sentence, dismissed with a tap, and must
   not cover the grid's key area.
-- Consent is a non-blocking banner on the first-launch tutorial; it must not
-  prevent play or obscure the route-critical board area.
+
+### The kit
+
+- Base components in `src/game/kit.ts`: `yapPaperPage`, `yapHeader`,
+  `yapButton` (primary or secondary, 52 px, 120 ms press, `fireOn: 'up'` for
+  Share, which needs the release's user activation), `yapCard`, `yapRule`,
+  `yapShowToast` (a paper note), and the row helpers `yapActionRow` and
+  `yapPlanningRow`. Home's actions come from `yapHomeActions`
+  (`src/game/home-layout.ts`). `kit-guard.test.ts` keeps private button
+  helpers out of the scenes.
+- Screen pieces in `src/game/kit-screens.ts`, their geometry in
+  `src/game/compose.ts`: `yapStamp` (red double border, −9°, the thump, never
+  under 12 px — it falls back to a shorter text), `yapLeaderRow` (label ·
+  dotted leader · value), `yapDayBoxRow` (the seven days, a red ✓ per won day,
+  today ringed), `yapRuler` (the playback's progress), `yapSeal` (wax seal,
+  broken once a friend's plan opens) and `yapFolder` (Home's kraft folder with
+  its tilted paper sheet).
+- The board's drawing lives in `src/game/render.ts`, its pure geometry in
+  `src/game/plan-geometry.ts`.
 
 ## Screen design checklist
 
-The screen rules and copy remain those in the Gate 1 PDF and FR/EN
-dictionaries. Apply this visual checklist to the existing ten screens:
+The screen rules and copy remain those in the Gate 1 PDF and the FR/EN
+dictionaries. As built:
 
-1. **First launch / T1:** start directly in the tutorial, with an animated
-   hand demonstrating a route and a non-blocking consent banner.
-2. **Home:** daily heist number and status, cleared attempts/stars when
-   applicable, streak, countdown, Play, Share when cleared, Tutorial, Settings.
-3. **Planning:** grid, patrols, tick-0 cones, route drawing, pause badges,
-   and the optional ghost preview.
-4. **Execution:** animate the plan, show tick counter, ×2 speed, and Stop.
-5. **Failure:** replay the last moments in slow motion with a focused zoom,
-   fatal cells, cause, and attempt number; on return retain the plan and show
-   a red fatal-cell marker.
-6. **Win:** attempts, ticks, par, stars, emoji-line preview, dominant Share,
-   Improve my score, and Home.
-7. **Challenge card:** shared result and Take the challenge / Later actions.
-8. **Comparison:** player vs friend metrics, verdict, See their plan, and
-   Share my result.
-9. **Settings:** FR/EN, sound, vibration, optional nickname, consent, privacy.
+1. **First launch / T1:** the tutorial at once, the consent note at the top
+   (OK and No thanks, ≥ 44 px), and the hand that draws the start of the route
+   over a dashed red ghost until the first touch.
+2. **Home:** the tagline over "Perfect Crime" and the week's ★ total; the
+   kraft folder of the day (DOSSIER Nº n · weekday) with the mini plan, the
+   par, the star thresholds and the threats, and the status stamp (À FAIRE,
+   RÉUSSI · n ESSAIS with the stars); the streak kicker, the seven day boxes
+   and the countdown; Play, Share once cleared, Archive, Tutorial. Before and
+   after the week, the first or the last heist with its stamp. Archive rows:
+   number, weekday, status stamp, stars.
+3. **Planning:** grid, patrols, tick-0 cones, route drawing, pause badges, the
+   optional ghost preview, the plan preview (X3) and the hint (C7).
+4. **Execution:** the plan played with the route fading behind the thief, the
+   tick counter, the ruler, ×2 and Stop.
+5. **Failure:** the last moments replayed slowly with a focused zoom, the red
+   detector cone and fatal cell, the REPÉRÉ stamp, the cause and the attempt
+   number; back on the plan, the plan is kept and the fatal-cell marker stays.
+6. **Win:** the board dimmed behind the report fiche (kicker, title, leader
+   rows with gold stars, the share telegram) with the CASSE RÉUSSI stamp; Share
+   dominant and full width, then Improve my score and Home or Next level.
+7. **Challenge card:** the memo (the sender's result in typewriter capitals,
+   the You / Friend grid), a small plan card when it fits, the wax seal over
+   the friend's plan; Take the challenge and Later.
+8. **Comparison:** both columns filled and a verdict stamp; the seal broken
+   and See their plan. "Share my result" is a follow-up story.
+9. **Settings:** not at Gate 1 (no screen yet).
 10. **First-encounter bubble:** one short sentence, tap to dismiss, never over
     the board's key area.
 
 The social preview image is 1200 × 630, spoiler-free, with the heist map and
-the title “Daily Heist #N”; never include a player path or solution.
+the title "Daily Heist #N"; never include a player path or solution. Its plan
+style is slice 6/6.
 
-## Asset and component guidance
+## Assets
 
-Allowed reference packs are CC0 and may be used commercially (credit optional):
+None for the game itself: the thief, the guards, the threats, the board and
+every control are drawn in code. The component sheet is the code above
+(`kit.ts`, `kit-screens.ts`, `render.ts`); the visual references are the
+design document and its mockups in `docs/design/plan-style/`. Do not add a
+dependency or an asset bundle that breaks the 3 MB initial-download budget;
+icons and share previews in `public/icons/` are generated by the build.
 
-- [Kenney Top-down Shooter](https://opengameart.org/content/topdown-shooter):
-  use only weapon-free stand poses for thief and guard characters.
-- [Kenney UI Pack](https://kenney-assets.itch.io/ui-pack): use one consistent
-  color family for primary actions (PLAY and primary Share) and a neutral
-  family for secondary actions.
+## Review
 
-Use the Kenney Top-down Shooter stand poses for the thief and guards, with no
-weapons; do not replace these two characters with geometric placeholders in a
-Gate 1 implementation. Map each selected sprite to its role in a small
-component/sprite sheet. Use Kenney UI Pack sprites for primary and secondary
-controls. Elements without a suitable sprite should be explicitly marked
-**drawn in code** (grid, cells, cones, routes, lasers, path, markers, and
-camera/laser emitters). Do not add a dependency or asset bundle that breaks
-the 3 MB initial-download budget.
-
-Current Gate 1 sprite mapping: `public/assets/kenney/thief-hitman-stand.png`
-uses Kenney's **Hitman 1 / stand** pose for the thief;
-`public/assets/kenney/guard-man-brown-stand.png` uses **Man Brown / stand** for
-guards, consistently backed by the amber guard marker. Both are copied from the
-CC0 Top-down Shooter pack; see `public/assets/kenney/LICENSE-topdown-shooter.txt`.
-The board and threat marks remain drawn in code. Kenney UI Pack button sprites
-have not yet been integrated.
-
-## Visual design deliverables and review
-
-The visual handoff for Gate 1 consists of:
-
-1. A style tile with named palette tokens, type and spacing scales, radii, and
-   outline widths (the tokens above are the initial proposal).
-2. Mockups for all ten screens at 390 × 844, plus Planning and Failure at
-   360 × 640.
-3. A component sheet mapping UI elements to Kenney UI Pack sprites or
-   “drawn in code”.
-4. A world-sprite map naming the thief and guard poses, allowed wall-cell
-   furniture, and camera/laser emitter treatments.
-5. A one-page readability check showing one heist with two guards, one camera,
-   and one laser: tick-0 cones and the ghost preview at tick 8.
-
-Store source files and exports for these handoff artifacts under
-`docs/design/`, and link them from the implementing PR. This written spec is
-the visual reference; its token table does not count as the mockups, component
-sheet, sprite map, or readability-check artifact.
-
-For each UI story, check its relevant screen at both reference sizes and on a
-real phone preview. Verify that a player can identify walkable cells, the
-current route, and every active threat within three seconds; danger remains
-understandable without color; and no decoration competes with gameplay.
+For each UI story, check its screens at both reference sizes, in EN and FR,
+and on a real phone preview. Verify that a player can identify walkable cells,
+the current route, and every active threat within three seconds; that danger
+remains understandable without colour (grayscale copy); and that no decoration
+competes with gameplay.
 
 ## Explicit exclusions
 

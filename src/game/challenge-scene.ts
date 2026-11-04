@@ -101,6 +101,8 @@ export class YapChallengeScene extends Phaser.Scene {
   /** Card view (comparison) or plan view (the friend's plan, once unlocked). */
   private yapView: 'card' | 'plan' = 'card';
   private yapPlanViewedTracked = false;
+  /** The verdict stamp has landed: a rebuild (resize, plan view) shows it without the thump. */
+  private yapVerdictLanded = false;
 
   constructor() {
     super(YAP_CHALLENGE_SCENE_KEY);
@@ -111,6 +113,7 @@ export class YapChallengeScene extends Phaser.Scene {
     this.yapDay = data.day;
     this.yapView = 'card';
     this.yapPlanViewedTracked = false;
+    this.yapVerdictLanded = false;
     this.yapEntry =
       (data.shareId !== undefined ? loadYapInboxEntryByShareId(data.shareId) : null) ??
       yapFindInboxChallenge(yapStorage, data.day);
@@ -371,12 +374,13 @@ export class YapChallengeScene extends Phaser.Scene {
             ? 'challengeFlow.stampWorse'
             : 'challengeFlow.stampTied';
       const stamp = yapStamp(this, 0, cursor + 22, yapI18n.t(key), 'stamp', {
-        thump: true,
+        thump: !this.yapVerdictLanded,
         maxWidth: w * 0.7,
         size: 14,
       });
       stamp.setX(Math.round(x + w - stamp.width / 2 - 8));
       root.add(stamp);
+      this.yapVerdictLanded = true;
       cursor += 44;
     }
     cursor += 12;
