@@ -10,6 +10,7 @@ import {
   yapReadLinkFromLocation,
 } from './app/router';
 import { yapStorage } from './app/storage';
+import { YAP_PALETTE } from './game/board';
 import { YAP_CHALLENGE_SCENE_KEY, YapChallengeScene } from './game/challenge-scene';
 import { YapConsentScene } from './game/consent-scene';
 import { YAP_DPR, yapDeviceSize, yapInstallResize } from './game/hidpi';
@@ -30,7 +31,7 @@ if (yapGameFrame !== null) {
   document.body.style.display = 'flex';
   document.body.style.alignItems = 'center';
   document.body.style.justifyContent = 'center';
-  document.body.style.background = '#F4F2ED';
+  document.body.style.background = YAP_PALETTE['paper-page'];
   document.body.style.overscrollBehavior = 'none';
   yapGameFrame.style.width = 'min(100vw, 480px)';
   yapGameFrame.style.height = 'min(100dvh, 853px)';
@@ -113,7 +114,7 @@ const config: Phaser.Types.Core.GameConfig = {
   parent: 'game',
   title: 'Perfect Crime',
   version: YAP_CORP.version,
-  backgroundColor: '#F4F2ED',
+  backgroundColor: YAP_PALETTE['paper-page'],
   scale: {
     // C1 (crisp HiDPI): the game size is the frame's CSS size in device
     // pixels, i.e. the canvas backing store, displayed at the CSS size through

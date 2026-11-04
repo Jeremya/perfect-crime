@@ -9,7 +9,9 @@
 //     page's uncaught errors.
 //
 // The board geometry comes from src/game/board.ts, the same layout the level
-// scene computes, so the pointer strokes land on the exact cells of the grid.
+// scene computes, so the pointer strokes land on the exact cells of the grid,
+// and the place of PLAY from the kit's row layout (src/game/kit.ts), the one
+// the scene draws its buttons from.
 import type { BrowserContext, Page } from '@playwright/test';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFileSync } from 'node:fs';
@@ -19,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import type { YapCell, YapDir, YapLevel } from '../../src/core/level';
 import type { YapMove } from '../../src/core/sim';
 import { yapCellCenter, yapComputeLayout, type YapPoint } from '../../src/game/board';
+import { YAP_ROW_FROM_BOTTOM, yapPlanningRow } from '../../src/game/kit';
 
 // ---------------------------------------------------------------------------
 // Static server for dist/
@@ -189,10 +192,17 @@ export async function yapDraw(
   await page.mouse.up();
 }
 
-/** PLAY, in the bottom bar: centred at (viewWidth / 2 + 42, viewHeight - 30). */
+/**
+ * PLAY, in the planning row: the centre of its box in yapPlanningRow, on the
+ * row's centre line YAP_ROW_FROM_BOTTOM above the bottom of the view. The box
+ * is the one with the middle slot taken (Preview, X3, shows as soon as the
+ * route is complete; Hint takes the same slot): it lies inside PLAY's box
+ * without that slot too, so the tap hits PLAY, enabled or not.
+ */
 export async function yapPressPlay(page: Page): Promise<void> {
   const view = await yapCanvasView(page);
-  await yapTap(page, { x: view.width / 2 + 42, y: view.height - 30 });
+  const play = yapPlanningRow(view.width, false, true).play;
+  await yapTap(page, { x: play.x + play.width / 2, y: view.height - YAP_ROW_FROM_BOTTOM });
 }
 
 /** Seeds localStorage (full `yapcorp:` keys) before any page script runs. */

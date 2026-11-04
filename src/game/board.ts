@@ -44,6 +44,7 @@ export const YAP_PALETTE = {
   // values — the exact-cell danger overlays are gameplay information and stay
   // exactly as readable as docs/UI-DESIGN.md requires. The tokens below only
   // dress the chrome (page, buttons, cards): gradients, glow, shadow, gold.
+  // Still used by ui-kit.ts / home-scene.ts until Home migrates to kit.ts.
   // -----------------------------------------------------------------------
   /** Page background gradient, top stop (vertical #F7F5F0 → #ECE8DD). */
   'surface-page-grad-start': '#F7F5F0',
@@ -59,6 +60,20 @@ export const YAP_PALETTE = {
   'accent-gold': '#E8B23A',
   /** Soft shadow color of cards and panels (alpha lives in ui-kit YAP_TILE). */
   'shadow-soft': '#202A33',
+  // -----------------------------------------------------------------------
+  // Plan style tokens (docs/design/2026-10-30-plan-style-design.md §5), used by
+  // kit.ts and the level scene (C1 visual pass 3, the approved direction).
+  // -----------------------------------------------------------------------
+  /** Page background: `index.html` shell, `theme-color`, the body and the canvas clear colour. */
+  'paper-page': '#F2EFE6',
+  /** Floor, cards, secondary buttons and the light parts of tokens. */
+  paper: '#FCFBF6',
+  /** Text, outlines, wall edges and primary buttons. */
+  ink: '#1E3A5F',
+  /** Secondary text, at least 4.5:1 on paper and on the page. */
+  'ink-muted': '#4E6480',
+  /** Disabled primary button: ink at 28% over paper. */
+  'ink-disabled': '#BEC5CC',
 } as const;
 
 export type YapPaletteToken = keyof typeof YAP_PALETTE;
