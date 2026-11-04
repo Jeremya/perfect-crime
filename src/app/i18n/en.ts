@@ -61,6 +61,8 @@ export const en = {
     speed: '×{speed}',
   },
   failure: {
+    // C1 plan style 4/6: the stamp that lands near the fatal cell
+    stamp: 'Spotted',
     spottedByGuard: 'Spotted by the guard',
     attempt: 'Attempt {n}',
     tapToReturn: 'Tap to return to your plan',

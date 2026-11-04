@@ -110,6 +110,7 @@ import {
   yapDrawThief,
 } from './render';
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapWalkedSteps } from './plan-geometry';
+import { yapRuler, yapStamp, type YapRuler } from './kit-screens';
 import { yapRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
@@ -251,6 +252,10 @@ export class YapLevelScene extends Phaser.Scene {
   private yapTickTimer: Phaser.Time.TimerEvent | null = null;
   /** The ×2 toggle of the execution footer. */
   private yapSpeedButton: YapButton | null = null;
+  /** The execution ruler (plan style 4/6): the playback's progress. */
+  private yapRuler: YapRuler | null = null;
+  /** The failure replay has settled: its REPÉRÉ stamp is down. */
+  private yapFailureSettled = false;
   // --- Failure (C4) ---
   /** Failure replay controller while the Failure screen is up (null = not). */
   private yapFailure: YapFailureReplay | null = null;
@@ -562,8 +567,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintLayer = this.add.graphics();
     board.add(this.yapHintLayer);
 
-    // The player's plan: thick rounded near-white route with a dark outline,
-    // plus compact pause badges (docs/UI-DESIGN.md, Planned path).
+    // The player's plan: a marker-red route with round joins, plus the pause
+    // badges (spec §7, docs/UI-DESIGN.md, Planned path).
     this.yapPathLayer = this.add.graphics();
     board.add(this.yapPathLayer);
     this.yapBadgeLayer = this.add.container(0, 0);
@@ -598,7 +603,9 @@ export class YapLevelScene extends Phaser.Scene {
       const frames = failure.yapReplayFrames(this.yapReducedMotion());
       const frame = frames[this.yapFailureFrameIndex] ?? frames[frames.length - 1];
       if (frame !== undefined) this.yapDrawState(frame);
+      this.yapRedrawPath(); // the faint route past the replayed thief survives a rebuild
       this.yapApplyFailureZoom();
+      if (this.yapFailureSettled) this.yapDrawFailureStamp(false);
     } else if (win !== null) {
       this.yapBuildWinChrome(level, layout);
       if (this.yapWinFrame !== null) this.yapDrawState(this.yapWinFrame);
@@ -736,8 +743,16 @@ export class YapLevelScene extends Phaser.Scene {
     if (input === null || layout === null || g === null || badges === null) return;
     g.clear();
     const cells = input.yapPath();
+    // the walked part follows the thief: the playback's tick, or the replayed
+    // frame's on the failure screen (so a rebuild keeps the faint route)
     const exec = this.yapExecution;
-    const walked = exec === null ? undefined : yapWalkedSteps(input.yapPlan(), exec.yapTick());
+    const tick =
+      exec !== null
+        ? exec.yapTick()
+        : this.yapFailure !== null
+          ? this.yapDisplayed?.tick
+          : undefined;
+    const walked = tick === undefined ? undefined : yapWalkedSteps(input.yapPlan(), tick);
     yapDrawRoute(g, layout, cells, YAP_ROUTE_WIDTH, 'marker', walked);
     // pause badges: a paper pill with two marker bars and the count, on the
     // cells that hold pauses
@@ -787,7 +802,7 @@ export class YapLevelScene extends Phaser.Scene {
     // the pencil treatment (spec §7): graphite dots, never the route's red
     const col = yapHexToInt(YAP_PALETTE.graphite);
     const r = Math.max(2, layout.cell * 0.1);
-    g.fillStyle(col, 0.9);
+    g.fillStyle(col, YAP_PENCIL_ALPHA);
     for (let i = 0; i < cells.length; i += 1) {
       const c = cells[i];
       if (c === undefined) continue;
@@ -864,6 +879,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintButton = null;
     this.yapPreviewButton = null;
     this.yapSpeedButton = null;
+    this.yapRuler = null;
     return chrome;
   }
 
@@ -1159,6 +1175,13 @@ export class YapLevelScene extends Phaser.Scene {
     });
     chrome.add([speed.container, stop.container]);
     this.yapSpeedButton = speed;
+    // the ruler (spec §8): the playback's progress, a graduation per tick,
+    // between the rule on the bar's top and the row
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    chrome.add(yapRule(this, 0, layout.viewWidth, barY + 0.5));
+    const ruler = yapRuler(this, 16, barY + 20, layout.viewWidth - 32, exec?.yapMaxTick() ?? 1);
+    chrome.add(ruler.container);
+    this.yapRuler = ruler;
   }
 
   /**
@@ -1178,6 +1201,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (exec === null) return;
     this.yapSetHeaderRight(this.yapExecutionRight(exec));
     this.yapSpeedButton?.setLabel(yapI18n.t('execution.speed', { speed: exec.yapSpeed() }));
+    this.yapRuler?.setProgress(exec.yapTick() / Math.max(1, exec.yapMaxTick()));
   }
 
   /** PLAY: starts the playback of the drawn plan. */
@@ -1458,6 +1482,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (level === null || layout === null) return;
     const replay = new YapFailureReplay(exec.yapFrames(), exec.yapOutcome());
     this.yapFailure = replay;
+    this.yapFailureSettled = false;
     this.yapExecution = null; // the playback is over; the failure drives now
     this.yapFatalMarker = replay.yapFatalCell();
     this.yapChrome?.destroy();
@@ -1489,8 +1514,32 @@ export class YapLevelScene extends Phaser.Scene {
     const frame = frames[this.yapFailureFrameIndex];
     if (frame === undefined) return;
     this.yapDrawState(frame);
+    this.yapRedrawPath(); // the walked part follows the replayed thief
     this.yapRedrawMarks();
+    if (this.yapFailureTimer === null && !this.yapFailureSettled) {
+      this.yapFailureSettled = true;
+      this.yapDrawFailureStamp(true); // the replay has settled: REPÉRÉ lands
+    }
   };
+
+  /**
+   * The REPÉRÉ stamp (spec §8), near the fatal cell once the replay settles.
+   * It sits in board space, so it follows the zoom, scaled back so it keeps
+   * its size, up and to the right of the cell and inside the board.
+   */
+  private yapDrawFailureStamp(thump: boolean): void {
+    const replay = this.yapFailure;
+    const layout = this.yapLayout;
+    const board = this.yapBoard;
+    if (replay === null || layout === null || board === null) return;
+    const zoom = replay.yapZoomFactor(layout);
+    const p = yapCellCenter(layout, replay.yapFatalCell());
+    const x = Math.min(p.x + layout.cell * 0.9, layout.originX + layout.boardWidth - 40 / zoom);
+    const y = Math.max(p.y - layout.cell * 0.55, layout.originY + 20 / zoom);
+    const holder = this.add.container(x, y).setScale(1 / zoom);
+    holder.add(yapStamp(this, 0, 0, yapI18n.t('failure.stamp'), 'stamp', { thump }));
+    board.add(holder);
+  }
 
   /** (Re)starts the slow-motion replay timer (quarter speed). */
   private yapScheduleFailureTick(): void {
@@ -1515,6 +1564,7 @@ export class YapLevelScene extends Phaser.Scene {
   private yapExitFailure(): void {
     this.yapRemoveFailureTimer();
     this.yapFailure = null;
+    this.yapFailureSettled = false;
     this.yapResetCamera();
     const level = this.yapLevel;
     const layout = this.yapLayout;

@@ -62,6 +62,8 @@ export const fr: YapDictionary = {
     speed: '×{speed}',
   },
   failure: {
+    // Style plan 4/6 de C1 : le tampon posé près de la case fatale
+    stamp: 'Repéré',
     spottedByGuard: 'Repéré par le garde',
     attempt: 'Essai n°{n}',
     tapToReturn: "Touche l'écran pour revenir à ton plan",

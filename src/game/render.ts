@@ -3,10 +3,12 @@
 // illustrations at gate 1"). The static grid is baked once into a texture by
 // the scene; cones, patrols, lasers and entities are redrawn per state.
 //
-// Readability rules from docs/UI-DESIGN.md: vision cones are the exact cells of
-// visibleCells (tinted ~30% + crisp 2 px outline, never smooth or color-only),
-// patrols are thin dotted lines with direction arrows, lasers are solid red
-// when active and gray dashed when off.
+// The board is an architect's plan (plan style 3/6, spec §7). Readability
+// rules from docs/UI-DESIGN.md: vision cones are the exact cells of
+// visibleCells (a 24% / 18% tint plus a crisp 1.5 px outline, never smooth or
+// colour-only), patrols are ink dashed lines with arrowheads, lasers are a
+// thin stamp-red beam with emitter nubs when active and a dashed grey line
+// when off.
 import Phaser from 'phaser';
 import type { YapCell, YapDir, YapGuard, YapLevel } from '../core/level';
 import {
