@@ -177,23 +177,10 @@ describe('the thin wall frame (plan style 3/6)', () => {
   });
 });
 
-// The legacy board palette still draws the OG previews (tools/og.ts, plan
-// style 6/6) and parts of the dev viewer; the plan-style board is covered by
-// the 'plan style tokens' tests below.
-describe('legacy palette — the OG previews and the dev viewer (until plan style 6/6)', () => {
-  it('keeps cell boundaries at 3:1 or better against the floor', () => {
-    expect(contrast(YAP_PALETTE['grid-line'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
-  });
-
-  it('keeps the diamond at 3:1 or better against the floor', () => {
-    expect(contrast(YAP_PALETTE['objective-diamond'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
-  });
-
-  it('keeps the exit at 3:1 or better against the floor', () => {
-    expect(contrast(YAP_PALETTE['objective-exit'], YAP_PALETTE.floor)).toBeGreaterThanOrEqual(3);
-  });
-
-  it('keeps the primary action readable in both states', () => {
+// The legacy palette now only dresses the dev viewer's chrome (plan style
+// 6/6); the game and the share previews are covered by the plan style tests.
+describe('legacy palette — the dev viewer', () => {
+  it('keeps the primary action readable', () => {
     expect(
       contrast(YAP_PALETTE['path-light'], YAP_PALETTE['action-primary']),
     ).toBeGreaterThanOrEqual(4.5);

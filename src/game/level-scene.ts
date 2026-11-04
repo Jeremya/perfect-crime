@@ -1879,13 +1879,13 @@ export class YapLevelScene extends Phaser.Scene {
     const s = 9;
     const warn = this.add.graphics();
     warn
-      .fillStyle(yapHexToInt(YAP_PALETTE['danger-laser']), 1)
+      .fillStyle(yapHexToInt(YAP_PALETTE.stamp), 1)
       .fillTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8)
-      .lineStyle(1, yapHexToInt(YAP_PALETTE['path-outline']), 1)
+      .lineStyle(1, yapHexToInt(YAP_PALETTE.ink), 1)
       .strokeTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8);
     chrome.add(warn);
     chrome.add(
-      yapText(this, iconX, iconY - 1, '!', yapTextStyle(12, YAP_PALETTE['path-light'])).setOrigin(
+      yapText(this, iconX, iconY - 1, '!', yapTextStyle(12, YAP_PALETTE.paper)).setOrigin(
         0.5,
         0.5,
       ),
