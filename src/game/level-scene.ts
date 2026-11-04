@@ -56,13 +56,17 @@ import tutorialSource from '../../levels/tutorial/t1.lvl?raw';
 import {
   YAP_BOTTOM_BAR_HEIGHT,
   YAP_PALETTE,
+  YAP_CONSENT_HEIGHT_KEY,
   YAP_TOP_BAR_HEIGHT,
   yapCellCenter,
+  yapConsentTopBar,
+  yapDirVector,
   yapCellRect,
   yapLevelLayout,
   yapHexToInt,
   type YapBoardLayout,
   type YapPaletteToken,
+  type YapPoint,
 } from './board';
 import {
   YAP_DPR,
@@ -98,6 +102,7 @@ import {
   YAP_PAUSE_BADGE_PAD,
   yapDrawCamera,
   yapDrawGuard,
+  yapDrawHand,
   yapDrawPauseBadge,
   yapDrawRoute,
   yapDrawCone,
@@ -112,7 +117,7 @@ import {
 } from './render';
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
 import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
-import { YAP_WIN_ROW_HEIGHT, yapTelegram, yapWinActions } from './compose';
+import { YAP_WIN_ROW_HEIGHT, yapHandPose, yapTelegram, yapWinActions } from './compose';
 import { yapRoleCase, yapRoleText, yapText, yapTextStyle } from './text';
 import {
   YAP_BUTTON_HEIGHT,
@@ -248,6 +253,18 @@ export class YapLevelScene extends Phaser.Scene {
   private yapSpeedButton: YapButton | null = null;
   /** The execution ruler (plan style 4/6): the playback's progress. */
   private yapRuler: YapRuler | null = null;
+  /** The first-launch hand (spec §8): its layer while it shows, null otherwise. */
+  private yapHandLayer: Phaser.GameObjects.Container | null = null;
+  /** The hand's dashed ghost route, under the pieces (outside the hand's layer). */
+  private yapHandGhosts: Phaser.GameObjects.Graphics[] = [];
+  /** The hand's own graphics, redrawn each frame while it loops. */
+  private yapHandGraphics: Phaser.GameObjects.Graphics | null = null;
+  /** The cell centres of the route the hand draws (T1's solution). */
+  private yapHandPoints: readonly YapPoint[] = [];
+  /** When the hand's loop started (scene time, ms). */
+  private yapHandStart = 0;
+  /** The run has had its first touch: the hand never comes back. */
+  private yapHandDone = false;
   /** The failure replay has settled: its REPÉRÉ stamp is down. */
   private yapFailureSettled = false;
   // --- Failure (C4) ---
@@ -307,6 +324,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapState = createInitialState(this.yapLevel);
     // C7: the hints of this run (failures unlock them, the win counts them)
     this.yapHints = new YapHints(this.yapLevel);
+    // the consent note may already be up (it is a scene of its own)
+    this.yapConsentNote = Number(this.registry.get(YAP_CONSENT_HEIGHT_KEY) ?? 0);
     this.yapBuild(); // its paper page also sets the camera's page colour
     // Path drawing: pointer events, a single finger (Gate 1 spec).
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.yapOnPointerDown, this);
@@ -317,7 +336,23 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.yapOnShutdown, this);
+    // first launch (spec §8): the consent note's height moves the header and
+    // the board down; its changes rebuild the scene as a resize does
+    this.events.on(Phaser.Scenes.Events.UPDATE, this.yapOnHandFrame, this);
+    this.registry.events.on(`setdata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
+    this.registry.events.on(`changedata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
   }
+
+  /** Height of the first-launch consent note over the header, in px (0 = none). */
+  private yapConsentNote = 0;
+
+  /** The consent note changed height (shown, rewrapped, answered): rebuild. */
+  private readonly yapOnConsentNote = (_parent: unknown, value: unknown): void => {
+    const note = Math.max(0, Number(value) || 0);
+    if (note === this.yapConsentNote) return;
+    this.yapConsentNote = note;
+    this.yapBuild();
+  };
 
   /** RESIZE handler made by create(): rebuilds on a new view size only (C1). */
   private yapOnResize: () => void = () => undefined;
@@ -360,6 +395,10 @@ export class YapLevelScene extends Phaser.Scene {
   /** D2: forget the previous run (path, playback, failure, win, attempts). */
   private yapResetRun(data: YapLevelSceneData): void {
     this.yapSceneData = data;
+    this.yapHandDone = false;
+    this.yapHandGhosts = [];
+    this.yapHandLayer = null;
+    this.yapHandGraphics = null;
     this.yapBoard = null; // destroyed with the previous run's display list
     this.yapChrome = null;
     this.yapHeader = null; // the chrome refs went with it too
@@ -385,6 +424,9 @@ export class YapLevelScene extends Phaser.Scene {
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize);
+    this.events.off(Phaser.Scenes.Events.UPDATE, this.yapOnHandFrame, this);
+    this.registry.events.off(`setdata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
+    this.registry.events.off(`changedata-${YAP_CONSENT_HEIGHT_KEY}`, this.yapOnConsentNote);
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.yapOnPointerDown, this);
     this.input.off(Phaser.Input.Events.POINTER_MOVE, this.yapOnPointerMove, this);
     this.input.off(Phaser.Input.Events.POINTER_UP, this.yapOnPointerUp, this);
@@ -411,6 +453,11 @@ export class YapLevelScene extends Phaser.Scene {
   }
 
   private readonly yapOnPointerDown = (pointer: Phaser.Input.Pointer): void => {
+    // the first touch anywhere, buttons included: the player has the gesture
+    if (!this.yapHandDone) {
+      this.yapHandDone = true;
+      this.yapStopHand();
+    }
     if (this.yapFailure !== null) {
       // Failure screen: one tap anywhere goes back to the intact plan.
       this.yapExitFailure();
@@ -506,7 +553,7 @@ export class YapLevelScene extends Phaser.Scene {
       view.width,
       view.height,
       level,
-      YAP_TOP_BAR_HEIGHT,
+      yapConsentTopBar(this.yapConsentNote),
       YAP_BOTTOM_BAR_HEIGHT,
     );
     this.yapLayout = layout;
@@ -581,6 +628,9 @@ export class YapLevelScene extends Phaser.Scene {
     // marks: a label, it stays readable over the fatal-cell marker.
     this.yapHintBadge = this.add.container(0, 0);
     board.add(this.yapHintBadge);
+
+    // the first-launch hand on T1 (spec §8), on top of the board
+    this.yapBuildHand(board, layout);
 
     this.yapRedrawPath();
     // Chrome and displayed state of the current mode (planning, execution,
@@ -721,6 +771,110 @@ export class YapLevelScene extends Phaser.Scene {
     for (const cam of ghost.cameras) yapDrawCamera(g, layout, cam.at, cam.facing, 'pencil');
     for (const guard of ghost.guards) yapDrawGuard(g, layout, guard.pos, guard.facing, 'pencil');
     layer.add(g);
+  }
+
+  // -------------------------------------------------------------------------
+  // First-launch hand (spec §8, §9; X8 storyboard): on T1, a hand draws the
+  // start of the route in a loop over a dashed red ghost of the whole route,
+  // until the first touch; still over the first segment under reduced motion.
+  // -------------------------------------------------------------------------
+
+  /** The hand shows on T1, in planning, before the run's first touch. */
+  private yapHandWanted(): boolean {
+    return (
+      !this.yapHandDone &&
+      this.yapSceneData.levelId === 'tutorial/t1' &&
+      this.yapExecution === null &&
+      this.yapFailure === null &&
+      this.yapWin === null &&
+      this.yapPreview === null &&
+      (this.yapPathInput?.yapPath().length ?? 0) <= 1
+    );
+  }
+
+  /** Builds the hand's layer on `board`: the ghost route and the hand. */
+  private yapBuildHand(board: Phaser.GameObjects.Container, layout: YapBoardLayout): void {
+    this.yapHandLayer = null;
+    this.yapHandGhosts = []; // the previous board, and its ghost, are gone
+    this.yapHandGraphics = null;
+    const level = this.yapLevel;
+    const plan = this.yapHints?.yapOptimalPlan() ?? null;
+    if (!this.yapHandWanted() || level === null || plan === null) return;
+    const cells: YapCell[] = [{ x: level.start.x, y: level.start.y }];
+    for (const move of plan) {
+      if (move === 'wait') continue;
+      const last = cells[cells.length - 1] ?? level.start;
+      const d = yapDirVector(move);
+      cells.push({ x: last.x + d.x, y: last.y + d.y });
+    }
+    this.yapHandPoints = cells.map((c) => yapCellCenter(layout, c));
+    const ghost = this.add.graphics();
+    ghost.lineStyle(2.5, yapHexToInt(YAP_PALETTE.marker), 0.6);
+    for (let i = 0; i + 1 < this.yapHandPoints.length; i += 1) {
+      const a = this.yapHandPoints[i];
+      const b = this.yapHandPoints[i + 1];
+      if (a === undefined || b === undefined) continue;
+      for (const seg of yapDashes(a, b, 6, 5)) ghost.lineBetween(seg.x1, seg.y1, seg.x2, seg.y2);
+    }
+    const hand = this.add.graphics().setAlpha(0.85);
+    // the ghost under the pieces (the thief stays on top of it), the hand above all
+    const layer = this.add.container(0, 0, [ghost, hand]);
+    const entities = this.yapEntities;
+    if (entities !== null) board.addAt(ghost, board.getIndex(entities));
+    this.yapHandGhosts.push(ghost);
+    board.add(layer);
+    this.yapHandLayer = layer;
+    this.yapHandGraphics = hand;
+    this.yapHandStart = this.time.now;
+    this.yapDrawHandAt(this.yapReducedMotion() ? { index: 0, along: 0.5 } : { index: 0, along: 0 });
+  }
+
+  /** Segments the hand draws: the first four of the route (an excerpt). */
+  private yapHandSegments(): number {
+    return Math.min(4, this.yapHandPoints.length - 1);
+  }
+
+  /** Redraws the hand at `along` (0..1) of segment `index` of the route. */
+  private yapDrawHandAt(pose: { readonly index: number; readonly along: number }): void {
+    const g = this.yapHandGraphics;
+    const layout = this.yapLayout;
+    const a = this.yapHandPoints[pose.index];
+    const b = this.yapHandPoints[pose.index + 1] ?? a;
+    if (g === null || layout === null || a === undefined || b === undefined) return;
+    g.clear();
+    yapDrawHand(
+      g,
+      { x: a.x + (b.x - a.x) * pose.along, y: a.y + (b.y - a.y) * pose.along },
+      layout.cell * 0.9,
+    );
+  }
+
+  /** Each frame: the hand's loop (none under reduced motion, it stays still). */
+  private readonly yapOnHandFrame = (time: number): void => {
+    if (this.yapHandLayer === null || this.yapReducedMotion()) return;
+    const pose = yapHandPose(time - this.yapHandStart, this.yapHandSegments());
+    if (pose.visible) this.yapDrawHandAt(pose);
+  };
+
+  /** The first touch: the hand fades out (150 ms) and never comes back. */
+  private yapStopHand(): void {
+    const layer = this.yapHandLayer;
+    this.yapHandLayer = null;
+    this.yapHandGraphics = null;
+    if (layer === null) return;
+    const parts = [layer, ...this.yapHandGhosts.splice(0)];
+    if (this.yapReducedMotion()) {
+      for (const part of parts) part.destroy();
+      return;
+    }
+    this.tweens.add({
+      targets: parts,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => {
+        for (const part of parts) part.destroy();
+      },
+    });
   }
 
   /**
@@ -896,6 +1050,7 @@ export class YapLevelScene extends Phaser.Scene {
       right,
       rightLarge: running,
     });
+    header.container.setY(this.yapConsentNote); // under the first-launch note
     chrome.add(header.container);
     this.yapHeader = header;
     this.yapPublishHeader();

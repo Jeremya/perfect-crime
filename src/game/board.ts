@@ -123,6 +123,18 @@ export const YAP_CONE_LINE_WIDTH = 1.5;
 
 /** Top bar height in px (level name, ticks/par, pauses) — docs/UI-DESIGN.md. */
 export const YAP_TOP_BAR_HEIGHT = 64;
+/**
+ * The top band of the level scene while the first-launch consent note is up
+ * (plan style 4/6, spec §8): the header moves down under the `note` px note,
+ * so the note covers no board cell and the stats stay visible.
+ */
+/** Registry key the consent scene publishes its note's height under (0 when gone). */
+export const YAP_CONSENT_HEIGHT_KEY = 'yap-consent-height';
+
+export function yapConsentTopBar(note: number): number {
+  return YAP_TOP_BAR_HEIGHT + Math.max(0, note);
+}
+
 /** Bottom action bar height in px (Clear, PLAY, Hint) — docs/UI-DESIGN.md. */
 export const YAP_BOTTOM_BAR_HEIGHT = 96;
 /**

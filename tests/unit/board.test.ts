@@ -22,6 +22,7 @@ import {
   yapCellAt,
   yapCellRect,
   yapComputeLayout,
+  yapConsentTopBar,
   yapFitRows,
   yapLevelLayout,
   yapMixHex,
@@ -106,6 +107,18 @@ describe('the thin wall frame (plan style 3/6)', () => {
       844 - YAP_BOTTOM_BAR_HEIGHT - YAP_BOARD_INSET,
     );
     expect(yapLevelLayout(360, 640, T1).cell).toBeGreaterThanOrEqual(44);
+  });
+
+  it('the consent note pushes the board down', () => {
+    // first launch: the note (76 px) sits over the 64 px header band
+    const note = 76;
+    const layout = yapLevelLayout(390, 844, T1, YAP_TOP_BAR_HEIGHT + note);
+    expect(layout.originY).toBeGreaterThanOrEqual(YAP_TOP_BAR_HEIGHT + note);
+    expect(layout.originY + layout.boardHeight).toBeLessThanOrEqual(
+      844 - YAP_BOTTOM_BAR_HEIGHT - YAP_BOARD_INSET,
+    );
+    expect(yapConsentTopBar(note)).toBe(YAP_TOP_BAR_HEIGHT + note);
+    expect(yapConsentTopBar(0)).toBe(YAP_TOP_BAR_HEIGHT);
   });
 
   it('gives the border cells the frame and the interior the cell', () => {

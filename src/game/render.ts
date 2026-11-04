@@ -553,6 +553,32 @@ export const YAP_PAUSE_BADGE_PAD = 7;
 /** Width of a pause badge's bars with the room after them, before the count. */
 export const YAP_PAUSE_BADGE_BARS = 12;
 
+// ---------------------------------------------------------------------------
+// First-launch hand (spec §8, X8 storyboard)
+// ---------------------------------------------------------------------------
+
+/**
+ * A pointing hand drawn in code, its index fingertip at `at` and the hand
+ * below it, `size` px tall: paper with a 2 px ink outline (spec §8, the
+ * first-launch hand on T1).
+ */
+export function yapDrawHand(g: Phaser.GameObjects.Graphics, at: YapPoint, size: number): void {
+  const ink = color('ink');
+  const paper = color('paper');
+  const fw = size * 0.24;
+  const part = (x: number, y: number, w: number, h: number, r: number): void => {
+    g.fillStyle(paper, 1).fillRoundedRect(x, y, w, h, r);
+    g.lineStyle(2, ink, 1).strokeRoundedRect(x, y, w, h, r);
+  };
+  // palm, then the folded fingers on its top, the thumb, and the index on top
+  part(at.x - fw / 2 - size * 0.04, at.y + size * 0.42, size * 0.62, size * 0.5, size * 0.14);
+  for (let i = 0; i < 3; i += 1) {
+    part(at.x + fw / 2 + i * size * 0.13, at.y + size * 0.36, size * 0.14, size * 0.2, size * 0.06);
+  }
+  part(at.x - fw / 2 - size * 0.2, at.y + size * 0.56, size * 0.24, size * 0.15, size * 0.07);
+  part(at.x - fw / 2, at.y, fw, size * 0.58, fw / 2);
+}
+
 /** Thickness of the thin wall frame on Home's mini-map, in px. */
 const YAP_MINI_MAP_FRAME = 4;
 

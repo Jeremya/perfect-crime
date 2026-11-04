@@ -4,7 +4,8 @@
 // prevent play or obscure the route-critical board area").
 //
 // The banner is a note (C1 plan style: paper, a 1.5 px ink border and the
-// card shadow, src/game/kit.ts) pinned over the 64 px top bar — it never covers the bottom
+// card shadow, src/game/kit.ts) pinned at the very top; the level scene moves
+// its header and board down under it (plan style 4/6), so it covers no cell — it never covers the bottom
 // action bar (Clear / PLAY stay visible and tappable). While it is up it
 // hides the plan / par / pauses readout, which comes back as soon as the
 // player answers. The spec copy is shown verbatim at the 14 px minimum text
@@ -20,7 +21,7 @@ import Phaser from 'phaser';
 import { yapAnswerConsent, yapReadConsent } from '../app/consent';
 import { yapI18n } from '../app/i18n';
 import { yapStorage } from '../app/storage';
-import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT } from './board';
+import { YAP_CONSENT_HEIGHT_KEY, YAP_PALETTE, YAP_TOP_BAR_HEIGHT } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapButton, yapCard } from './kit';
 import { yapRoleText } from './text';
@@ -60,6 +61,8 @@ export class YapConsentScene extends Phaser.Scene {
 
   private readonly yapOnShutdown = (): void => {
     this.scale.off(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
+    // the note is gone: the level scene takes its room back
+    this.registry.set(YAP_CONSENT_HEIGHT_KEY, 0);
   };
 
   /** (Re)draws the banner strip over the top bar. */
@@ -127,11 +130,14 @@ export class YapConsentScene extends Phaser.Scene {
       onPress: () => this.yapAnswer('granted'),
     });
     banner.add([panel, blocker, text, textZone, decline.container, accept.container]);
+    // the level scene moves its header and board down under the note (spec §8)
+    this.registry.set(YAP_CONSENT_HEIGHT_KEY, height);
   }
 
   /** Persists the answer (which gates analytics) and dismisses the banner. */
   private yapAnswer(choice: 'granted' | 'refused'): void {
     yapAnswerConsent(choice, yapStorage);
+    this.registry.set(YAP_CONSENT_HEIGHT_KEY, 0);
     this.scene.stop();
   }
 }
