@@ -188,6 +188,8 @@ const YAP_BAND_THREAT_LABELS: Readonly<Record<YapBandThreat, YapKey>> = {
   contact: 'preview.bandContact',
   laser: 'preview.bandLaser',
 };
+/** A hint's pause badge sits this far above its cell centre, in px, clear of the 💡 badge. */
+const YAP_HINT_PAUSE_LIFT = 22;
 /** What yapDrawState needs: the world at a tick plus the thief (real or ghost). */
 type YapDrawableState = YapGhostState & Pick<YapSimState, 'thief' | 'hasLoot'>;
 
@@ -1007,18 +1009,26 @@ export class YapLevelScene extends Phaser.Scene {
       const n = pauses[i] ?? 0;
       const c = cells[i];
       if (n <= 0 || c === undefined) continue;
-      const p = yapCellCenter(layout, c);
-      const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE.marker);
-      const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
-      const h = count.height + 4;
-      const pill = this.add.graphics();
-      yapDrawPauseBadge(pill, p, w, h);
-      count.setPosition(
-        Math.round(p.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
-        Math.round(p.y - count.height / 2),
-      );
-      badges.add([pill, count]);
+      badges.add(this.yapPausePill(yapCellCenter(layout, c), n, 'marker'));
     }
+  }
+
+  /** A pause badge centred on `at`: a paper pill, two bars and the count. */
+  private yapPausePill(
+    at: { readonly x: number; readonly y: number },
+    n: number,
+    tone: 'marker' | 'graphite',
+  ): Phaser.GameObjects.GameObject[] {
+    const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE[tone]);
+    const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
+    const h = count.height + 4;
+    const pill = this.add.graphics();
+    yapDrawPauseBadge(pill, at, w, h, tone);
+    count.setPosition(
+      Math.round(at.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
+      Math.round(at.y - count.height / 2),
+    );
+    return [pill, count];
   }
 
   // -------------------------------------------------------------------------
@@ -1058,6 +1068,14 @@ export class YapLevelScene extends Phaser.Scene {
         const q = yapCellCenter(layout, prev);
         g.fillCircle((p.x + q.x) / 2, (p.y + q.y) / 2, r * 0.8);
       }
+    }
+    // the pauses of the ghost, in pencil: above the cell centre, where the
+    // player's own badge and the 💡 badge stay readable
+    for (const pause of hints.yapGhostPauses()) {
+      const p = yapCellCenter(layout, pause.cell);
+      badge?.add(
+        this.yapPausePill({ x: p.x, y: p.y - YAP_HINT_PAUSE_LIFT }, pause.count, 'graphite'),
+      );
     }
     // compact status badge at the end of the ghost: 💡 shown/total steps, a
     // paper pill with a graphite outline
