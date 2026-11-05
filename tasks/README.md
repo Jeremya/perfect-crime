@@ -70,8 +70,8 @@ Without recruited testers, H5 and H6 cannot start.
 Kept here so they are not lost (none blocking Gate 1):
 
 - **Readability of the rounds**: the board shows tick 0 only, and players do not
-  see why a guard caught them. X9 (`tasks/X9.md`) is the proposal, from the
-  throwaway branch `spike-observer`; the product decision is pending.
+  see why a guard caught them. X9 (`tasks/X9.md`, approved 2026-11-05) answers
+  it, from the throwaway branch `spike-observer`; in review in #76.
 - **Visual direction**: decided 2026-11-04 — the "plan d'architecte" direction
   (`docs/design/2026-10-30-plan-style-design.md`) is the only one, everywhere;
   100% code-drawn, no Kenney UI Pack sprites and no Kenney character sprites
@@ -148,7 +148,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | X7 | 10 hard-difficulty heists | X | Design+Content | 3 h | X6 | Done (#57) | `tasks/X7.md` |
 | X8 | Visual kit "fancy" (design only; archived, direction rejected) | X | Design | 2 h | C1 | Done (#55) | `tasks/X8.md` |
 | X8b | Style tile 100% code — X8b-1 merged (#59) then retired by the 2026-11-04 product call (#60); X8b-2/X8b-3 cancelled | X | Dev | M | X8 | Done / cancelled | `tasks/X8b.md` |
-| X9 | Observer: watch the round, stop on the cause | X | Dev | L | C2, C3, C6, X3 | Proposed (product decision pending) | `tasks/X9.md` |
+| X9 | Observer: watch the round, stop on the cause | X | Dev | L | C2, C3, C6, X3 | In review (#76) | `tasks/X9.md` |
 
 ## Parallel waves (dependency order)
 
