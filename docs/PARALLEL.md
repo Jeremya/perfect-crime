@@ -88,6 +88,8 @@ Run several of these in separate terminals or background processes
   agents can see what is claimed without talking to each other.
 - If two PRs still collide on merge, the second one rebases and resolves —
   keep the diff minimal, never reformat files you don't own.
+- **Clean up after the merge**: `git worktree remove ../game-perfect-crime-<id>`
+  and delete the branch. A worktree weighs 250 MB with its `node_modules`.
 
 ## Suggested first batch (wave 1–2)
 
