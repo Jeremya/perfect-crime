@@ -377,12 +377,7 @@ export interface YapRowMetrics {
  * `available` px, down to `min`. The archive can hold the whole week, so on a
  * 360 × 640 screen the rows shrink instead of running over the actions.
  */
-export function yapFitRows(
-  available: number,
-  count: number,
-  min = 44,
-  max = 64,
-): YapRowMetrics {
+export function yapFitRows(available: number, count: number, min = 44, max = 64): YapRowMetrics {
   if (count <= 0) return { height: 0, gap: 0, total: 0 };
   for (let height = max; height >= min; height -= 1) {
     const gap = height >= 56 ? 8 : 4;

@@ -22,12 +22,7 @@ import {
   type YapPlan,
   type YapSimOutcome,
 } from '../core/sim';
-import {
-  parseFlagsFromSearch,
-  YAP_DEFAULT_FLAGS,
-  yapUrlFlag,
-  type YapFlags,
-} from '../app/config';
+import { parseFlagsFromSearch, YAP_DEFAULT_FLAGS, yapUrlFlag, type YapFlags } from '../app/config';
 
 /** Ghost preview error (invalid tick). */
 export class YapGhostError extends Error {

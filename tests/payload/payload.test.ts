@@ -124,8 +124,8 @@ function craftPayload(mutate: (bytes: number[]) => void): string {
   // stars 2, hints 1, 2 causes, share id 0x01020304, plan of 5 steps,
   // nickname "Alex".
   const bytes = [
-    0x01, 0x03, 0x04, 0x29, 0x92, 0x10, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x26, 0x04,
-    0x41, 0x6c, 0x65, 0x78,
+    0x01, 0x03, 0x04, 0x29, 0x92, 0x10, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x26, 0x04, 0x41,
+    0x6c, 0x65, 0x78,
   ];
   mutate(bytes);
   let checksum = 0;
@@ -232,7 +232,9 @@ describe('YapPayload golden vector', () => {
 
   it('builds the full link as https://<domain>/c/<day>#<payload>', () => {
     const fragment = YapPayload.encode(BASE_PAYLOAD);
-    expect(YapPayload.link('example.com', BASE_PAYLOAD)).toBe(`https://example.com/c/3#${fragment}`);
+    expect(YapPayload.link('example.com', BASE_PAYLOAD)).toBe(
+      `https://example.com/c/3#${fragment}`,
+    );
   });
 });
 
@@ -259,7 +261,9 @@ describe('YapPayload.decode rejects unreadable payloads', () => {
     for (const idx of [0, 4, 10, fragment.length - 2]) {
       const ch = fragment.charAt(idx);
       const flipped = ch === 'A' ? 'B' : 'A';
-      expect(YapPayload.decode(fragment.slice(0, idx) + flipped + fragment.slice(idx + 1))).toBeNull();
+      expect(
+        YapPayload.decode(fragment.slice(0, idx) + flipped + fragment.slice(idx + 1)),
+      ).toBeNull();
     }
   });
 

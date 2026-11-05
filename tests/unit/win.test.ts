@@ -54,22 +54,7 @@ function lvl(par: number): YapLevel {
 
 // E,E then S x 9 (onto the loot at (3,10)) then E,E,E (onto the exit): 14
 // ticks, a win at tick 14.
-const WIN_PLAN: YapPlan = [
-  'E',
-  'E',
-  'S',
-  'S',
-  'S',
-  'S',
-  'S',
-  'S',
-  'S',
-  'S',
-  'S',
-  'E',
-  'E',
-  'E',
-];
+const WIN_PLAN: YapPlan = ['E', 'E', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'E', 'E', 'E'];
 
 // The same win with one pause on the start cell: 15 ticks.
 const WIN_PLAN_15: YapPlan = ['wait', ...WIN_PLAN];
@@ -275,7 +260,15 @@ describe('YapWinScreen — contract and i18n', () => {
   it('the win.* keys of the panel resolve in both locales', () => {
     for (const locale of ['fr', 'en'] as const) {
       const i18n = new YapI18n(locale, null);
-      for (const key of ['win.attempts', 'win.ticks', 'win.par', 'win.stars', 'win.share', 'win.improve', 'win.home'] as const) {
+      for (const key of [
+        'win.attempts',
+        'win.ticks',
+        'win.par',
+        'win.stars',
+        'win.share',
+        'win.improve',
+        'win.home',
+      ] as const) {
         expect(i18n.t(key).trim().length, `${locale}:${key}`).toBeGreaterThan(0);
       }
     }

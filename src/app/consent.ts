@@ -15,7 +15,13 @@
 // analytics.ts itself stays untouched, and track() keeps its single entry
 // point. The gate re-reads the stored choice at every send, so the answer of
 // the banner takes effect immediately, without a reload.
-import { configureYapAnalytics, track, YapPostHogTransport, type YapAnalyticsTransport, type YapCapturedEvent } from './analytics';
+import {
+  configureYapAnalytics,
+  track,
+  YapPostHogTransport,
+  type YapAnalyticsTransport,
+  type YapCapturedEvent,
+} from './analytics';
 import { YapStorage, yapStorage } from './storage';
 
 /** The two possible answers to the consent banner. */
@@ -96,7 +102,9 @@ export interface YapInstallConsentGateOptions {
  * every track() call goes through YapConsentGateTransport. Called once at
  * startup (src/main.ts), before any scene can emit an event.
  */
-export function yapInstallConsentGate(options: YapInstallConsentGateOptions = {}): YapConsentGateTransport {
+export function yapInstallConsentGate(
+  options: YapInstallConsentGateOptions = {},
+): YapConsentGateTransport {
   const storage = options.storage ?? yapStorage;
   const delegate = options.transport ?? new YapPostHogTransport();
   const gate = new YapConsentGateTransport(delegate, () => yapConsentGranted(storage));

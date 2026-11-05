@@ -14,7 +14,13 @@
 // laser state comes from the pure sim frames (src/core/sim.ts); drawing
 // reuses ./board.ts and ./render.ts of the C1 level scene.
 import Phaser from 'phaser';
-import { parseLevel, YAP_GRID_HEIGHT, YAP_GRID_WIDTH, YAP_MAX_TICKS, type YapLevel } from '../core/level';
+import {
+  parseLevel,
+  YAP_GRID_HEIGHT,
+  YAP_GRID_WIDTH,
+  YAP_MAX_TICKS,
+  type YapLevel,
+} from '../core/level';
 import { createInitialState, run, type YapSimState } from '../core/sim';
 import { solveLevel, YapSolverError, type YapSolveResult } from '../core/solver';
 import { yapI18n } from '../app/i18n';
@@ -61,7 +67,8 @@ const yapGlob = import.meta.glob('../../levels/**/*.lvl', {
 });
 const yapBundledLevels: Record<string, string> = {};
 for (const [key, value] of Object.entries(yapGlob)) {
-  yapBundledLevels[key.replace(/^(\.\.\/)+/, '')] = typeof value === 'string' ? value : String(value);
+  yapBundledLevels[key.replace(/^(\.\.\/)+/, '')] =
+    typeof value === 'string' ? value : String(value);
 }
 
 /** A loaded level plus its solver result and the frames of the optimal plan. */

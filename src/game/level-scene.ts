@@ -1195,7 +1195,10 @@ export class YapLevelScene extends Phaser.Scene {
       kicker = yapI18n.t(YAP_HEIST_KICKERS[mode], { day });
     }
     if (running && kicker !== '') kicker = yapI18n.t('header.running', { kicker });
-    return { kicker, title: lesson === undefined ? yapHeistName(level, day) : yapI18n.t(lesson.title) };
+    return {
+      kicker,
+      title: lesson === undefined ? yapHeistName(level, day) : yapI18n.t(lesson.title),
+    };
   }
 
   /** Shows `lines` on the right of the header, then publishes what it shows. */
@@ -2308,10 +2311,7 @@ export class YapLevelScene extends Phaser.Scene {
       .strokeTriangle(iconX, iconY - s, iconX - s, iconY + s * 0.8, iconX + s, iconY + s * 0.8);
     chrome.add(warn);
     chrome.add(
-      yapText(this, iconX, iconY - 1, '!', yapTextStyle(12, YAP_PALETTE.paper)).setOrigin(
-        0.5,
-        0.5,
-      ),
+      yapText(this, iconX, iconY - 1, '!', yapTextStyle(12, YAP_PALETTE.paper)).setOrigin(0.5, 0.5),
     );
     // how to go back, in the mono stat role: a long line (French) loses its
     // letter spacing, then wraps, rather than run past the margins

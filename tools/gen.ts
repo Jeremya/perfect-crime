@@ -206,13 +206,21 @@ function manhattan(a: YapCell, b: YapCell): number {
 }
 
 /** Random map: border walls, sparse interior walls, connected S/L/E. */
-function genMap(rng: YapPrng): { rows: string[]; start: YapCell; loot: YapCell; exit: YapCell } | null {
+function genMap(
+  rng: YapPrng,
+): { rows: string[]; start: YapCell; loot: YapCell; exit: YapCell } | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const wall: boolean[][] = [];
     for (let y = 0; y < YAP_GRID_HEIGHT; y += 1) {
       const row: boolean[] = [];
       for (let x = 0; x < YAP_GRID_WIDTH; x += 1) {
-        row.push(x === 0 || y === 0 || x === YAP_GRID_WIDTH - 1 || y === YAP_GRID_HEIGHT - 1 || rng.chance(0.16));
+        row.push(
+          x === 0 ||
+            y === 0 ||
+            x === YAP_GRID_WIDTH - 1 ||
+            y === YAP_GRID_HEIGHT - 1 ||
+            rng.chance(0.16),
+        );
       }
       wall.push(row);
     }
@@ -347,16 +355,23 @@ function genGuard(rng: YapPrng, isFloor: YapFloorFn, id: string): YapGuard | nul
   return null;
 }
 
-function genCamera(rng: YapPrng, isWall: YapFloorFn, isFloor: YapFloorFn, id: string): YapCamera | null {
+function genCamera(
+  rng: YapPrng,
+  isWall: YapFloorFn,
+  isFloor: YapFloorFn,
+  id: string,
+): YapCamera | null {
   // Wall cells with at least one floor neighbor (a mountable wall).
   const mounts: YapCell[] = [];
   for (let y = 0; y < YAP_GRID_HEIGHT; y += 1) {
     for (let x = 0; x < YAP_GRID_WIDTH; x += 1) {
       if (!isWall(x, y)) continue;
-      if (DIRS.some((d) => {
-        const v = DIR_VECTORS[d];
-        return isFloor(x + v.x, y + v.y);
-      })) {
+      if (
+        DIRS.some((d) => {
+          const v = DIR_VECTORS[d];
+          return isFloor(x + v.x, y + v.y);
+        })
+      ) {
         mounts.push({ x, y });
       }
     }
@@ -538,7 +553,11 @@ export function generateDrafts(options: YapDraftOptions): YapGenResult {
     rejectedPar: 0,
     rejectedTension: 0,
   };
-  for (let attempt = 1; attempt <= options.maxAttempts && drafts.length < options.count; attempt += 1) {
+  for (
+    let attempt = 1;
+    attempt <= options.maxAttempts && drafts.length < options.count;
+    attempt += 1
+  ) {
     stats.attempts += 1;
     const file = `draft-${options.seed}-${attempt}.lvl`;
     const candidate = buildCandidate(rng, options.maxEntities);
@@ -578,7 +597,11 @@ export function generateDrafts(options: YapDraftOptions): YapGenResult {
     }
     // Final source: real name and the solver par, so the draft is
     // self-consistent and passes the validate gate unchanged.
-    const level: YapLevel = { ...parsed, name: `Draft ${options.seed}-${attempt}`, par: solved.par };
+    const level: YapLevel = {
+      ...parsed,
+      name: `Draft ${options.seed}-${attempt}`,
+      par: solved.par,
+    };
     const source = serializeLevel(level);
     const finalCheck = validateLevelSource(source, file);
     if (finalCheck.level === null || finalCheck.issues.length > 0) {

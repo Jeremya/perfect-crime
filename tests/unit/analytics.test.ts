@@ -72,7 +72,13 @@ const SPEC_EVENT_PROPS: Record<YapAnalyticsEvent, Record<string, unknown>> = {
   consent_set: { granted: true },
   level_start: { level_id: 'd3', mode: 'daily', day: 3 },
   attempt_start: { level_id: 'd3', attempt: 2, plan_ticks: 41, pauses_used: 1 },
-  attempt_fail: { level_id: 'd3', attempt: 2, cause: 'laser', tick: 17, ms_since_level_start: 42000 },
+  attempt_fail: {
+    level_id: 'd3',
+    attempt: 2,
+    cause: 'laser',
+    tick: 17,
+    ms_since_level_start: 42000,
+  },
   attempt_win: {
     level_id: 'd3',
     attempt: 3,
@@ -114,7 +120,12 @@ describe('event table (Gate 1 spec)', () => {
     });
     analytics.track('consent_set', { granted: true });
     analytics.track('level_start', { level_id: 'd3', mode: 'daily', day: 3 });
-    analytics.track('attempt_start', { level_id: 'd3', attempt: 2, plan_ticks: 41, pauses_used: 1 });
+    analytics.track('attempt_start', {
+      level_id: 'd3',
+      attempt: 2,
+      plan_ticks: 41,
+      pauses_used: 1,
+    });
     analytics.track('attempt_fail', {
       level_id: 'd3',
       attempt: 2,
@@ -135,7 +146,11 @@ describe('event table (Gate 1 spec)', () => {
     analytics.track('hint_used', { level_id: 'd3', hint_index: 0, attempt: 3 });
     analytics.track('observer_open', { level_id: 'd3', kind: 'plan', attempt: 3 });
     analytics.track('share_tapped', { context: 'win', day: 3 });
-    analytics.track('share_result', { method: 'native', outcome: 'completed', variant: 'text-link' });
+    analytics.track('share_result', {
+      method: 'native',
+      outcome: 'completed',
+      variant: 'text-link',
+    });
     analytics.track('link_opened', {
       day: 3,
       sender_share_id: 'a1b2c3d4',
@@ -143,7 +158,12 @@ describe('event table (Gate 1 spec)', () => {
       is_self: false,
     });
     analytics.track('challenge_cta', { action: 'play' });
-    analytics.track('challenge_result', { day: 3, beat_sender: true, delta_attempts: -1, delta_ticks: 4 });
+    analytics.track('challenge_result', {
+      day: 3,
+      beat_sender: true,
+      delta_attempts: -1,
+      delta_ticks: 4,
+    });
     analytics.track('friend_plan_viewed', { day: 3 });
     analytics.track('streak_day', { streak: 2 });
     analytics.track('heartbeat', { active_ms: 30000 });
@@ -164,8 +184,14 @@ describe('event table (Gate 1 spec)', () => {
     analytics.track('attempt_win', { level_id: 'd3', attempt: 1 });
     // @ts-expect-error not an event of the spec table
     analytics.track('not_an_event', {});
-    // @ts-expect-error cause must be one of guard | camera | laser
-    analytics.track('attempt_fail', { level_id: 'd3', attempt: 1, cause: 'fall', tick: 3, ms_since_level_start: 1000 });
+    analytics.track('attempt_fail', {
+      level_id: 'd3',
+      attempt: 1,
+      // @ts-expect-error cause must be one of guard | camera | laser
+      cause: 'fall',
+      tick: 3,
+      ms_since_level_start: 1000,
+    });
   });
 });
 
@@ -321,7 +347,8 @@ describe('YapPostHogTransport (EU capture API)', () => {
   it('does nothing without fetch or with an empty batch', async () => {
     const noFetch = new YapPostHogTransport({ fetchFn: undefined });
     await expect(noFetch.send([captured])).resolves.toBeUndefined();
-    const fetchFn = (() => Promise.resolve({ ok: true } as unknown as Response)) as unknown as typeof fetch;
+    const fetchFn = (() =>
+      Promise.resolve({ ok: true } as unknown as Response)) as unknown as typeof fetch;
     const transport = new YapPostHogTransport({ fetchFn });
     await expect(transport.send([])).resolves.toBeUndefined();
   });

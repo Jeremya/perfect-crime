@@ -67,7 +67,11 @@ export function parseFlagsFromSearch(search: string): Partial<YapFlags> {
  * profile nor sent with the events.
  */
 export function yapUrlFlag(search: string, name: string, fallback: boolean): boolean {
-  return yapUrlSwitches(search).filter((s) => s.name === name).at(-1)?.on ?? fallback;
+  return (
+    yapUrlSwitches(search)
+      .filter((s) => s.name === name)
+      .at(-1)?.on ?? fallback
+  );
 }
 
 /** `?internal=1` marks an internal tester. */
