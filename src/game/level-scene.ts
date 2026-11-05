@@ -78,7 +78,7 @@ import {
   yapPointerView,
   yapViewSize,
 } from './hidpi';
-import { YapPathInput } from './path-input';
+import { YapPathInput, yapPauseBadges } from './path-input';
 import {
   yapGhostCones,
   yapGhostLayerVisible,
@@ -935,12 +935,8 @@ export class YapLevelScene extends Phaser.Scene {
     // pause badges: a paper pill with two marker bars and the count, on the
     // cells that hold pauses
     badges.removeAll(true);
-    const pauses = input.yapPauseCounts();
-    for (let i = 0; i < cells.length; i += 1) {
-      const n = pauses[i] ?? 0;
-      const c = cells[i];
-      if (n <= 0 || c === undefined) continue;
-      badges.add(this.yapPausePill(yapCellCenter(layout, c), n, 'marker'));
+    for (const { cell, count: n } of yapPauseBadges(cells, input.yapPauseCounts())) {
+      badges.add(this.yapPausePill(yapCellCenter(layout, cell), n, 'marker'));
     }
   }
 

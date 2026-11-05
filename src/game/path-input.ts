@@ -10,13 +10,17 @@
 // - a cell is added only when the pointer enters its central zone (70%);
 // - a fast swipe that skips cells is filled in cell by cell, in a straight
 //   line, up to the first wall;
-// - moving back onto the second-to-last cell erases the last one; touching
-//   another cell of the path cuts it there and continues from that cell;
+// - moving back onto the second-to-last cell erases the last one;
+// - a stroke that starts on another cell of the path cuts it there and
+//   continues from that cell; a stroke that passes over a cell of the path
+//   revisits it, so a route may go through a cell several times;
 // - X4 slingshot undo: while drawing, pulling the finger back along the last
 //   drawn segments erases them one by one (never below the start cell);
 // - a tap (< 8 px, < 250 ms) on a path cell except the last adds a one-tick
 //   pause; once the level's maximum is reached in total, the cell goes back
 //   to zero;
+// - on a cell the route goes through several times, a press acts on the most
+//   recent pass: an earlier pass takes its pause before the route comes back;
 // - the plan is at most 64 steps, pauses included;
 // - reaching the exit once the diamond is picked up ends the drawing.
 //
@@ -53,6 +57,12 @@ export interface YapPathInputOptions {
    * Defaults to the config default (on).
    */
   readonly ghost?: boolean;
+}
+
+/** One pause badge: a cell of the route and the pauses of all its passes. */
+export interface YapPauseBadge {
+  readonly cell: YapCell;
+  readonly count: number;
 }
 
 /** One in-progress stroke (pointer down, maybe moved, not yet released). */
@@ -255,6 +265,7 @@ export class YapPathInput {
       };
     } else if (idx >= 0) {
       // a press on another path cell: a tap pauses there, a drag cuts there
+      // (the most recent pass, when the route goes through it several times)
       this.yapGesture = {
         downX: x,
         downY: y,
@@ -323,8 +334,13 @@ export class YapPathInput {
     return this.yapLevel.map[c.y]?.charAt(c.x) === '#';
   }
 
+  /** Index of the most recent pass on a cell, -1 when the path misses it. */
   private yapIndexOf(c: YapCell): number {
-    return this.yapCells.findIndex((p) => yapSameCell(p, c));
+    for (let i = this.yapCells.length - 1; i >= 0; i -= 1) {
+      const p = this.yapCells[i];
+      if (p !== undefined && yapSameCell(p, c)) return i;
+    }
+    return -1;
   }
 
   /** Keeps the first n cells (and their pauses). */
@@ -386,12 +402,6 @@ export class YapPathInput {
       this.yapPauses.pop();
       return;
     }
-    // touching another cell of the path cuts it there
-    const idx = this.yapIndexOf(target);
-    if (idx >= 0) {
-      this.yapTruncate(idx + 1);
-      return;
-    }
     // fast swipe: fill in cell by cell, in a straight line, up to the first wall
     let cur = last;
     while (!yapSameCell(cur, target)) {
@@ -403,9 +413,11 @@ export class YapPathInput {
           : { x: cur.x, y: cur.y + Math.sign(dy) };
       if (step.x === cur.x && step.y === cur.y) break;
       if (this.yapIsWall(step)) break;
-      const i = this.yapIndexOf(step);
-      if (i >= 0) {
-        this.yapTruncate(i + 1);
+      const before = this.yapCells[this.yapCells.length - 2];
+      if (before !== undefined && yapSameCell(step, before)) {
+        // no immediate U-turn: a swipe that starts backwards erases instead
+        this.yapCells.pop();
+        this.yapPauses.pop();
         break;
       }
       if (!this.yapTryAdd(step)) break;
@@ -417,13 +429,37 @@ export class YapPathInput {
   /** Tap on a path cell: +1 pause, or back to zero once the maximum is reached. */
   private yapTogglePause(i: number): void {
     if (this.yapTotalPauses() >= this.yapLevel.maxPauses) {
-      // the level's maximum is reached, in total: the cell goes back to zero
-      if (this.yapPauses[i] !== undefined && this.yapPauses[i] > 0) this.yapPauses[i] = 0;
+      // the level's maximum is reached, in total: the cell goes back to zero,
+      // on all its passes
+      const cell = this.yapCells[i];
+      if (cell === undefined) return;
+      this.yapCells.forEach((c, k) => {
+        if (yapSameCell(c, cell)) this.yapPauses[k] = 0;
+      });
       return;
     }
     if (this.yapSteps() + 1 > this.yapMaxSteps) return;
     this.yapPauses[i] = (this.yapPauses[i] ?? 0) + 1;
   }
+}
+
+/**
+ * The pause badges of a route: one per cell, in route order, with the pauses
+ * of all its passes, so a cell crossed twice never stacks two badges.
+ */
+export function yapPauseBadges(
+  cells: readonly YapCell[],
+  pauses: readonly number[],
+): YapPauseBadge[] {
+  const badges: { cell: YapCell; count: number }[] = [];
+  cells.forEach((cell, i) => {
+    const n = pauses[i] ?? 0;
+    if (n <= 0) return;
+    const badge = badges.find((b) => yapSameCell(b.cell, cell));
+    if (badge === undefined) badges.push({ cell, count: n });
+    else badge.count += n;
+  });
+  return badges;
 }
 
 function yapSameCell(a: YapCell, b: YapCell): boolean {
