@@ -277,16 +277,7 @@ describe('drawing the plan', () => {
     input.yapPointerDown(p0.x, p0.y, 0);
     const far = center(cell(2, 3)); // one jump, over (2,2) which is on the route
     input.yapPointerMove(far.x, far.y);
-    expect(pathOf(input)).toEqual([
-      '1,1',
-      '1,2',
-      '2,2',
-      '3,2',
-      '3,1',
-      '2,1',
-      '2,2',
-      '2,3',
-    ]);
+    expect(pathOf(input)).toEqual(['1,1', '1,2', '2,2', '3,2', '3,1', '2,1', '2,2', '2,3']);
   });
 
   it('a fast swipe back through the previous cell erases, never a U-turn', () => {
