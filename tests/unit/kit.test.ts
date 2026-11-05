@@ -29,6 +29,7 @@ import {
   yapHeaderLeftWidth,
   yapPaperPage,
   yapPlanningRow,
+  yapPlanningSlots,
   YAP_PLANNING_PREVIEW_WIDTH,
   yapRule,
   yapShowToast,
@@ -136,6 +137,71 @@ describe('yapPlanningRow — Clear, Hint and PLAY', () => {
       expect(row.hint?.x).toBe(row.clear.x + row.clear.width + 8);
       expect(row.play.x).toBe((row.hint?.x ?? 0) + (row.hint?.width ?? 0) + 8);
       expect(row.play.x + row.play.width).toBe(view - 16);
+    }
+  });
+});
+
+describe('yapPlanningSlots — the row with Observer (X9)', () => {
+  const state = { canPlay: false, hint: false, observer: true, preview: false };
+
+  it('keeps the row of yapPlanningRow when there is no Observer', () => {
+    for (const hint of [false, true]) {
+      for (const preview of [false, true]) {
+        const row = yapPlanningSlots(360, { ...state, observer: false, hint, preview });
+        expect(row).toEqual({ ...yapPlanningRow(360, hint, preview), observer: null });
+      }
+    }
+  });
+
+  it('puts Observer between Clear and the disabled PLAY on an unfinished route', () => {
+    const row = yapPlanningSlots(360, state);
+    expect(row.observer).toEqual(yapPlanningRow(360, true).hint);
+    expect(row.play).toEqual(yapPlanningRow(360, true).play);
+    expect(row.hint).toBeNull();
+    expect(row.preview).toBeNull();
+  });
+
+  it('gives Observer the slot of the disabled PLAY when a hint is there', () => {
+    const row = yapPlanningSlots(360, { ...state, hint: true });
+    expect(row.hint).toEqual(yapPlanningRow(360, true).hint);
+    expect(row.observer).toEqual(yapPlanningRow(360, true).play);
+    expect(row.play).toBeNull();
+  });
+
+  it('fits Clear, Observer, Preview and PLAY on a finished route', () => {
+    const row = yapPlanningSlots(360, { ...state, canPlay: true, preview: true });
+    expect(row.clear.width).toBe(72);
+    expect(row.observer?.width).toBe(80);
+    expect(row.preview?.width).toBe(72);
+    expect(row.play?.width).toBe(80);
+  });
+
+  it('keeps a hint beside Observer when the Preview flag is off', () => {
+    const row = yapPlanningSlots(360, { ...state, canPlay: true, hint: true });
+    expect(row.hint?.width).toBe(80);
+    expect(row.observer?.width).toBe(72);
+    expect(row.play).not.toBeNull();
+    expect(row.preview).toBeNull();
+  });
+
+  it('keeps every button tappable at 360 px, without overlap', () => {
+    for (const canPlay of [false, true]) {
+      for (const hint of [false, true]) {
+        for (const preview of canPlay ? [false, true] : [false]) {
+          if (hint && preview) continue; // Preview takes the place of the hint
+          const row = yapPlanningSlots(360, { canPlay, hint, observer: true, preview });
+          const boxes = [row.clear, row.hint, row.observer, row.preview, row.play]
+            .filter((box) => box !== null)
+            .sort((a, b) => a.x - b.x);
+          for (const [i, box] of boxes.entries()) {
+            expect(box.width).toBeGreaterThanOrEqual(44);
+            const next = boxes[i + 1];
+            if (next !== undefined) expect(box.x + box.width).toBeLessThanOrEqual(next.x);
+          }
+          const last = boxes[boxes.length - 1];
+          expect((last?.x ?? 0) + (last?.width ?? 0)).toBeLessThanOrEqual(360 - 16);
+        }
+      }
     }
   });
 });
@@ -494,6 +560,16 @@ function yapFakeStage() {
   };
   const time = { delayedCall: vi.fn<(delay: number, callback: () => void) => void>() };
   const cameras = { main: { setBackgroundColor: vi.fn<(color: string) => void>() } };
+  // the scene-level release: Phaser runs it after the zone's own pointerup
+  const releases: (() => void)[] = [];
+  const input = {
+    once: (_event: string, listener: () => void) => {
+      releases.push(listener);
+    },
+  };
+  const releaseAnywhere = (): void => {
+    for (const listener of releases.splice(0)) listener();
+  };
   const add = {
     container: (x: number, y: number) => {
       const container = new YapFakeContainer(x, y);
@@ -527,7 +603,8 @@ function yapFakeStage() {
     },
   };
   return {
-    scene: { add, events, tweens, time, cameras } as unknown as Phaser.Scene,
+    scene: { add, events, tweens, time, cameras, input } as unknown as Phaser.Scene,
+    releaseAnywhere,
     events,
     tweens,
     handles,
@@ -703,6 +780,36 @@ describe('yapButton — the firing contract', () => {
     expect(events.emit).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith(YAP_UI_TAP_EVENT);
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a release it did not press: the finger came from another button', () => {
+    const { zone, events, onPress } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerup');
+
+    expect(events.emit).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('fires once per press: a second release is not a press', () => {
+    const { zone, onPress, releaseAnywhere } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerdown');
+    zone.emit('pointerup');
+    releaseAnywhere();
+    zone.emit('pointerup');
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets a press that ended elsewhere', () => {
+    const { zone, onPress, releaseAnywhere } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerdown');
+    releaseAnywhere();
+    zone.emit('pointerup');
+
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('gates a release on enabled too', () => {

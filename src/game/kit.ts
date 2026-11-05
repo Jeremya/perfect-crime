@@ -138,6 +138,72 @@ export function yapPlanningRow(
   };
 }
 
+/** Widths of the row when two buttons stand between Clear and PLAY. */
+const YAP_CROWDED_CLEAR_WIDTH = 72;
+const YAP_CROWDED_FIRST_WIDTH = 80;
+const YAP_CROWDED_SECOND_WIDTH = 72;
+
+/** The planning row once Observer has its place (story X9). */
+export interface YapPlanningSlots extends Omit<YapPlanningRow, 'play'> {
+  /** Null when Observer takes the slot of the disabled PLAY. */
+  readonly play: YapBox | null;
+  readonly observer: YapBox | null;
+}
+
+/**
+ * Where each button of the planning row stands. Without Observer this is
+ * yapPlanningRow. With it, it takes the middle slot; when a hint already holds
+ * that slot on an unfinished route, Observer takes the place of the disabled
+ * PLAY, which says nothing the caption does not say. Two buttons in the middle
+ * of a route that can play shrink the row, so PLAY stays.
+ */
+export function yapPlanningSlots(
+  viewWidth: number,
+  state: {
+    readonly canPlay: boolean;
+    readonly hint: boolean;
+    readonly observer: boolean;
+    readonly preview: boolean;
+  },
+): YapPlanningSlots {
+  const { canPlay, hint, observer, preview } = state;
+  if (!observer) return { ...yapPlanningRow(viewWidth, hint, preview), observer: null };
+  const single = yapPlanningRow(viewWidth, true);
+  if (!canPlay && hint) {
+    return {
+      clear: single.clear,
+      hint: single.hint,
+      preview: null,
+      observer: single.play,
+      play: null,
+    };
+  }
+  if (!hint && !preview) {
+    return {
+      clear: single.clear,
+      hint: null,
+      preview: null,
+      observer: single.hint,
+      play: single.play,
+    };
+  }
+  const boxes = yapActionRow(viewWidth, [
+    { width: YAP_CROWDED_CLEAR_WIDTH },
+    { width: YAP_CROWDED_FIRST_WIDTH },
+    { width: YAP_CROWDED_SECOND_WIDTH },
+    {},
+  ]);
+  const first = yapBoxAt(boxes, 1);
+  const second = yapBoxAt(boxes, 2);
+  return {
+    clear: yapBoxAt(boxes, 0),
+    hint: hint ? first : null,
+    observer: hint ? second : first,
+    preview: hint ? null : second,
+    play: yapBoxAt(boxes, 3),
+  };
+}
+
 /** The box of slot `index`: yapActionRow returns one box per slot, so it exists. */
 function yapBoxAt(boxes: readonly YapBox[], index: number): YapBox {
   const box = boxes[index];
@@ -386,7 +452,7 @@ function yapButtonLook(kind: 'primary' | 'secondary', enabled: boolean): YapButt
  *
  * A press is acknowledged at once, on pointerdown: the button shrinks to 0.97
  * and back over 120 ms, unless the player asked for reduced motion. It fires on
- * pointerdown or, with `fireOn: 'up'`, on the release over the button. Firing
+ * pointerdown or, with `fireOn: 'up'`, on the release of a press it took. Firing
  * runs `onPress` when the button is enabled, then emits YAP_UI_TAP_EVENT on the
  * scene's events, enabled or not: a disabled button still answers a tap, as the
  * soft PLAY of the planning screen always did. The action goes first because
@@ -488,11 +554,28 @@ export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapBu
     scene.events.emit(YAP_UI_TAP_EVENT);
   };
 
+  // A release fires only the button that took the press: a chrome that changes
+  // under the finger must not turn the end of one tap into a press of another.
+  let armed = false;
   zone.on('pointerdown', () => {
     acknowledge();
-    if (fireOn === 'down') fire();
+    if (fireOn === 'down') {
+      fire();
+      return;
+    }
+    armed = true;
+    // Phaser runs this after the zone's own pointerup: it ends a press released
+    // elsewhere
+    scene.input.once('pointerup', () => {
+      armed = false;
+    });
   });
-  if (fireOn === 'up') zone.on('pointerup', fire);
+  if (fireOn === 'up') {
+    zone.on('pointerup', () => {
+      if (armed) fire();
+      armed = false;
+    });
+  }
 
   drawBackground();
   fitLabel();

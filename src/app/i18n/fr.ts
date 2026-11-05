@@ -236,6 +236,28 @@ export const fr: YapDictionary = {
     button: '👁 Aperçu',
     running: 'Aperçu de ton plan…',
   },
+  // Story X9 — l’Observer (tasks/X9.md) : la ronde avant la route, le plan pas à
+  // pas jusqu’à sa première détection, et la bande de ticks pendant le tracé.
+  observer: {
+    button: '👁 Observer',
+    round: 'Ronde : tout recommence tous les {cycle} ticks',
+    running: 'Ton plan, tick par tick',
+    back: '−1',
+    forward: '+1',
+    pause: 'Pause',
+    resume: 'Lecture',
+    close: 'Fermer',
+    caughtGuard: 'Le garde t’arrête au tick {tick}.',
+    caughtCamera: 'Au tick {tick}, la caméra voit cette case.',
+    caughtLaser: 'Au tick {tick}, le laser coupe cette case.',
+    won: 'Ce plan passe : sortie au tick {tick}.',
+    bandExposed: 'Tick {tick} : {threats}',
+    bandClear: 'Tick {tick} : aucun regard ni faisceau sur cette case',
+    bandGuard: 'regard du garde',
+    bandCamera: 'regard de la caméra',
+    bandContact: 'contact avec le garde',
+    bandLaser: 'faisceau laser',
+  },
   // Passe visuelle 3 de C1 — l'en-tête de l'écran de niveau (src/game/kit.ts) :
   // le surtitre au-dessus du titre, que son rôle affiche en capitales, et les
   // stats du bloc de droite. Le compteur de ticks du rejeu sous `tick` n'est

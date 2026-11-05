@@ -84,6 +84,7 @@ const SPEC_EVENT_PROPS: Record<YapAnalyticsEvent, Record<string, unknown>> = {
     first_win: true,
   },
   hint_used: { level_id: 'd3', hint_index: 0, attempt: 3 },
+  observer_open: { level_id: 'd3', kind: 'plan', attempt: 3 },
   share_tapped: { context: 'win', day: 3 },
   share_result: { method: 'native', outcome: 'completed', variant: 'text-link' },
   link_opened: { day: 3, sender_share_id: 'a1b2c3d4', is_new_player: true, is_self: false },
@@ -96,9 +97,9 @@ const SPEC_EVENT_PROPS: Record<YapAnalyticsEvent, Record<string, unknown>> = {
 };
 
 describe('event table (Gate 1 spec)', () => {
-  it('lists exactly the 16 events of the spec table', () => {
+  it('lists exactly the 16 events of the spec table and the one of X9', () => {
     expect([...YAP_ANALYTICS_EVENTS].sort()).toEqual(Object.keys(SPEC_EVENT_PROPS).sort());
-    expect(YAP_ANALYTICS_EVENTS).toHaveLength(16);
+    expect(YAP_ANALYTICS_EVENTS).toHaveLength(17);
   });
 
   it('emits every event with its properties through the transport', () => {
@@ -132,6 +133,7 @@ describe('event table (Gate 1 spec)', () => {
       first_win: true,
     });
     analytics.track('hint_used', { level_id: 'd3', hint_index: 0, attempt: 3 });
+    analytics.track('observer_open', { level_id: 'd3', kind: 'plan', attempt: 3 });
     analytics.track('share_tapped', { context: 'win', day: 3 });
     analytics.track('share_result', { method: 'native', outcome: 'completed', variant: 'text-link' });
     analytics.track('link_opened', {

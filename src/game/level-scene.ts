@@ -81,6 +81,7 @@ import {
 } from './hidpi';
 import { YapPathInput, yapPauseBadges } from './path-input';
 import {
+  YapGhostPreview,
   yapGhostCones,
   yapGhostLayerVisible,
   yapPreviewStates,
@@ -91,6 +92,18 @@ import {
   type YapPreviewState,
 } from './ghost';
 import { YapExecution, YAP_PREVIEW_TICKS_PER_SECOND, type YapDisplayedSnapshot } from './execution';
+import {
+  YapObserverRun,
+  yapBandCaption,
+  yapCellBand,
+  yapDetectorCells,
+  yapObserverCaption,
+  yapPlanStates,
+  yapResolveNightFlag,
+  yapResolveObserverFlag,
+  yapRoundStates,
+  yapWorldCycle,
+} from './observe';
 import { YapFailureReplay, yapMarkerAfterEdit, yapPlanMarkerCell } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
@@ -117,7 +130,14 @@ import {
   yapDrawThief,
 } from './render';
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
-import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
+import {
+  YAP_STAMP_ANGLE,
+  yapLeaderRow,
+  yapRuler,
+  yapStamp,
+  yapTickBand,
+  type YapRuler,
+} from './kit-screens';
 import {
   yapHeistName,
   YAP_WIN_ROW_HEIGHT,
@@ -137,6 +157,7 @@ import {
   yapHeader,
   yapPaperPage,
   yapPlanningRow,
+  yapPlanningSlots,
   yapRule,
   yapShowToast,
   type YapButton,
@@ -165,6 +186,11 @@ const YAP_GHOST_ALPHA = 0.5;
 const YAP_PREVIEW_END_HOLD_MS = 700;
 /** A hint's pause badge sits this far above its cell centre, in px, clear of the 💡 badge. */
 const YAP_HINT_PAUSE_LIFT = 22;
+/** X9: an observation runs slower than the playback, to be read. */
+const YAP_OBSERVER_TICKS_PER_SECOND = 2;
+/** X9, `?flag=night:1`: how dark the cells nobody sees are; the walls stay darker. */
+const YAP_NIGHT_FLOOR_ALPHA = 0.58;
+const YAP_NIGHT_WALL_ALPHA = 0.9;
 /** What yapDrawState needs: the world at a tick plus the thief (real or ghost). */
 type YapDrawableState = YapGhostState & Pick<YapSimState, 'thief' | 'hasLoot'>;
 
@@ -324,6 +350,25 @@ export class YapLevelScene extends Phaser.Scene {
   private yapPreviewTimer: Phaser.Time.TimerEvent | null = null;
   /** The planning row's Preview button (visible only when the route is complete). */
   private yapPreviewButton: YapButton | null = null;
+  // --- Observer (X9) ---
+  /** The Observer flag (?flag=observer:0/1, default on), resolved at build. */
+  private yapObserverEnabled = true;
+  /** The dev flag ?flag=night:1, the dark board of an observation. */
+  private yapNight = false;
+  /** The world by tick and its cycle, built on first use. */
+  private yapWorld: { ghost: YapGhostPreview; cycle: number } | null = null;
+  /** The observation under way (null = none). */
+  private yapObserver: YapObserverRun | null = null;
+  /** One tick every 1000 / YAP_OBSERVER_TICKS_PER_SECOND ms while it plays. */
+  private yapObserverTimer: Phaser.Time.TimerEvent | null = null;
+  /** The planning row's Observer button. */
+  private yapObserverButton: YapButton | null = null;
+  /** The planning row's Clear button, which gives room to Observer. */
+  private yapClearButton: YapButton | null = null;
+  /** Pause / Play in the row of an observation. */
+  private yapObserverPlayButton: YapButton | null = null;
+  /** The tick band, over the header while the finger draws. */
+  private yapBandLayer: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('yap-level');
@@ -394,7 +439,9 @@ export class YapLevelScene extends Phaser.Scene {
     }
   }
 
-  private yapSetPhase(phase: 'planning' | 'execution' | 'failure' | 'win' | 'preview'): void {
+  private yapSetPhase(
+    phase: 'planning' | 'execution' | 'failure' | 'win' | 'preview' | 'observer',
+  ): void {
     this.yapPublishStamp();
     try {
       if (typeof window !== 'undefined') {
@@ -452,6 +499,12 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapHintButton = null;
     this.yapPreview = null;
     this.yapPreviewButton = null;
+    this.yapWorld = null;
+    this.yapObserver = null;
+    this.yapObserverButton = null;
+    this.yapClearButton = null;
+    this.yapObserverPlayButton = null;
+    this.yapBandLayer = null;
   }
 
   private readonly yapOnShutdown = (): void => {
@@ -466,6 +519,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapRemoveTickTimer();
     this.yapRemoveFailureTimer();
     this.yapRemovePreviewTimer();
+    this.yapRemoveObserverTimer();
     // the camera manager has already torn its cameras down on shutdown (and
     // builds a fresh main camera on the next start): only forget the UI one
     this.yapUiCamera = null;
@@ -501,6 +555,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapEndPreview();
       return;
     }
+    if (this.yapObserver !== null) return; // its buttons drive an observation
     if (this.yapPointerId !== null) return; // a single finger draws
     if (this.yapExecution !== null) return; // no drawing during playback
     const layout = this.yapLayout;
@@ -552,6 +607,7 @@ export class YapLevelScene extends Phaser.Scene {
     }
     this.yapRedrawPath();
     this.yapRedrawGhost(); // C6: refresh the ghost preview on every cell change
+    this.yapRedrawBand(); // X9: the ticks of the cell under the finger
     this.yapUpdateChrome();
   }
 
@@ -596,6 +652,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapLayout = layout;
     // X3: the plan preview obeys its own flag (`?flag=preview:0`, default on)
     this.yapPreviewEnabled = yapResolvePreviewFlag(window.location.search);
+    this.yapObserverEnabled = yapResolveObserverFlag(window.location.search);
+    this.yapNight = yapResolveNightFlag(window.location.search);
     if (this.yapPathInput === null) {
       // C6: the ghost preview obeys the flag (`?flag=ghost:0`, stored profile)
       this.yapPathInput = new YapPathInput(level, layout, {
@@ -697,11 +755,16 @@ export class YapLevelScene extends Phaser.Scene {
       const frame = preview.index >= 0 ? preview.states[preview.index] : undefined;
       this.yapDrawState(frame ?? state, YAP_GHOST_ALPHA);
       this.yapUpdatePreviewChrome();
+    } else if (this.yapObserver !== null) {
+      // X9: rebuild during an observation (resize): the same frame on screen
+      this.yapBuildObserverChrome(level, layout);
+      this.yapShowObserverFrame();
     } else {
       this.yapBuildChrome(level, layout);
       this.yapDrawState(state);
       this.yapRedrawHint(); // C7: the revealed hint ghost, if any
       this.yapUpdateChrome();
+      this.yapRedrawBand(); // X9: a rebuild during a stroke keeps the band
     }
     this.yapRedrawMarks();
     this.yapRedrawGhost(); // C6: no ghost after a rebuild outside planning
@@ -725,6 +788,9 @@ export class YapLevelScene extends Phaser.Scene {
 
     // Vision cones: exactly the cells of visibleCells for this tick.
     const cones = yapGhostCones(level, state);
+    if (this.yapNight && this.yapObserver !== null) {
+      dyn.add(this.yapNightLayer(level, layout, state, cones));
+    }
     const g = this.add.graphics();
     g.setAlpha(alpha);
     for (const cells of cones.guards) yapDrawCone(g, layout, cells, 'guard');
@@ -1075,6 +1141,10 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapPlayButton = null;
     this.yapHintButton = null;
     this.yapPreviewButton = null;
+    this.yapObserverButton = null;
+    this.yapClearButton = null;
+    this.yapObserverPlayButton = null;
+    this.yapBandLayer = null;
     this.yapSpeedButton = null;
     this.yapRuler = null;
     return chrome;
@@ -1157,9 +1227,8 @@ export class YapLevelScene extends Phaser.Scene {
 
     const rowY = layout.viewHeight - YAP_ROW_FROM_BOTTOM;
     const canPlay = this.yapPathInput?.yapCanPlay() ?? false;
-    const hasPreview = this.yapHasPreview(canPlay);
-    const hasHint = this.yapHasHint(hasPreview);
-    const row = yapPlanningRow(layout.viewWidth, hasHint, hasPreview);
+    const shown = this.yapPlanningState(canPlay);
+    const row = yapPlanningSlots(layout.viewWidth, shown);
     const clear = yapButton(this, {
       x: row.clear.x,
       y: rowY,
@@ -1175,6 +1244,7 @@ export class YapLevelScene extends Phaser.Scene {
       },
     });
     chrome.add(clear.container);
+    this.yapClearButton = clear;
 
     // The Hint button keeps its slot and shows only while a hint is available
     // (a hidden button takes no tap); PLAY gives it the width it takes.
@@ -1188,9 +1258,24 @@ export class YapLevelScene extends Phaser.Scene {
         kind: 'secondary',
         onPress: () => this.yapOnHint(),
       });
-      hint.container.setVisible(hasHint);
+      hint.container.setVisible(shown.hint);
       chrome.add(hint.container);
       this.yapHintButton = hint;
+
+      // X9: Observer starts on the release, as Preview does: it replaces the
+      // whole row, and a button that fires under the finger would be gone
+      const observer = yapButton(this, {
+        x: hintBox.x,
+        y: rowY,
+        width: hintBox.width,
+        label: yapI18n.t('observer.button'),
+        kind: 'secondary',
+        fireOn: 'up',
+        onPress: () => this.yapStartObserver(),
+      });
+      observer.container.setVisible(shown.observer);
+      chrome.add(observer.container);
+      this.yapObserverButton = observer;
     }
 
     // X3: the Preview button takes the Hint slot once the drawn route is
@@ -1209,17 +1294,18 @@ export class YapLevelScene extends Phaser.Scene {
         fireOn: 'up',
         onPress: () => this.yapStartPreview(),
       });
-      preview.container.setVisible(hasPreview);
+      preview.container.setVisible(shown.preview);
       chrome.add(preview.container);
       this.yapPreviewButton = preview;
     }
 
     // PLAY, the primary action: disabled, it says "Draw your route" and the
     // kit does not run its action, so a tap on it starts nothing
+    const playBox = row.play ?? yapPlanningRow(layout.viewWidth, true).play;
     const play = yapButton(this, {
-      x: row.play.x,
+      x: playBox.x,
       y: rowY,
-      width: row.play.width,
+      width: playBox.width,
       label: yapI18n.t(canPlay ? 'planning.play' : 'planning.drawRoute'),
       kind: 'primary',
       enabled: canPlay,
@@ -1233,6 +1319,11 @@ export class YapLevelScene extends Phaser.Scene {
     });
     chrome.add(play.container);
     this.yapPlayButton = play;
+
+    // X9: last, so the tick band covers the header while drawing
+    const band = this.add.container(0, 0);
+    chrome.add(band);
+    this.yapBandLayer = band;
   }
 
   /** X3: Preview shows once the route is complete, the flag on, no preview running. */
@@ -1243,6 +1334,32 @@ export class YapLevelScene extends Phaser.Scene {
   /** C7: Hint shows while a hint is available, unless Preview takes its slot. */
   private yapHasHint(hasPreview: boolean): boolean {
     return (this.yapHints?.yapHintAvailable() ?? false) && !hasPreview;
+  }
+
+  /** X9: the world by tick of the current level and its cycle, built on first use. */
+  private yapWorldOf(level: YapLevel): { ghost: YapGhostPreview; cycle: number } {
+    if (this.yapWorld === null) {
+      const ghost = new YapGhostPreview(level);
+      this.yapWorld = { ghost, cycle: yapWorldCycle(ghost) };
+    }
+    return this.yapWorld;
+  }
+
+  /** X9: Observer shows when its flag is on and something in the level moves. */
+  private yapHasObserver(): boolean {
+    const level = this.yapLevel;
+    return this.yapObserverEnabled && level !== null && this.yapWorldOf(level).cycle > 1;
+  }
+
+  /** Which buttons the planning row holds for this route. */
+  private yapPlanningState(canPlay: boolean): {
+    canPlay: boolean;
+    hint: boolean;
+    observer: boolean;
+    preview: boolean;
+  } {
+    const preview = this.yapHasPreview(canPlay);
+    return { canPlay, hint: this.yapHasHint(preview), observer: this.yapHasObserver(), preview };
   }
 
   /**
@@ -1304,12 +1421,18 @@ export class YapLevelScene extends Phaser.Scene {
     // C7: the Hint button appears only while a hint is available, and PLAY
     // gives it the width it takes: the primary action stays the widest.
     // X3: once the route is complete, Preview takes the Hint slot.
-    const hasPreview = this.yapHasPreview(canPlay);
-    const hasHint = this.yapHasHint(hasPreview);
-    this.yapHintButton?.container.setVisible(hasHint);
-    this.yapPreviewButton?.container.setVisible(hasPreview);
-    const box = yapPlanningRow(layout.viewWidth, hasHint, hasPreview).play;
-    play.setBox(box.x, box.width);
+    // X9: Observer stands in the row too; see yapPlanningSlots.
+    const shown = this.yapPlanningState(canPlay);
+    const row = yapPlanningSlots(layout.viewWidth, shown);
+    this.yapClearButton?.setBox(row.clear.x, row.clear.width);
+    this.yapHintButton?.container.setVisible(shown.hint);
+    if (row.hint !== null) this.yapHintButton?.setBox(row.hint.x, row.hint.width);
+    this.yapPreviewButton?.container.setVisible(shown.preview);
+    if (row.preview !== null) this.yapPreviewButton?.setBox(row.preview.x, row.preview.width);
+    this.yapObserverButton?.container.setVisible(shown.observer);
+    if (row.observer !== null) this.yapObserverButton?.setBox(row.observer.x, row.observer.width);
+    play.container.setVisible(row.play !== null);
+    if (row.play !== null) play.setBox(row.play.x, row.play.width);
     play.setLabel(yapI18n.t(canPlay ? 'planning.play' : 'planning.drawRoute'));
     play.setEnabled(canPlay);
     if (canPlay && !this.yapReducedMotion()) {
@@ -1581,6 +1704,11 @@ export class YapLevelScene extends Phaser.Scene {
     if (this.yapPreview === null) return;
     this.yapRemovePreviewTimer();
     this.yapPreview = null;
+    this.yapBackToPlan();
+  }
+
+  /** Back from a preview or an observation: the plan, its route and its marks. */
+  private yapBackToPlan(): void {
     const level = this.yapLevel;
     const layout = this.yapLayout;
     const state = this.yapState;
@@ -1594,6 +1722,271 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapRedrawMarks();
     this.yapRedrawGhost(); // C6: no stroke in progress after the preview
     this.yapUpdateChrome();
+  }
+
+  // -------------------------------------------------------------------------
+  // Observer (X9): the frames come from ./observe.ts; this only draws them
+  // -------------------------------------------------------------------------
+
+  /** Before the route, one cycle of the world; after it, the plan to its end. */
+  private yapStartObserver(): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const input = this.yapPathInput;
+    if (level === null || layout === null || input === null) return;
+    if (this.yapObserver !== null || this.yapPreview !== null || !this.yapHasObserver()) return;
+    const kind = input.yapCanPlay() ? 'plan' : 'round';
+    const states =
+      kind === 'plan'
+        ? yapPlanStates(level, input.yapPlan())
+        : yapRoundStates(level, this.yapWorldOf(level).ghost);
+    this.yapObserver = new YapObserverRun(kind, states, !this.yapReducedMotion());
+    track('observer_open', {
+      level_id: this.yapSceneData.levelId ?? 'tutorial/t1',
+      kind,
+      attempt: this.yapAttemptLog.yapAttempts(),
+    });
+    // the PLAY pulse targets the planning chrome destroyed below
+    if (this.yapPlayPulse !== null) {
+      this.yapPlayPulse.stop();
+      this.yapPlayPulse = null;
+    }
+    this.yapChrome?.destroy();
+    this.yapChrome = null;
+    this.yapBuildObserverChrome(level, layout);
+    this.yapShowObserverFrame();
+    this.yapSyncObserverTimer();
+  }
+
+  /** Close: back to the plan, which an observation never touched. */
+  private yapEndObserver(): void {
+    if (this.yapObserver === null) return;
+    this.yapRemoveObserverTimer();
+    this.yapObserver = null;
+    this.yapBackToPlan();
+  }
+
+  /** Draws the frame on screen, its marks, the counter and the caption. */
+  private yapShowObserverFrame(): void {
+    const run = this.yapObserver;
+    const layout = this.yapLayout;
+    if (run === null || layout === null) return;
+    this.yapDrawState(run.yapFrame());
+    this.yapRedrawMarks();
+    this.yapSetHeaderRight(this.yapObserverRight());
+    const { key, params } = yapObserverCaption(run);
+    const caption = yapI18n.t(key, params);
+    this.yapSetCaption(layout, caption);
+    this.yapPublishObserver(caption);
+  }
+
+  /**
+   * End-to-end hook beside `__yapPhase`: what the observation shows, as the
+   * header and the caption show it. Read-only, no gameplay effect, absent
+   * outside a browser.
+   */
+  private yapPublishObserver(caption: string): void {
+    const run = this.yapObserver;
+    if (run === null) return;
+    try {
+      if (typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>)['__yapObserver'] = {
+          tick: run.yapFrame().tick,
+          max: run.yapMaxTick(),
+          playing: run.playing,
+          caption,
+        };
+      }
+    } catch {
+      // no window: nothing to expose
+    }
+  }
+
+  /** The timer and the Pause / Play label follow the state of the run. */
+  private yapSyncObserverTimer(): void {
+    const run = this.yapObserver;
+    if (run === null) return;
+    this.yapRemoveObserverTimer();
+    this.yapObserverPlayButton?.setLabel(
+      yapI18n.t(run.playing ? 'observer.pause' : 'observer.resume'),
+    );
+    if (!run.playing) return;
+    this.yapObserverTimer = this.time.addEvent({
+      delay: Math.round(1000 / YAP_OBSERVER_TICKS_PER_SECOND),
+      loop: true,
+      callback: this.yapOnObserverTick,
+    });
+  }
+
+  private readonly yapOnObserverTick = (): void => {
+    const run = this.yapObserver;
+    if (run === null) return;
+    run.yapStep(1);
+    if (!run.playing) this.yapSyncObserverTimer(); // the plan reached its last frame
+    this.yapShowObserverFrame();
+  };
+
+  /** −1 and +1: the player takes over, one tick at a time. */
+  private yapStepObserver(delta: 1 | -1): void {
+    const run = this.yapObserver;
+    if (run === null) return;
+    run.playing = false;
+    this.yapSyncObserverTimer();
+    run.yapStep(delta);
+    this.yapShowObserverFrame();
+  }
+
+  private yapToggleObserver(): void {
+    const run = this.yapObserver;
+    if (run === null) return;
+    run.yapTogglePlaying();
+    this.yapSyncObserverTimer();
+    this.yapShowObserverFrame();
+  }
+
+  private yapRemoveObserverTimer(): void {
+    this.yapObserverTimer?.remove();
+    this.yapObserverTimer = null;
+  }
+
+  /** The header's right block: "Tick" over the tick and its total. */
+  private yapObserverRight(): readonly string[] {
+    const run = this.yapObserver;
+    if (run === null) return [];
+    const max = String(run.yapMaxTick());
+    const tick = String(run.yapFrame().tick).padStart(max.length, '0');
+    return [yapI18n.t('header.tick'), `${tick}/${max}`];
+  }
+
+  /** The chrome of an observation: −1, Pause / Play, +1 and Close. */
+  private yapBuildObserverChrome(level: YapLevel, layout: YapBoardLayout): void {
+    this.yapSetPhase('observer');
+    const chrome = this.yapNewChrome();
+    this.yapBuildHeader(chrome, layout, level, this.yapObserverRight(), false);
+    const barY = layout.viewHeight - YAP_BOTTOM_BAR_HEIGHT;
+    chrome.add(yapRule(this, 0, layout.viewWidth, barY + 0.5));
+    const caption = yapRoleText(this, 0, 0, '', 'caption', YAP_PALETTE['ink-muted']);
+    chrome.add(caption);
+    this.yapCaption = caption;
+
+    const y = layout.viewHeight - YAP_ROW_FROM_BOTTOM;
+    const [back, toggle, forward, close] = yapActionRow(layout.viewWidth, [
+      { width: 64 },
+      {},
+      { width: 64 },
+      { width: 88 },
+    ]);
+    if (back === undefined || toggle === undefined) return;
+    if (forward === undefined || close === undefined) return;
+    const playing = this.yapObserver?.playing ?? false;
+    const play = yapButton(this, {
+      x: toggle.x,
+      y,
+      width: toggle.width,
+      label: yapI18n.t(playing ? 'observer.pause' : 'observer.resume'),
+      kind: 'secondary',
+      onPress: () => this.yapToggleObserver(),
+    });
+    this.yapObserverPlayButton = play;
+    chrome.add(
+      yapButton(this, {
+        x: back.x,
+        y,
+        width: back.width,
+        label: yapI18n.t('observer.back'),
+        kind: 'secondary',
+        onPress: () => this.yapStepObserver(-1),
+      }).container,
+    );
+    chrome.add(play.container);
+    chrome.add(
+      yapButton(this, {
+        x: forward.x,
+        y,
+        width: forward.width,
+        label: yapI18n.t('observer.forward'),
+        kind: 'secondary',
+        onPress: () => this.yapStepObserver(1),
+      }).container,
+    );
+    chrome.add(
+      yapButton(this, {
+        x: close.x,
+        y,
+        width: close.width,
+        label: yapI18n.t('observer.close'),
+        kind: 'primary',
+        fireOn: 'up',
+        onPress: () => this.yapEndObserver(),
+      }).container,
+    );
+  }
+
+  /**
+   * The tick band: while the finger draws, the ticks around the arrival on the
+   * cell under it. It follows Observer: no band where nothing moves.
+   */
+  private yapRedrawBand(): void {
+    const layer = this.yapBandLayer;
+    const layout = this.yapLayout;
+    const level = this.yapLevel;
+    const input = this.yapPathInput;
+    if (layer === null || layout === null || level === null || input === null) return;
+    layer.removeAll(true);
+    const cell = input.yapGhostCell();
+    const arrival = input.yapGhostTick();
+    if (cell === null || arrival === null || !this.yapHasObserver()) {
+      this.yapPublishBand(null);
+      return;
+    }
+    const band = yapCellBand(this.yapWorldOf(level).ghost, cell, arrival);
+    const { key, tick, threats } = yapBandCaption(band);
+    const line = yapI18n.t(key, {
+      tick,
+      threats: threats.map((threat) => yapI18n.t(threat)).join(' · '),
+    });
+    const exposed = threats.length > 0;
+    layer.add(yapTickBand(this, layout.viewWidth, this.yapConsentNote, band, line, exposed));
+    this.yapPublishBand({ tick, caption: line });
+  }
+
+  /** End-to-end hook beside `__yapPhase`: the band on screen, null when none. */
+  private yapPublishBand(shown: { tick: number; caption: string } | null): void {
+    try {
+      if (typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>)['__yapBand'] = shown;
+      }
+    } catch {
+      // no window: nothing to expose
+    }
+  }
+
+  /** `?flag=night:1`: every cell nobody sees at this tick goes dark. */
+  private yapNightLayer(
+    level: YapLevel,
+    layout: YapBoardLayout,
+    state: YapDrawableState,
+    cones: ReturnType<typeof yapGhostCones>,
+  ): Phaser.GameObjects.Graphics {
+    const lit = new Set<string>();
+    for (const cells of [...cones.guards, ...cones.cameras]) {
+      for (const c of cells) lit.add(`${c.x},${c.y}`);
+    }
+    for (const laser of state.lasers) {
+      if (laser.active) for (const c of laser.cells) lit.add(`${c.x},${c.y}`);
+    }
+    const dark = this.add.graphics();
+    const ink = yapHexToInt(YAP_PALETTE.ink);
+    for (let y = 0; y < level.height; y += 1) {
+      for (let x = 0; x < level.width; x += 1) {
+        if (lit.has(`${x},${y}`)) continue;
+        const r = yapCellRect(layout, { x, y });
+        const wall = level.map[y]?.[x] === '#';
+        dark.fillStyle(ink, wall ? YAP_NIGHT_WALL_ALPHA : YAP_NIGHT_FLOOR_ALPHA);
+        dark.fillRect(r.x, r.y, r.w, r.h);
+      }
+    }
+    return dark;
   }
 
   /**
@@ -1842,6 +2235,15 @@ export class YapLevelScene extends Phaser.Scene {
     const layout = this.yapLayout;
     if (g === null || layout === null) return;
     g.clear();
+    const observed = this.yapObserver?.yapFrame();
+    if (observed !== undefined) {
+      // X9: an observation holds a detection on the red cone and the fatal cell
+      if (observed.outcome.kind === 'detected') {
+        yapDrawCone(g, layout, yapDetectorCells(observed), 'stamp');
+        this.yapDrawFatalMarker(g, layout, observed.thief);
+      }
+      return;
+    }
     const failure = this.yapFailure;
     if (failure !== null) {
       yapDrawCone(g, layout, failure.yapDetectorSeen(), 'stamp');
