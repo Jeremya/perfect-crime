@@ -8,11 +8,13 @@ import { describe, expect, it, vi } from 'vitest';
 import type { YapLevel } from '../../src/core/level';
 import { en } from '../../src/app/i18n/en';
 import { fr } from '../../src/app/i18n/fr';
+import { YapI18n } from '../../src/app/i18n';
 import {
   yapDayBoxes,
   yapFitStamp,
   yapHandPose,
   yapHeistFacts,
+  yapHeistName,
   yapLeaderDots,
   yapPlanningBand,
   yapRulerMarks,
@@ -54,6 +56,34 @@ describe('yapRulerMarks — the execution ruler', () => {
     expect(marks.filter((m) => m.long).map((m) => marks.indexOf(m))).toEqual([
       0, 5, 10, 15, 20, 25,
     ]);
+  });
+});
+
+describe('yapHeistName — the name shown for a heist', () => {
+  const file = { name: 'File name' } as YapLevel;
+  const speaking = (locale: 'fr' | 'en'): YapI18n => new YapI18n(locale, null);
+
+  it('names The Blind Spot in the language of the player', () => {
+    expect(yapHeistName(file, 5, speaking('fr'))).toBe('L’angle mort');
+    expect(yapHeistName(file, 5, speaking('en'))).toBe('The Blind Spot');
+  });
+
+  it('keeps the English names of the level files', () => {
+    for (let day = 1; day <= 7; day += 1) {
+      expect(yapHeistName(file, day, speaking('en'))).toBe(level(`daily/d${day}`).name);
+    }
+  });
+
+  it('gives every daily heist its own French name', () => {
+    const names = [1, 2, 3, 4, 5, 6, 7].map((day) => yapHeistName(file, day, speaking('fr')));
+    expect(new Set(names).size).toBe(7);
+    for (const name of names) expect(name).not.toBe(file.name);
+  });
+
+  it('falls back on the level name outside the week', () => {
+    expect(yapHeistName(file, undefined, speaking('fr'))).toBe('File name');
+    expect(yapHeistName(file, 0, speaking('fr'))).toBe('File name');
+    expect(yapHeistName(file, 8, speaking('fr'))).toBe('File name');
   });
 });
 
