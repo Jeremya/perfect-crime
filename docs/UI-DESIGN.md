@@ -149,7 +149,8 @@ everything is static: stamps simply appear, the hand stays still.
 - Ghost preview: the guard positions and their exact cones at the tick under
   the finger, in pencil (graphite, dashed outlines, about 50% opacity) so it
   cannot be confused with the tick-0 state. The hint route is graphite dots,
-  never red; the friend's plan is a solid ink line.
+  never red, and its pauses are graphite pause badges; the friend's plan is a
+  solid ink line.
 
 ## Layout and interaction
 
