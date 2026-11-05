@@ -40,6 +40,7 @@ import {
   recordYapDailyWin,
   recordYapTutorialCleared,
   yapCountdownParts,
+  yapDaysWonOnTime,
   yapFormatClock,
   yapHomeModel,
   yapLevelById,
@@ -615,8 +616,7 @@ export class YapHomeScene extends Phaser.Scene {
         ),
       );
       sy += 22;
-      const days = loadYapDays(yapStorage);
-      const won = Array.from({ length: 7 }, (_, i) => days.has(i + 1));
+      const won = yapDaysWonOnTime(loadYapDays(yapStorage));
       root.add(yapDayBoxRow(this, x, sy, w, won, model.day));
       sy += 24 + 12;
     } else if (model.phase === 'after') {
