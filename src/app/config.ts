@@ -35,24 +35,39 @@ export interface YapProfile {
 const FLAG_PARAM = /^(?<name>[a-z][a-z0-9-]*):(?<value>[01])$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Each `name:0/1` switch of `?flag=`, in URL order (repeatable, comma-separated). */
+function yapUrlSwitches(search: string): { name: string; on: boolean }[] {
+  const switches: { name: string; on: boolean }[] = [];
+  for (const raw of new URLSearchParams(search).getAll('flag')) {
+    for (const part of raw.split(',')) {
+      const groups = FLAG_PARAM.exec(part.trim())?.groups;
+      const name = groups?.name;
+      const value = groups?.value;
+      if (name !== undefined && value !== undefined) switches.push({ name, on: value === '1' });
+    }
+  }
+  return switches;
+}
+
 /**
  * Parse `?flag=ghost:0` (repeatable, comma-separated) into known flags only.
  * `search` is the query string, with or without the leading `?`.
  */
 export function parseFlagsFromSearch(search: string): Partial<YapFlags> {
-  const params = new URLSearchParams(search);
   const parsed: Partial<YapFlags> = {};
-  for (const raw of params.getAll('flag')) {
-    for (const part of raw.split(',')) {
-      const match = FLAG_PARAM.exec(part.trim());
-      const name = match?.groups?.name;
-      const value = match?.groups?.value;
-      if (name === undefined || value === undefined) continue;
-      if (!(name in YAP_DEFAULT_FLAGS)) continue;
-      parsed[name as YapFlagName] = value === '1';
-    }
+  for (const { name, on } of yapUrlSwitches(search)) {
+    if (name in YAP_DEFAULT_FLAGS) parsed[name as YapFlagName] = on;
   }
   return parsed;
+}
+
+/**
+ * A switch outside YapFlags (preview, observer, night): read from the URL
+ * alone, last one wins. Unlike a YapFlags flag it is neither remembered in the
+ * profile nor sent with the events.
+ */
+export function yapUrlFlag(search: string, name: string, fallback: boolean): boolean {
+  return yapUrlSwitches(search).filter((s) => s.name === name).at(-1)?.on ?? fallback;
 }
 
 /** `?internal=1` marks an internal tester. */

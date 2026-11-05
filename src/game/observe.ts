@@ -6,6 +6,7 @@
 // Pure and Phaser-free, so the unit tests cover it. Every world comes from
 // YapGhostPreview or yapPreviewStates (./ghost.ts), so through resolveTick: no
 // rule is computed here. The scene only draws the frames and runs the timer.
+import { yapUrlFlag } from '../app/config';
 import type { YapKey } from '../app/i18n';
 import { YAP_MAX_TICKS, type YapCell, type YapLevel } from '../core/level';
 import { createInitialState, type YapCause, type YapPlan } from '../core/sim';
@@ -223,24 +224,12 @@ export function yapBandCaption(band: readonly YapBandTick[]): {
   };
 }
 
-/** A `?flag=<name>:0/1` switch: repeatable, comma-separated, last one wins. */
-function yapResolveFlag(search: string, name: string, fallback: boolean): boolean {
-  let value = fallback;
-  for (const raw of new URLSearchParams(search).getAll('flag')) {
-    for (const part of raw.split(',')) {
-      const [key, setting] = part.trim().split(':');
-      if (key === name && (setting === '0' || setting === '1')) value = setting === '1';
-    }
-  }
-  return value;
-}
-
 /** The Observer: on by default, `?flag=observer:0` turns it off. */
 export function yapResolveObserverFlag(search = ''): boolean {
-  return yapResolveFlag(search, 'observer', true);
+  return yapUrlFlag(search, 'observer', true);
 }
 
 /** The dark board, a dev flag: off, `?flag=night:1` turns it on. */
 export function yapResolveNightFlag(search = ''): boolean {
-  return yapResolveFlag(search, 'night', false);
+  return yapUrlFlag(search, 'night', false);
 }
