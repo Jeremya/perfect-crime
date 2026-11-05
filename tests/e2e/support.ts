@@ -129,7 +129,7 @@ export const YAP_MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
 /** What the level scene shows, as exposed in `window.__yapPhase`. */
-export type YapPhase = 'planning' | 'execution' | 'failure' | 'win';
+export type YapPhase = 'planning' | 'execution' | 'failure' | 'win' | 'observer';
 
 /**
  * Waits until the level scene shows `phase`, then until the next frame is

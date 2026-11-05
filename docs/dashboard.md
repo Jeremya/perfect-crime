@@ -254,6 +254,8 @@ Same dashboard, one insight each:
   (`count() GROUP BY properties.level_id, distinct_id`), plus `attempt` max.
 - **Hint usage**: `hint_used` count by `level_id` and `hint_index`
   (hints unlock after 3 then 6 failures on the same heist).
+- **Observer usage (X9)**: `observer_open` count by `level_id` and `kind`
+  (`round` before the route, `plan` after it).
 - **Signature vs normal days**: `attempt_win` / `attempt_fail` on
   `mode = 'daily'` grouped by `day`, flagging the signature days **D3, D5,
   D7** (hand-made heists) vs the normal days D1, D2, D4, D6 — compare

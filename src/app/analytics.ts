@@ -82,6 +82,11 @@ export interface YapHintUsedProps {
   hint_index: number;
   attempt: number;
 }
+export interface YapObserverOpenProps {
+  level_id: string;
+  kind: 'round' | 'plan';
+  attempt: number;
+}
 export interface YapShareTappedProps {
   context: YapShareContext;
   day: number;
@@ -120,7 +125,7 @@ export interface YapErrorProps {
   scene: string;
 }
 
-/** Every event of the spec table mapped to its typed properties. */
+/** Every event of the spec table, and the Observer's, mapped to its properties. */
 export interface YapAnalyticsEventMap {
   app_open: YapAppOpenProps;
   consent_set: YapConsentSetProps;
@@ -129,6 +134,7 @@ export interface YapAnalyticsEventMap {
   attempt_fail: YapAttemptFailProps;
   attempt_win: YapAttemptWinProps;
   hint_used: YapHintUsedProps;
+  observer_open: YapObserverOpenProps;
   share_tapped: YapShareTappedProps;
   share_result: YapShareResultProps;
   link_opened: YapLinkOpenedProps;
@@ -143,7 +149,7 @@ export interface YapAnalyticsEventMap {
 export type YapAnalyticsEvent = keyof YapAnalyticsEventMap;
 export type YapEventProps<E extends YapAnalyticsEvent> = YapAnalyticsEventMap[E];
 
-/** The 16 events of the spec table, in spec order. */
+/** The 16 events of the spec table, in spec order, and the Observer's (X9). */
 export const YAP_ANALYTICS_EVENTS: readonly YapAnalyticsEvent[] = [
   'app_open',
   'consent_set',
@@ -152,6 +158,7 @@ export const YAP_ANALYTICS_EVENTS: readonly YapAnalyticsEvent[] = [
   'attempt_fail',
   'attempt_win',
   'hint_used',
+  'observer_open',
   'share_tapped',
   'share_result',
   'link_opened',
