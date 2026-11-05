@@ -9,6 +9,7 @@ import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parseLevel, YAP_TICK_PERIOD, type YapLevel } from '../../src/core/level';
+import type { YapPlan } from '../../src/core/sim';
 import { solveLevel } from '../../src/core/solver';
 import {
   collectLevelSources,
@@ -19,8 +20,10 @@ import {
   YAP_LEVELS_JSON_PATH,
   type YapCompiledLevels,
 } from '../../tools/compile-levels';
+import { drawPlan } from '../../tools/draw-plan';
 import {
   cameraPeriod,
+  checkDrawable,
   checkEntityPeriods,
   formatIssue,
   guardPeriod,
@@ -258,4 +261,42 @@ describe('compile-levels — generated levels.json', () => {
     const fresh = serializeLevels(compileLevels(loadLevelEntries(SHIPPED_DIRS)));
     expect(onDisk).toBe(fresh);
   });
+});
+
+describe('the optimal plan goes through the real route drawing', () => {
+  const shipped = (
+    JSON.parse(readFileSync(new URL('../../levels/levels.json', import.meta.url), 'utf8')) as {
+      levels: { id: string; level: YapLevel }[];
+    }
+  ).levels;
+  const t3 = shipped.find((entry) => entry.id === 'tutorial/t3')?.level as YapLevel;
+
+  it('gives back a plan with its pauses, tapped on the route', () => {
+    const { plan } = solveLevel(t3);
+    expect(plan).toContain('wait');
+    expect(drawPlan(t3, plan)).toEqual(plan);
+  });
+
+  it('reports a plan that turns back after a pause', () => {
+    const { plan } = solveLevel(t3);
+    const last = plan[plan.length - 1];
+    const back = { N: 'S', E: 'W', S: 'N', W: 'E' } as const;
+    if (last === undefined || last === 'wait') throw new Error('a plan ends on a move');
+    const turning: YapPlan = [...plan.slice(0, -1), 'wait', back[last]];
+    const issues = checkDrawable(t3, turning, 't3.lvl');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain('cannot be drawn');
+  });
+
+  it('reports a plan that leaves PLAY off', () => {
+    const issues = checkDrawable(t3, ['E'], 't3.lvl');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.message).toContain('cannot be drawn');
+  });
+
+  for (const { id, level } of shipped) {
+    it(`${id}: the optimal plan can be drawn`, () => {
+      expect(checkDrawable(level, solveLevel(level).plan, `${id}.lvl`)).toEqual([]);
+    });
+  }
 });

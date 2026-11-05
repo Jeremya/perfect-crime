@@ -2,19 +2,19 @@
 # Moment: wait under the camera while it sweeps the room.
 name: "The Blind Spot"
 type: signature
-moment: "Wait in the camera's blind spot while it sweeps the room, then slip through the gap as it turns."
+moment: "Wait in the camera's blind spot while it sweeps the room, then slip past as it turns."
 maxPauses: 3
-par: 26
+par: 25
 map: |
   ########
-  #S..#..#
+  #S..#L.#
   #...#..#
   #...#..#
   #...#..#
   #...#..#
   #......#
   #...#..#
-  #...#L.#
+  #...#..#
   #...#..#
   #...#.E#
   ########
@@ -29,7 +29,7 @@ cameras:
     at: [4,5]
     dirs: [E, W]
     hold: 12
-    phase: 6
+    phase: 1
     range: 3
 lasers:
   - id: l1

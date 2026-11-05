@@ -9,11 +9,13 @@
 //      such files — Gate 1 spec, "Level format");
 //   4. checks solvability with the solver from src/core/solver.ts (a level
 //      that cannot be cleared within YAP_MAX_TICKS ticks fails);
+//   5. draws the solver's optimal plan through the real route input (a plan
+//      the player could not draw fails, however good the solver finds it);
 // and, when everything is valid, compiles the generated levels/levels.json
 // through tools/compile-levels.ts (never hand-edited).
 //
 // Any problem exits non-zero, so CI fails on an unsolvable level, a malformed
-// level, or a period that does not divide 24.
+// level, a period that does not divide 24, or a plan that cannot be drawn.
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import {
@@ -25,7 +27,7 @@ import {
   type YapLaser,
   type YapLevel,
 } from '../src/core/level';
-import { createInitialState } from '../src/core/sim';
+import { createInitialState, type YapPlan } from '../src/core/sim';
 import { solveLevel, YapSolverError } from '../src/core/solver';
 import {
   collectLevelSources,
@@ -34,6 +36,7 @@ import {
   YAP_LEVEL_DIRS,
   type YapLevelEntry,
 } from './compile-levels';
+import { drawPlan } from './draw-plan';
 
 /** One validation problem, with the 1-based source line (0 = whole file). */
 export interface YapValidationIssue {
@@ -118,9 +121,23 @@ export function startSeenAtTick0(level: YapLevel): boolean {
   return state.lasers.some((l) => l.active && l.cells.some(sameCell));
 }
 
+/** Check that `plan` comes out of the real route input as the same plan. */
+export function checkDrawable(level: YapLevel, plan: YapPlan, file: string): YapValidationIssue[] {
+  const drawn = drawPlan(level, plan);
+  if (drawn !== null && drawn.join(' ') === plan.join(' ')) return [];
+  return [
+    {
+      file,
+      line: 0,
+      message: `the optimal plan cannot be drawn: ${plan.join(' ')}`,
+    },
+  ];
+}
+
 /**
  * Validate one parsed level: periods divide 24, start not seen at tick 0,
- * solvable within YAP_MAX_TICKS ticks. Returns the issues (empty = valid).
+ * solvable within YAP_MAX_TICKS ticks, optimal plan drawable. Returns the
+ * issues (empty = valid).
  */
 export function validateLevel(level: YapLevel, file: string): YapValidationIssue[] {
   const issues = checkEntityPeriods(level, file);
@@ -132,7 +149,7 @@ export function validateLevel(level: YapLevel, file: string): YapValidationIssue
     });
   }
   try {
-    solveLevel(level);
+    issues.push(...checkDrawable(level, solveLevel(level).plan, file));
   } catch (e) {
     if (e instanceof YapSolverError) {
       issues.push({ file, line: 0, message: e.message });
