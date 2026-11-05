@@ -124,16 +124,12 @@ test.describe('the fatal-cell marker back on the plan', () => {
     await page.goto(`${baseUrl}/`);
     const view = await yapCanvasView(page);
     const home = yapHomeActions(view.width, view.height, 0);
-    // Home has no phase hook: tap Play until the heist opens
-    await expect
-      .poll(
-        async () => {
-          await yapTap(page, { x: home.primary.x + home.primary.width / 2, y: home.primaryY });
-          return page.evaluate(() => (window as unknown as { __yapPhase?: string }).__yapPhase);
-        },
-        { timeout: 15_000 },
-      )
-      .toBe('planning');
+    // Home has no phase hook: tap Play again only if the heist did not open,
+    // so that no tap lands on a button of the heist
+    await expect(async () => {
+      await yapTap(page, { x: home.primary.x + home.primary.width / 2, y: home.primaryY });
+      await yapWaitPhase(page, 'planning', 1_500);
+    }).toPass({ timeout: 15_000 });
     await page.waitForTimeout(600);
 
     const before = await yapCellPixels(page, D3, D3.loot);
