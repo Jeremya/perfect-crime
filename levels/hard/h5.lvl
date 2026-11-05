@@ -5,7 +5,7 @@ name: "Gauntlet"
 type: normal
 moment: ""
 maxPauses: 3
-par: 27
+par: 25
 map: |
   ########
   #S.....#
@@ -16,14 +16,14 @@ map: |
   #......#
   #......#
   ######.#
-  #L.....#
+  #..L...#
   #.....E#
   ########
 guards:
   - id: g1
     route: [[2,4],[3,4],[4,4],[5,4]]
     mode: pingpong
-    phase: 0
+    phase: 2
     range: 2
   - id: g2
     route: [[1,2],[2,2],[3,2]]
@@ -31,7 +31,7 @@ guards:
     phase: 0
     range: 2
   - id: g3
-    route: [[2,10],[3,10],[4,10]]
+    route: [[1,10],[2,10],[3,10]]
     mode: pingpong
     phase: 1
     range: 2

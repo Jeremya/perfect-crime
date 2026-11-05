@@ -77,12 +77,13 @@ h8 has exactly 2 cameras (pinned); h10 has a non-empty `moment` with type
    once — the camera's 6/6 look-away and the laser's 4/8 off beat — and cross
    only when both are open.
 2. **Expected solution** — OBSERVED: gap (1,5) carries laser l1 and is watched
-   by camera c1 (at [0,5], dirs [E,S], hold 6) for 6 of 12 ticks; the golden
-   plan (par 27) spends all 3 pauses (minPauses = 3, pinned) and steps on the
-   laser cell while both are open. Only 36 optimal plans — the sync is tight.
-3. **Possible failure modes** — HYPOTHESIS: with minPauses = 3 = maxPauses the
-   level is brittle: one wasted pause anywhere and the run is lost; watch for
-   "I had no pauses left" frustration in playtests.
+   by camera c1 (at [0,5], dirs [E,S], hold 6) for 6 of 12 ticks; the loot is
+   at (6,1), so the route takes it first and comes back west to the gap. The
+   golden plan (par 30) spends 2 pauses (minPauses = 2, pinned) and steps on
+   the laser cell while both are open.
+3. **Possible failure modes** — HYPOTHESIS: the spare pause gives some slack,
+   but one wasted tick can still miss the shared window; watch for "I had no
+   pauses left" frustration in playtests.
 4. **Playtest criterion** — unit test pins 1 camera + 1 laser + minPauses ≥ 2
    (OBSERVED); playtest: keep if testers clear it in ≤ 4 attempts and describe
    the double timing.
@@ -108,8 +109,10 @@ h8 has exactly 2 cameras (pinned); h10 has a non-empty `moment` with type
    resource to spend in sequence — wait out the corridor sweep, then the
    camera — and feels in control of a long chain of beats.
 2. **Expected solution** — OBSERVED: the one-cell corridor row 4 is swept
-   end-to-end by g1 and its exit is watched by camera c1; the golden plan
-   (par 29) spends all 3 pauses (minPauses = 3, pinned ≥ 2), the chain.
+   end-to-end by g1 and its exit is watched by camera c1; the loot is at (3,9)
+   and g3 patrols (1,10)-(3,10) under it, so the way back to the exit along
+   row 10 opens only behind the guard. The golden plan (par 25) spends all 3
+   pauses (minPauses = 3, pinned ≥ 2), the chain.
 3. **Possible failure modes** — HYPOTHESIS: minPauses = 3 = maxPauses again —
    no slack; a player who pauses "just in case" early is punished. The pause
    badges must read clearly (UI-DESIGN compact `⏸ 3`).
@@ -125,7 +128,8 @@ h8 has exactly 2 cameras (pinned); h10 has a non-empty `moment` with type
 2. **Expected solution** — OBSERVED: rows 3 and 5 are walls with gaps at x=1
    and x=6, so corridor row 4 is the only passage; laser l1 covers (3,4),(4,4)
    mid-corridor (pinned: laser row between two wall rows) and g1 sweeps the
-   corridor; the golden plan (par 27) spends 3 pauses (minPauses = 3, pinned).
+   corridor; the loot is at (3,9) above g3's patrol (1,10)-(3,10). The golden
+   plan (par 25) spends 3 pauses (minPauses = 3, pinned).
 3. **Possible failure modes** — HYPOTHESIS: the laser mid-corridor plus the
    sweep can make the middle of the corridor a death zone; the canonical plan
    dashes via the west gap — if playtests show players dying mid-corridor
@@ -187,9 +191,9 @@ h8 has exactly 2 cameras (pinned); h10 has a non-empty `moment` with type
    gaps) plus a laser on the second gap makes the player plan the whole run
    before pressing PLAY.
 2. **Expected solution** — OBSERVED: walls at rows 5 (gap x=1) and 8 (gap
-   x=6) force the long way round; laser l1 sits on the (6,8) gap and the
-   golden plan (par 31, pinned ≥ 29) steps on it on an off beat, spending 3
-   pauses (minPauses = 3).
+   x=6) force the long way round, with the loot at (6,1) before the first
+   gap; laser l1 sits on the (6,8) gap and the golden plan (par 31, pinned
+   ≥ 29) steps on it on an off beat, spending 3 pauses (minPauses = 3).
 3. **Possible failure modes** — HYPOTHESIS: long route + laser + camera can
    stack into "too much at once"; the guards are on rows 3/7/10, off the loot.
 4. **Playtest criterion** — unit test pins 1 laser + par ≥ 29 (OBSERVED);
@@ -198,12 +202,13 @@ h8 has exactly 2 cameras (pinned); h10 has a non-empty `moment` with type
 
 ### h10 — "The Vault" (signature hard, type stays `normal`)
 
-1. **Game intention** — HYPOTHESIS: a "signature hard" moment — cross the
-   laser gap on the off beat while both cameras look away, then thread the
-   patrols to the loot; the non-empty `moment` sentence announces it.
+1. **Game intention** — HYPOTHESIS: a "signature hard" moment — take the loot
+   first, thread the patrols, then cross the laser gap on the off beat while
+   both cameras look away; the non-empty `moment` sentence announces it.
 2. **Expected solution** — OBSERVED: laser l1 on gap (6,8), camera c1 watching
    gap (1,5), camera c2 watching the right side; 3 guards on rows 3/7/10; the
-   golden plan (par 31, tension 17) steps on the laser cell and spends 3 pauses
+   loot is at (6,1); the
+   golden plan (par 31, tension 15) steps on the laser cell and spends 3 pauses
    (minPauses = 3). Type `normal`, moment non-empty, 2 cameras + 1 laser
    (all pinned).
 3. **Possible failure modes** — HYPOTHESIS: the densest hard level (3 guards +

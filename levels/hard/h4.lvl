@@ -4,7 +4,7 @@ name: "Chain Reaction"
 type: normal
 moment: ""
 maxPauses: 3
-par: 29
+par: 25
 map: |
   ########
   #S.....#
@@ -15,7 +15,7 @@ map: |
   #......#
   #......#
   ######.#
-  #L.....#
+  #..L...#
   #.....E#
   ########
 guards:
@@ -30,9 +30,9 @@ guards:
     phase: 3
     range: 2
   - id: g3
-    route: [[2,10],[3,10],[4,10]]
+    route: [[1,10],[2,10],[3,10]]
     mode: pingpong
-    phase: 3
+    phase: 1
     range: 2
 cameras:
   - id: c1

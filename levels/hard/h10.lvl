@@ -2,12 +2,12 @@
 # + two cameras + three patrols; cross on the off beat while both cameras look away.
 name: "The Vault"
 type: normal
-moment: "Cross the laser gap on the off beat while both cameras look away, then thread the patrols to the loot."
+moment: "Take the loot first, thread the patrols, then cross the laser gap on the off beat while both cameras look away."
 maxPauses: 3
 par: 31
 map: |
   ########
-  #S.....#
+  #S....L#
   #......#
   #......#
   #......#
@@ -15,7 +15,7 @@ map: |
   #......#
   #......#
   ######.#
-  #.L....#
+  #......#
   #.....E#
   ########
 guards:
@@ -39,7 +39,7 @@ cameras:
     at: [0,5]
     dirs: [E, S]
     hold: 6
-    phase: 7
+    phase: 0
     range: 3
   - id: c2
     at: [7,7]

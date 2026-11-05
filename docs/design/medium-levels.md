@@ -175,11 +175,11 @@ share cell (4,6); m8's three phases are pairwise distinct; m10 has a non-empty
 ### m9 — "Long Way Round" (test: long route, tight par)
 
 1. **Game intention** — HYPOTHESIS: the long forced route makes every tick
-   count; the player feels the pressure of par 23 with no slack.
+   count; the player feels the pressure of par 24 with no slack.
 2. **Expected solution** — OBSERVED: two full walls with single gaps on
-   opposite sides (x=1 at row 5, x=6 at row 8) force a ~20-tick route; the
-   optimal plan (par 23, the tightest of the set) spends one pause (minPauses
-   = 1); only 6 optimal plans — the route is nearly unique.
+   opposite sides (x=1 at row 5, x=6 at row 8) and the loot at (6,1) force a
+   24-tick route; the optimal plan (par 24) needs no pause (minPauses = 0),
+   and 21 optimal plans remain.
 3. **Possible failure modes** — HYPOTHESIS: with so few optimal plans a single
    mistimed tick can feel unfair; the two guards are placed on the long legs,
    not stacked on the loot.

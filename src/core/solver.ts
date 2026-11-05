@@ -5,6 +5,11 @@
 // through resolveTick — the solver never re-implements a rule — and a state
 // where the thief is caught is dropped. Maximum depth: YAP_MAX_TICKS ticks.
 //
+// The search only finds plans a player can draw, so par and hints stay within
+// reach. The previous cell is the one before the last move: a pause does not
+// clear it. The simulation accepts a U-turn right after a pause, but drawing
+// back onto the previous cell erases it (src/game/path-input.ts).
+//
 // Outputs: par (the minimum number of ticks); the canonical optimal plan,
 // i.e. the lexicographically smallest one in the transition order
 // N, E, S, W, wait; the minimum number of pauses among the optimal plans;
@@ -15,13 +20,7 @@
 // src/core is pure and deterministic: integers only, no Math.random, no Date,
 // no performance.now, no floats.
 
-import {
-  YAP_MAX_TICKS,
-  YAP_TICK_PERIOD,
-  type YapCell,
-  type YapDir,
-  type YapLevel,
-} from './level';
+import { YAP_MAX_TICKS, YAP_TICK_PERIOD, type YapCell, type YapDir, type YapLevel } from './level';
 import {
   createInitialState,
   resolveTick,
@@ -71,6 +70,7 @@ interface YapSearchNode {
   state: YapSimState | null;
   readonly x: number;
   readonly y: number;
+  /** The cell before the last move; a pause keeps it. */
   readonly prevX: number;
   readonly prevY: number;
   readonly tick: number;
@@ -221,7 +221,17 @@ export class YapSolver {
         const childLoot =
           u.hasLoot === 1 || (childX === level.loot.x && childY === level.loot.y) ? 1 : 0;
         const childTick = u.tick + 1;
-        const ckey = stateKey(childX, childY, u.x, u.y, childTick, childPauses, childLoot);
+        const childPrevX = step === 'wait' ? u.prevX : u.x;
+        const childPrevY = step === 'wait' ? u.prevY : u.y;
+        const ckey = stateKey(
+          childX,
+          childY,
+          childPrevX,
+          childPrevY,
+          childTick,
+          childPauses,
+          childLoot,
+        );
 
         // The child state is fully determined by its key: if it was already
         // reached (running) at the same depth, only the plan count grows.
@@ -257,8 +267,8 @@ export class YapSolver {
           state: child,
           x: childX,
           y: childY,
-          prevX: u.x,
-          prevY: u.y,
+          prevX: childPrevX,
+          prevY: childPrevY,
           tick: childTick,
           pausesLeft: childPauses,
           hasLoot: childLoot,

@@ -84,7 +84,14 @@ const CORRIDOR_MAP = [
   '########',
   '########',
 ];
-const CORRIDOR_LASER = ['lasers:', '  - id: l1', '    cells: [[3,1]]', '    on: 1', '    off: 1', '    phase: 0'];
+const CORRIDOR_LASER = [
+  'lasers:',
+  '  - id: l1',
+  '    cells: [[3,1]]',
+  '    on: 1',
+  '    off: 1',
+  '    phase: 0',
+];
 
 // Open room with S=(1,1), L=(2,2), E=(3,3): four optimal plans of 4 ticks.
 const MULTI_MAP = [
@@ -253,6 +260,31 @@ describe('YapSolver — golden plans', () => {
 // ---------------------------------------------------------------------------
 // API and determinism
 // ---------------------------------------------------------------------------
+
+describe('YapSolver — plans the route drawing can express', () => {
+  // the diamond closes a dead end: the only way back is to turn on the spot
+  const DEAD_END = [
+    '########',
+    '#E.S.L##',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+    '########',
+  ];
+
+  it('never turns back after a pause, which the drawing erases instead', () => {
+    const level = lvl(DEAD_END, [], { par: 7 });
+    // the simulation still accepts it: this is the solver's limit, not a rule
+    expect(run(level, ['E', 'E', 'wait', 'W', 'W', 'W', 'W']).outcome.kind).toBe('won');
+    expect(() => solveLevel(level)).toThrow(YapSolverError);
+  });
+});
 
 describe('YapSolver — API and determinism', () => {
   it('solveLevel matches a YapSolver instance, and a solver caches per level', () => {
