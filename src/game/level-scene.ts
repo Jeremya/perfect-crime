@@ -90,14 +90,20 @@ import {
   type YapGhostState,
   type YapPreviewState,
 } from './ghost';
-import { YapExecution, type YapDisplayedSnapshot } from './execution';
+import {
+  YapExecution,
+  YAP_PREVIEW_TICKS_PER_SECOND,
+  type YapDisplayedSnapshot,
+} from './execution';
 import {
   yapCellBand,
   yapDetectorCells,
+  yapFlightStates,
   yapPlanStates,
   yapResolveNightFlag,
   yapRoundStates,
   yapWorldCycle,
+  type YapBandThreat,
 } from './observe';
 import { YapFailureReplay } from './failure';
 import { YapHints } from './hints';
@@ -162,6 +168,10 @@ const YAP_WIN_SHARE_EVENT = 'yap-win-share';
 const YAP_WIN_HOME_EVENT = 'yap-win-home';
 /** SPIKE: the Observer mode runs slower than the playback, to be read. */
 const YAP_OBSERVE_TICKS_PER_SECOND = 2;
+/** X3: the full plan preview returns shortly after its final frame. */
+const YAP_PREVIEW_END_HOLD_MS = 700;
+/** X3: the full plan preview uses the pencil ghost treatment. */
+const YAP_GHOST_ALPHA = 0.5;
 /** SPIKE: how dark the cells nobody sees are under `?flag=night:1`: the walls stay darker. */
 const YAP_NIGHT_FLOOR_ALPHA = 0.58;
 const YAP_NIGHT_WALL_ALPHA = 0.9;
@@ -170,6 +180,13 @@ const YAP_OBSERVE_CAUGHT: Readonly<Record<'guard' | 'camera' | 'laser', YapKey>>
   guard: 'preview.caughtGuard',
   camera: 'preview.caughtCamera',
   laser: 'preview.caughtLaser',
+};
+/** SPIKE: the tick band names the exposure visible on that frame. */
+const YAP_BAND_THREAT_LABELS: Readonly<Record<YapBandThreat, YapKey>> = {
+  guard: 'preview.bandGuard',
+  camera: 'preview.bandCamera',
+  contact: 'preview.bandContact',
+  laser: 'preview.bandLaser',
 };
 /** What yapDrawState needs: the world at a tick plus the thief (real or ghost). */
 type YapDrawableState = YapGhostState & Pick<YapSimState, 'thief' | 'hasLoot'>;
@@ -321,6 +338,10 @@ export class YapLevelScene extends Phaser.Scene {
   private yapHintBadge: Phaser.GameObjects.Container | null = null;
   /** The planning row's Hint button (visible only while a hint is available). */
   private yapHintButton: YapButton | null = null;
+  /** Observer control before or beside the completed-plan Preview. */
+  private yapObserverButton: YapButton | null = null;
+  /** The planning row's Clear button, repositioned when Observer + Preview share a row. */
+  private yapClearButton: YapButton | null = null;
   // --- Plan preview (X3) ---
   /** The preview flag (?flag=preview:0/1, default on), resolved at build. */
   private yapPreviewEnabled = true;
@@ -328,7 +349,7 @@ export class YapLevelScene extends Phaser.Scene {
   private yapPreview: {
     states: readonly YapPreviewState[];
     index: number;
-    kind: 'round' | 'plan';
+    kind: 'round' | 'plan' | 'flight';
     playing: boolean;
   } | null = null;
   /** SPIKE: the Pause/Play button of the Observer mode. */
@@ -341,6 +362,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapBandLayer: Phaser.GameObjects.Container | null = null;
   /** The Observer timer (one tick every 1000 / YAP_OBSERVE_TICKS_PER_SECOND ms). */
   private yapPreviewTimer: Phaser.Time.TimerEvent | null = null;
+  /** X3: hold the last full-plan preview frame briefly before returning. */
+  private yapPreviewEndTimer: Phaser.Time.TimerEvent | null = null;
   /** The planning row's Preview button (visible only when the route is complete). */
   private yapPreviewButton: YapButton | null = null;
 
@@ -469,6 +492,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapWinFrame = null;
     this.yapHints = null; // rebuilt per run in create()
     this.yapHintButton = null;
+    this.yapObserverButton = null;
+    this.yapClearButton = null;
     this.yapPreview = null;
     this.yapPreviewButton = null;
     this.yapObservePlayButton = null;
@@ -1097,6 +1122,8 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapCaption = null;
     this.yapPlayButton = null;
     this.yapHintButton = null;
+    this.yapObserverButton = null;
+    this.yapClearButton = null;
     this.yapPreviewButton = null;
     this.yapObservePlayButton = null;
     this.yapBandLayer = null;
@@ -1182,9 +1209,7 @@ export class YapLevelScene extends Phaser.Scene {
 
     const rowY = layout.viewHeight - YAP_ROW_FROM_BOTTOM;
     const canPlay = this.yapPathInput?.yapCanPlay() ?? false;
-    const hasPreview = this.yapHasPreview(canPlay);
-    const hasHint = this.yapHasHint(canPlay);
-    const row = yapPlanningRow(layout.viewWidth, hasHint, hasPreview);
+    const row = yapPlanningRow(layout.viewWidth, false, false);
     const clear = yapButton(this, {
       x: row.clear.x,
       y: rowY,
@@ -1200,6 +1225,7 @@ export class YapLevelScene extends Phaser.Scene {
       },
     });
     chrome.add(clear.container);
+    this.yapClearButton = clear;
 
     // The Hint button keeps its slot and shows only while a hint is available
     // (a hidden button takes no tap); PLAY gives it the width it takes.
@@ -1213,28 +1239,38 @@ export class YapLevelScene extends Phaser.Scene {
         kind: 'secondary',
         onPress: () => this.yapOnHint(),
       });
-      hint.container.setVisible(hasHint);
+      hint.container.setVisible(false);
       chrome.add(hint.container);
       this.yapHintButton = hint;
     }
 
-    // X3: the Preview button takes the Hint slot once the drawn route is
-    // complete and the preview flag is on (the Hint's ghost stays drawn).
+    if (hintBox !== null) {
+      const observer = yapButton(this, {
+        x: hintBox.x,
+        y: rowY,
+        width: hintBox.width,
+        label: yapI18n.t('preview.observe'),
+        kind: 'secondary',
+        onPress: () => this.yapStartObserver(),
+      });
+      observer.container.setVisible(false);
+      chrome.add(observer.container);
+      this.yapObserverButton = observer;
+    }
+
+    // X3 stays available as the quick, full-route preview.
     const previewBox = yapPlanningRow(layout.viewWidth, false, true).preview;
     if (previewBox !== null) {
       const preview = yapButton(this, {
         x: previewBox.x,
         y: rowY,
         width: previewBox.width,
-        label: yapI18n.t(canPlay ? 'preview.button' : 'preview.observe'),
+        label: yapI18n.t('preview.button'),
         kind: 'secondary',
-        // on the release: fired on the press, the scene's own pointerdown,
-        // which runs after the button's, would read the press as the tap
-        // that ends the preview it just started
         fireOn: 'up',
         onPress: () => this.yapStartPreview(),
       });
-      preview.container.setVisible(hasPreview);
+      preview.container.setVisible(false);
       chrome.add(preview.container);
       this.yapPreviewButton = preview;
     }
@@ -1265,17 +1301,19 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapBandLayer = band;
   }
 
-  /**
-   * SPIKE: Observer shows before the route is drawn, on a level where the
-   * world moves; it becomes Preview once the route is complete.
-   */
+  /** X3: the quick full-plan Preview is available only for a complete route. */
   private yapHasPreview(canPlay: boolean): boolean {
-    if (!this.yapPreviewEnabled || this.yapPreview !== null) return false;
-    const level = this.yapLevel;
-    return canPlay || (level !== null && yapWorldCycle(this.yapObserveGhost(level)) > 1);
+    return canPlay && this.yapPreviewEnabled && this.yapPreview === null;
   }
 
-  /** SPIKE: Hint keeps its slot until the route is complete, when Preview takes it. */
+  /** Observer is useful only if at least one world entity moves or cycles. */
+  private yapHasObserver(): boolean {
+    if (this.yapPreview !== null) return false;
+    const level = this.yapLevel;
+    return level !== null && yapWorldCycle(this.yapObserveGhost(level)) > 1;
+  }
+
+  /** Hint keeps its slot until the route is complete. */
   private yapHasHint(canPlay: boolean): boolean {
     return (this.yapHints?.yapHintAvailable() ?? false) && !canPlay;
   }
@@ -1342,23 +1380,53 @@ export class YapLevelScene extends Phaser.Scene {
         ? yapI18n.t('planning.starTargets', { par, twoStarMax })
         : yapI18n.t('planning.grabDiamond'),
     );
-    // C7: the Hint button appears only while a hint is available, and PLAY
-    // gives it the width it takes: the primary action stays the widest.
-    // X3: once the route is complete, Preview takes the Hint slot.
+    // C7, X3 and SPIKE: expose Observer and the full Preview together once a
+    // route is complete; before then Observer shares the Hint / disabled PLAY
+    // space so the row stays usable on compact phones.
     const hasPreview = this.yapHasPreview(canPlay);
     const hasHint = this.yapHasHint(canPlay);
+    const hasObserver = this.yapHasObserver();
     this.yapHintButton?.container.setVisible(hasHint);
     this.yapPreviewButton?.container.setVisible(hasPreview);
-    this.yapPreviewButton?.setLabel(yapI18n.t(canPlay ? 'preview.button' : 'preview.observe'));
-    // SPIKE: with a hint on an unfinished route, Observer takes the slot of the
-    // disabled PLAY, which says nothing the caption does not say
-    const shared = hasHint && hasPreview;
-    const row = yapPlanningRow(layout.viewWidth, hasHint, hasPreview && !shared);
-    const previewBox = shared ? row.play : row.preview;
+    this.yapObserverButton?.container.setVisible(hasObserver);
+
+    let playBox: { readonly x: number; readonly width: number };
+    let observerBox: { readonly x: number; readonly width: number } | null = null;
+    let previewBox: { readonly x: number; readonly width: number } | null;
+    let clearBox: { readonly x: number; readonly width: number };
+    let showPlay = true;
+    if (canPlay && hasObserver && hasPreview) {
+      const [clear, observer, preview, fullPlay] = yapActionRow(layout.viewWidth, [
+        { width: 64 },
+        { width: 80 },
+        { width: 80 },
+        {},
+      ]);
+      if (clear !== undefined && observer !== undefined && preview !== undefined && fullPlay !== undefined) {
+        clearBox = clear;
+        observerBox = observer;
+        previewBox = preview;
+        playBox = fullPlay;
+      } else {
+        const row = yapPlanningRow(layout.viewWidth, false, true);
+        clearBox = row.clear;
+        previewBox = row.preview;
+        playBox = row.play;
+      }
+    } else {
+      const observerNeedsMiddle = hasObserver && (!canPlay || !hasPreview);
+      const row = yapPlanningRow(layout.viewWidth, hasHint || observerNeedsMiddle, hasPreview);
+      clearBox = row.clear;
+      previewBox = row.preview;
+      playBox = row.play;
+      if (hasObserver) observerBox = row.hint ?? row.play;
+      if (!canPlay && hasHint && hasObserver) showPlay = false;
+    }
+    this.yapClearButton?.setBox(clearBox.x, clearBox.width);
+    if (observerBox !== null) this.yapObserverButton?.setBox(observerBox.x, observerBox.width);
     if (previewBox !== null) this.yapPreviewButton?.setBox(previewBox.x, previewBox.width);
-    play.container.setVisible(!shared);
-    const box = row.play;
-    play.setBox(box.x, box.width);
+    play.container.setVisible(showPlay);
+    play.setBox(playBox.x, playBox.width);
     play.setLabel(yapI18n.t(canPlay ? 'planning.play' : 'planning.drawRoute'));
     play.setEnabled(canPlay);
     if (canPlay && !this.yapReducedMotion()) {
@@ -1574,22 +1642,38 @@ export class YapLevelScene extends Phaser.Scene {
   // back to planning with the route kept and PLAY still available.
   // -------------------------------------------------------------------------
 
-  /**
-   * SPIKE: the Observer mode. Before the route is complete, one round of the
-   * world; once it is, the plan, stopped on its first detection. Both step
-   * tick by tick, on the same control.
-   */
+  /** Observer: before the route, one world cycle; after it, stop on detection. */
+  private yapStartObserver(): void {
+    const level = this.yapLevel;
+    const layout = this.yapLayout;
+    const input = this.yapPathInput;
+    if (level === null || layout === null || input === null || this.yapPreview !== null) return;
+    if (!this.yapHasObserver()) return;
+    const kind = input.yapCanPlay() ? 'plan' : 'round';
+    const states =
+      kind === 'plan'
+        ? yapPlanStates(level, input.yapPlan())
+        : yapRoundStates(level, this.yapObserveGhost(level));
+    this.yapStartPreviewMode(level, layout, states, kind);
+  }
+
+  /** X3: the quick full-plan preview continues through a caught tick. */
   private yapStartPreview(): void {
     const level = this.yapLevel;
     const layout = this.yapLayout;
     const input = this.yapPathInput;
     if (level === null || layout === null || input === null) return;
     if (!this.yapPreviewEnabled || this.yapPreview !== null) return;
-    const kind = input.yapCanPlay() ? 'plan' : 'round';
-    const states =
-      kind === 'plan'
-        ? yapPlanStates(level, input.yapPlan())
-        : yapRoundStates(level, this.yapObserveGhost(level));
+    if (!input.yapCanPlay()) return;
+    this.yapStartPreviewMode(level, layout, yapFlightStates(level, input.yapPlan()), 'flight');
+  }
+
+  private yapStartPreviewMode(
+    level: YapLevel,
+    layout: YapBoardLayout,
+    states: readonly YapPreviewState[],
+    kind: 'round' | 'plan' | 'flight',
+  ): void {
     const playing = !this.yapReducedMotion();
     this.yapPreview = { states, index: 0, kind, playing };
     // the PLAY pulse targets the planning chrome destroyed below
@@ -1610,12 +1694,12 @@ export class YapLevelScene extends Phaser.Scene {
     if (preview === null) return;
     const state = preview.states[preview.index];
     if (state === undefined) return;
-    this.yapDrawState(state);
+    this.yapDrawState(state, preview.kind === 'flight' ? YAP_GHOST_ALPHA : 1);
     this.yapRedrawMarks();
     this.yapUpdatePreviewChrome();
   }
 
-  /** One tick of the timer. */
+  /** One tick of the Observer or the full-plan Preview. */
   private readonly yapOnPreviewTick = (): void => {
     this.yapStepPreview(1);
   };
@@ -1629,8 +1713,22 @@ export class YapLevelScene extends Phaser.Scene {
       preview.kind === 'round'
         ? (preview.index + delta + count) % count
         : Math.min(count - 1, Math.max(0, preview.index + delta));
-    if (preview.kind === 'plan' && preview.index === count - 1) this.yapSetPreviewPlaying(false);
+    if (preview.kind === 'flight' && preview.playing && preview.index === count - 1) {
+      this.yapSetPreviewPlaying(false);
+      this.yapSchedulePreviewEnd();
+    } else if (preview.kind !== 'round' && preview.index === count - 1) {
+      this.yapSetPreviewPlaying(false);
+    }
     this.yapShowPreviewFrame();
+  }
+
+  /** X3: return after a short hold on the final full-plan frame. */
+  private yapSchedulePreviewEnd(): void {
+    this.yapRemovePreviewEndTimer();
+    this.yapPreviewEndTimer = this.time.delayedCall(YAP_PREVIEW_END_HOLD_MS, () => {
+      this.yapPreviewEndTimer = null;
+      this.yapEndPreview();
+    });
   }
 
   /** SPIKE: runs or holds the Observer mode. */
@@ -1649,7 +1747,7 @@ export class YapLevelScene extends Phaser.Scene {
     if (preview === null) return;
     if (
       !preview.playing &&
-      preview.kind === 'plan' &&
+      preview.kind !== 'round' &&
       preview.index === preview.states.length - 1
     ) {
       preview.index = 0;
@@ -1787,8 +1885,12 @@ export class YapLevelScene extends Phaser.Scene {
   /** (Re)starts the Observer timer. */
   private yapSchedulePreviewTick(): void {
     this.yapRemovePreviewTimer();
+    const ticksPerSecond =
+      this.yapPreview?.kind === 'flight'
+        ? YAP_PREVIEW_TICKS_PER_SECOND
+        : YAP_OBSERVE_TICKS_PER_SECOND;
     this.yapPreviewTimer = this.time.addEvent({
-      delay: Math.round(1000 / YAP_OBSERVE_TICKS_PER_SECOND),
+      delay: Math.round(1000 / ticksPerSecond),
       loop: true,
       callback: this.yapOnPreviewTick,
     });
@@ -1817,12 +1919,20 @@ export class YapLevelScene extends Phaser.Scene {
     g.fillRect(0, top, layout.viewWidth, YAP_TOP_BAR_HEIGHT - 1);
     layer.add(g);
 
-    const seen = band.some((t) => t.arrival && t.watched);
+    const arrivalTick = band.find((t) => t.arrival);
+    const threats = arrivalTick?.threats ?? [];
+    const seen = threats.length > 0;
+    const labelText = seen
+      ? yapI18n.t('preview.bandExposed', {
+          tick: arrival,
+          threats: threats.map((threat) => yapI18n.t(YAP_BAND_THREAT_LABELS[threat])).join(' · '),
+        })
+      : yapI18n.t('preview.bandClear', { tick: arrival });
     const label = yapRoleText(
       this,
       0,
       top + 4,
-      yapI18n.t(seen ? 'preview.bandSeen' : 'preview.bandFree', { tick: arrival }),
+      labelText,
       'caption',
       YAP_PALETTE[seen ? 'stamp' : 'ink'],
     );
@@ -1839,7 +1949,7 @@ export class YapLevelScene extends Phaser.Scene {
     const ink = yapHexToInt(YAP_PALETTE.ink);
     band.forEach((t, i) => {
       const x = left + i * (size + gap);
-      if (t.watched) {
+      if (t.threats.length > 0) {
         g.fillStyle(red, 1).fillRect(x, y, size, size);
         g.lineStyle(2, paper, 1)
           .lineBetween(x + 5, y + 5, x + size - 5, y + size - 5)
@@ -1859,6 +1969,14 @@ export class YapLevelScene extends Phaser.Scene {
     if (this.yapPreviewTimer !== null) {
       this.yapPreviewTimer.remove();
       this.yapPreviewTimer = null;
+    }
+    this.yapRemovePreviewEndTimer();
+  }
+
+  private yapRemovePreviewEndTimer(): void {
+    if (this.yapPreviewEndTimer !== null) {
+      this.yapPreviewEndTimer.remove();
+      this.yapPreviewEndTimer = null;
     }
   }
 

@@ -53,10 +53,9 @@ export function yapRoundStates(level: YapLevel, ghost: YapGhostPreview): YapPrev
   }));
 }
 
-/** The plan from tick 0 up to its first detection or its win, included. */
-export function yapPlanStates(level: YapLevel, plan: YapPlan): YapPreviewState[] {
+function yapInitialPreviewState(level: YapLevel): YapPreviewState {
   const initial = createInitialState(level);
-  const first: YapPreviewState = {
+  return {
     tick: initial.tick,
     thief: initial.thief,
     hasLoot: initial.hasLoot,
@@ -65,17 +64,32 @@ export function yapPlanStates(level: YapLevel, plan: YapPlan): YapPreviewState[]
     lasers: initial.lasers,
     outcome: initial.outcome,
   };
-  const states = yapPreviewStates(level, plan);
-  const end = states.findIndex((state) => state.outcome.kind !== 'running');
-  return [first, ...(end < 0 ? states : states.slice(0, end + 1))];
 }
 
-/** The cells of whatever detected the thief in `state`. */
+/** The whole plan from tick 0 through its end, even past a detection. */
+export function yapFlightStates(level: YapLevel, plan: YapPlan): YapPreviewState[] {
+  return [yapInitialPreviewState(level), ...yapPreviewStates(level, plan)];
+}
+
+/** The plan from tick 0 up to its first detection or its win, included. */
+export function yapPlanStates(level: YapLevel, plan: YapPlan): YapPreviewState[] {
+  const states = yapPreviewStates(level, plan);
+  const end = states.findIndex((state) => state.outcome.kind !== 'running');
+  return [yapInitialPreviewState(level), ...(end < 0 ? states : states.slice(0, end + 1))];
+}
+
+/** Cells in the detector's visible area that contain the fatal cell. */
 export function yapDetectorCells(state: YapPreviewState): readonly YapCell[] {
   const outcome = state.outcome;
   if (outcome.kind !== 'detected') return [];
-  if (outcome.cause === 'guard') return state.guards.find((g) => g.id === outcome.by)?.seen ?? [];
-  if (outcome.cause === 'camera') return state.cameras.find((c) => c.id === outcome.by)?.seen ?? [];
+  if (outcome.cause === 'guard') {
+    const guard = state.guards.find((g) => g.id === outcome.by);
+    return guard?.seen.some((cell) => yapSameCell(cell, state.thief)) ? guard.seen : [];
+  }
+  if (outcome.cause === 'camera') {
+    const camera = state.cameras.find((c) => c.id === outcome.by);
+    return camera?.seen.some((cell) => yapSameCell(cell, state.thief)) ? camera.seen : [];
+  }
   return state.lasers.find((l) => l.id === outcome.by)?.cells ?? [];
 }
 
@@ -83,24 +97,31 @@ function yapSameCell(a: YapCell, b: YapCell): boolean {
   return a.x === b.x && a.y === b.y;
 }
 
-/** Whether a thief on `cell` would be caught by what `world` shows at this tick. */
-function yapCellWatched(world: YapGhostState, cell: YapCell): boolean {
-  return (
-    world.guards.some(
-      (g) => yapSameCell(g.pos, cell) || g.seen.some((c) => yapSameCell(c, cell)),
-    ) ||
-    world.cameras.some((cam) => cam.seen.some((c) => yapSameCell(c, cell))) ||
-    world.lasers.some((l) => l.active && l.cells.some((c) => yapSameCell(c, cell)))
-  );
+/** Exposure labels for the cell band; these describe the frame, not a full move. */
+export type YapBandThreat = 'guard' | 'camera' | 'contact' | 'laser';
+
+function yapCellThreats(world: YapGhostState, cell: YapCell): YapBandThreat[] {
+  const threats: YapBandThreat[] = [];
+  for (const guard of world.guards) {
+    if (yapSameCell(guard.pos, cell)) threats.push('contact');
+    else if (guard.seen.some((c) => yapSameCell(c, cell))) threats.push('guard');
+  }
+  for (const camera of world.cameras) {
+    if (camera.seen.some((c) => yapSameCell(c, cell))) threats.push('camera');
+  }
+  for (const laser of world.lasers) {
+    if (laser.active && laser.cells.some((c) => yapSameCell(c, cell))) threats.push('laser');
+  }
+  return threats;
 }
 
 export interface YapBandTick {
   readonly tick: number;
-  readonly watched: boolean;
+  readonly threats: readonly YapBandThreat[];
   readonly arrival: boolean;
 }
 
-/** The ticks around `arrival`, each with whether `cell` is watched at that tick. */
+/** The frame exposures of `cell` around `arrival`; this is not a route-safety test. */
 export function yapCellBand(
   ghost: YapGhostPreview,
   cell: YapCell,
@@ -112,7 +133,7 @@ export function yapCellBand(
   );
   return Array.from({ length: YAP_BAND_LENGTH }, (_, i) => ({
     tick: start + i,
-    watched: yapCellWatched(ghost.yapAt(start + i), cell),
+    threats: yapCellThreats(ghost.yapAt(start + i), cell),
     arrival: start + i === arrival,
   }));
 }
