@@ -35,11 +35,11 @@ export const fr: YapDictionary = {
     dailyKicker: 'Casse du jour',
     status: 'Statut',
     stampToDo: 'À faire',
-    stampCleared: 'Réussi · {attempts} essais',
+    stampCleared: 'Réussi · {attempts} {attempts|essai|essais}',
     stampClearedShort: 'Réussi',
     stampSoon: 'Bientôt',
     stampWeekOver: 'Semaine terminée',
-    streakKicker: 'Série · {count} jours',
+    streakKicker: 'Série · {count} {count|jour|jours}',
     nextFile: 'Prochain dossier dans {time}',
     // Style plan de C1 : le surtitre de l'en-tête de l'accueil (en capitales)
     tagline: 'Un casse par jour · Yap Corp',
@@ -87,8 +87,9 @@ export const fr: YapDictionary = {
   },
   challenge: {
     withNickname:
-      '{nickname} a réussi la casse n°{day} en {attempts} essais · {ticks} ticks. À toi.',
-    anonymous: 'Un ami a réussi la casse n°{day} en {attempts} essais · {ticks} ticks. À toi.',
+      '{nickname} a réussi la casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
+    anonymous:
+      'Un ami a réussi la casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
     takeChallenge: 'Relever le défi',
     later: 'Plus tard',
   },
@@ -180,7 +181,7 @@ export const fr: YapDictionary = {
     firstHeistIn: 'Première casse dans {time}',
     afterTitle: 'La semaine de test est terminée',
     afterMessage: 'Merci d’avoir fait cette semaine de casses avec nous !',
-    bestStreak: 'Meilleure série : {count} jours',
+    bestStreak: 'Meilleure série : {count} {count|jour|jours}',
   },
   // Story E2 — le texte partagé (spec Gate 1, « Ce qui part ») : ligne titre,
   // ligne score ({emoji} = la ligne d'emojis de l'écran de victoire, {stars} =
@@ -188,9 +189,9 @@ export const fr: YapDictionary = {
   // de numéro de casse du jour : elle partage une invitation au jeu
   // (src/app/share.ts). « Copié » réutilise common.copied.
   share: {
-    title: 'Casse du jour n°{day} 🕵️ réussi en {attempts} essais',
+    title: 'Casse du jour n°{day} 🕵️ réussi en {attempts} {attempts|essai|essais}',
     titleOne: 'Casse du jour n°{day} 🕵️ réussi en 1 essai',
-    tutorialTitle: '{game} 🕵️ tutoriel réussi en {attempts} essais',
+    tutorialTitle: '{game} 🕵️ tutoriel réussi en {attempts} {attempts|essai|essais}',
     tutorialTitleOne: '{game} 🕵️ tutoriel réussi en 1 essai',
     score: '{emoji} · {ticks} ticks {stars}',
     yourTurn: 'À toi : {link}',
