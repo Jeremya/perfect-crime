@@ -251,12 +251,22 @@ export const fr: YapDictionary = {
     tick: 'Tick',
   },
   // Passe visuelle 3 de C1 — les titres des cinq niveaux du tutoriel : les noms
-  // de leçon de la spec Gate 1. Les casses du jour gardent leur nom de niveau.
+  // de leçon de la spec Gate 1. Les casses du jour ont les leurs sous `heists`.
   tutorialLessons: {
     t1: 'Le plan',
     t2: 'Le regard',
     t3: 'La ronde',
     t4: 'La pause',
     t5: 'La caméra',
+  },
+  // Story F3 — le nom affiché des sept casses du jour.
+  heists: {
+    d1: 'Première ronde',
+    d2: 'Sous surveillance',
+    d3: 'Le demi-tour',
+    d4: 'Ligne rouge',
+    d5: 'L’angle mort',
+    d6: 'Le carrefour',
+    d7: 'La relève',
   },
 };

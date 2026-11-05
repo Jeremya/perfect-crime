@@ -1,10 +1,12 @@
 // The pure geometry of the screen compositions (plan style 4/6, spec §5 and
 // §8): the dotted leader of a row, the graduations of the execution ruler,
 // the seven day boxes of the streak, the weekday of a test day, what a heist
-// holds, the win report's telegram line, how a stamp fits its text, where the
+// is called and what it holds, the win report's telegram line, how a stamp fits its text, where the
 // win actions sit, and where the first-launch hand is in its loop. The kit
 // (./kit.ts) and the scenes draw with these; the unit tests pin them.
 import { YAP_TEST_START_DATE } from '../app/config';
+import { YAP_WEEK_DAYS } from '../app/daily';
+import { yapI18n, type YapI18n, type YapKey } from '../app/i18n';
 import type { YapLevel } from '../core/level';
 import { YAP_BOTTOM_BAR_HEIGHT, yapConsentTopBar } from './board';
 import { YAP_BUTTON_HEIGHT, type YapBox } from './kit';
@@ -36,6 +38,19 @@ export function yapDayBoxes(x: number, width: number, size = 24, gap = 6): YapBo
 export function yapWeekday(day: number, start: string = YAP_TEST_START_DATE): number {
   const [y, m, d] = start.split('-').map(Number);
   return new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + day - 1).getDay();
+}
+
+/**
+ * The name shown for a heist: the dictionaries name the seven daily heists in
+ * the player's language; any other level shows the name of its file.
+ */
+export function yapHeistName(
+  level: YapLevel,
+  day: number | undefined,
+  i18n: Pick<YapI18n, 't'> = yapI18n,
+): string {
+  if (day === undefined || day < 1 || day > YAP_WEEK_DAYS) return level.name;
+  return i18n.t(`heists.d${day}` as YapKey);
 }
 
 /** The kinds of threat a heist holds, in the order guard, camera, laser. */

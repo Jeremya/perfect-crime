@@ -51,7 +51,7 @@ import {
 import { yapStorage, type YapStorage } from '../app/storage';
 import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapFitRows, yapLevelLayout } from './board';
-import { yapHeistFacts, yapWeekday } from './compose';
+import { yapHeistFacts, yapHeistName, yapWeekday } from './compose';
 import {
   YAP_FOLDER_INSET,
   YAP_FOLDER_TAB_BAND,
@@ -518,7 +518,7 @@ export class YapHomeScene extends Phaser.Scene {
     if (model.phase === 'week') {
       line(yapI18n.t('home.dailyKicker'), 'kicker', muted, 6);
       if (level !== null) {
-        line(level.name, 'cardTitle', ink, 8);
+        line(yapHeistName(level, model.day), 'cardTitle', ink, 8);
         line(yapI18n.t('planning.statsPar', { par: level.par }), 'stat', ink, 2);
         // story X2: the star thresholds, visible before the attempt
         line(yapStarThresholdText(level.par), 'stat', muted, 6);

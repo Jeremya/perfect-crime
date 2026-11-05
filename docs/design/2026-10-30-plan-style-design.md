@@ -297,7 +297,8 @@ the hand stays still).
 - Action labels keep the spec wording.
 - Tutorial titles use the spec lesson names: Le plan / Le regard / La ronde /
   La pause / La caméra (EN: The plan / The gaze / The patrol / The pause / The
-  camera). Daily heists keep their level names.
+  camera). Daily heists keep their own names (the FR/EN dictionaries since
+  2026-11-05).
 
 ## 11. Documents and assets
 

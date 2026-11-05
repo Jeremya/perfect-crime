@@ -250,13 +250,23 @@ export const en = {
     tick: 'Tick',
   },
   // C1 visual pass 3 — the titles of the five tutorial levels: the lesson
-  // names of the Gate 1 spec. Daily heists keep their level names.
+  // names of the Gate 1 spec. Daily heists have theirs under `heists`.
   tutorialLessons: {
     t1: 'The plan',
     t2: 'The gaze',
     t3: 'The patrol',
     t4: 'The pause',
     t5: 'The camera',
+  },
+  // Story F3 — the displayed names of the seven daily heists.
+  heists: {
+    d1: 'First Shift',
+    d2: 'Watchful',
+    d3: 'The U-turn',
+    d4: 'Red Line',
+    d5: 'The Blind Spot',
+    d6: 'Crossroads',
+    d7: 'Changing of the Guard',
   },
 } as const;
 

@@ -118,6 +118,7 @@ import {
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
 import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
 import {
+  yapHeistName,
   YAP_WIN_ROW_HEIGHT,
   yapHandPose,
   yapPlanningBand,
@@ -1118,7 +1119,7 @@ export class YapLevelScene extends Phaser.Scene {
       kicker = yapI18n.t(YAP_HEIST_KICKERS[mode], { day });
     }
     if (running && kicker !== '') kicker = yapI18n.t('header.running', { kicker });
-    return { kicker, title: lesson === undefined ? level.name : yapI18n.t(lesson.title) };
+    return { kicker, title: lesson === undefined ? yapHeistName(level, day) : yapI18n.t(lesson.title) };
   }
 
   /** Shows `lines` on the right of the header, then publishes what it shows. */

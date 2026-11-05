@@ -58,7 +58,7 @@ import { yapHomeActions } from './home-layout';
 import { yapFlow } from './home-scene';
 import { yapButton, yapCard, yapHeader, yapPaperPage } from './kit';
 import { yapSeal, yapStamp } from './kit-screens';
-import { yapHeistFacts } from './compose';
+import { yapHeistFacts, yapHeistName } from './compose';
 import {
   yapDrawBoardFrame,
   yapDrawDiamond,
@@ -401,7 +401,7 @@ export class YapChallengeScene extends Phaser.Scene {
       let ty = cursor + 14;
       for (const [text, role, color] of [
         [yapI18n.t('header.daily', { day: this.yapDay }), 'kicker', muted],
-        [level.name, 'body', ink],
+        [yapHeistName(level, this.yapDay), 'body', ink],
         [
           [
             yapI18n.t('planning.statsPar', { par: level.par }),
