@@ -62,6 +62,15 @@ export function yapPlanMarkerCell(fatal: YapCell, loot: YapCell): YapCell | null
   return fatal.x === loot.x && fatal.y === loot.y ? null : fatal;
 }
 
+/**
+ * The marker after an edit of the route. It points at the plan that failed, so
+ * it goes with that plan: `pathLength` counts the thief's cell, and 1 means no
+ * route is left, whichever gesture erased it.
+ */
+export function yapMarkerAfterEdit(marker: YapCell | null, pathLength: number): YapCell | null {
+  return pathLength > 1 ? marker : null;
+}
+
 /** Zoom focus in grid coordinates (may be fractional: a midpoint). */
 export interface YapFailureFocus {
   readonly x: number;
