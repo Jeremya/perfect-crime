@@ -34,11 +34,11 @@ export const en = {
     dailyKicker: 'Daily heist',
     status: 'Status',
     stampToDo: 'To do',
-    stampCleared: 'Cleared · {attempts} tries',
+    stampCleared: 'Cleared · {attempts} {attempts|try|tries}',
     stampClearedShort: 'Cleared',
     stampSoon: 'Soon',
     stampWeekOver: 'Week over',
-    streakKicker: 'Streak · {count} days',
+    streakKicker: 'Streak · {count} {count|day|days}',
     nextFile: 'Next file in {time}',
     // C1 plan style: the kicker of Home's header (shown in capitals)
     tagline: 'One heist a day · Yap Corp',
@@ -86,8 +86,9 @@ export const en = {
   },
   challenge: {
     withNickname:
-      '{nickname} cleared heist #{day} in {attempts} attempts · {ticks} ticks. Your turn.',
-    anonymous: 'A friend cleared heist #{day} in {attempts} attempts · {ticks} ticks. Your turn.',
+      '{nickname} cleared heist #{day} in {attempts} {attempts|attempt|attempts} · {ticks} ticks. Your turn.',
+    anonymous:
+      'A friend cleared heist #{day} in {attempts} {attempts|attempt|attempts} · {ticks} ticks. Your turn.',
     takeChallenge: 'Take the challenge',
     later: 'Later',
   },
@@ -178,7 +179,7 @@ export const en = {
     firstHeistIn: 'First heist in {time}',
     afterTitle: 'The test week is over',
     afterMessage: 'Thanks for pulling off this week of heists with us!',
-    bestStreak: 'Best streak: {count} days',
+    bestStreak: 'Best streak: {count} {count|day|days}',
   },
   // Story E2 — the share text (Gate 1 spec, "What gets sent"): title line,
   // score line ({emoji} = the Win screen emoji line, {stars} = one ⭐ per
@@ -186,9 +187,9 @@ export const en = {
   // it shares an invitation to the game instead (src/app/share.ts). "Copied"
   // reuses common.copied.
   share: {
-    title: 'Daily Heist #{day} 🕵️ cracked in {attempts} tries',
+    title: 'Daily Heist #{day} 🕵️ cracked in {attempts} {attempts|try|tries}',
     titleOne: 'Daily Heist #{day} 🕵️ cracked in 1 try',
-    tutorialTitle: '{game} 🕵️ tutorial cleared in {attempts} tries',
+    tutorialTitle: '{game} 🕵️ tutorial cleared in {attempts} {attempts|try|tries}',
     tutorialTitleOne: '{game} 🕵️ tutorial cleared in 1 try',
     score: '{emoji} · {ticks} ticks {stars}',
     yourTurn: 'Your turn: {link}',

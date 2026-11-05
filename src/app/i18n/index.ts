@@ -135,15 +135,28 @@ export class YapI18n {
 
   /**
    * Resolves a dot-path key ('settings.title') in the current locale and
-   * interpolates `{placeholder}` tokens from `params`. Unknown placeholders
+   * interpolates `{placeholder}` tokens from `params`. A `{count|essai|essais}`
+   * token picks the singular or the plural for that count, by the rules of the
+   * locale (French 0 is singular, English 0 is plural). Unknown placeholders
    * are left as-is; unknown keys throw.
    */
   t(key: YapKey, params?: Record<string, string | number>): string {
     const template = this.resolve(key);
     if (params === undefined) return template;
-    return template.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
-      Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : placeholder,
-    );
+    const has = (name: string): boolean => Object.prototype.hasOwnProperty.call(params, name);
+    return template
+      .replace(
+        /\{(\w+)\|([^|}]*)\|([^}]*)\}/g,
+        (token, name: string, one: string, other: string) => {
+          if (!has(name)) return token;
+          return new Intl.PluralRules(this.locale).select(Number(params[name])) === 'one'
+            ? one
+            : other;
+        },
+      )
+      .replace(/\{(\w+)\}/g, (placeholder, name: string) =>
+        has(name) ? String(params[name]) : placeholder,
+      );
   }
 
   /** Switches language live: updates state, persists, notifies subscribers. */

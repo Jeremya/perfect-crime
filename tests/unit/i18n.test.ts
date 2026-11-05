@@ -320,3 +320,65 @@ describe('no hard-coded UI strings outside the dictionaries', () => {
     expect(found.some((f) => f.includes('Share'))).toBe(false); // comment stripped
   });
 });
+
+// A win on the first try is the sentence friends receive in a share: it must
+// not read "1 essais". French treats 0 as singular, English as plural.
+describe('a count agrees with its noun', () => {
+  it('French says 1 essai and 1 jour, and 0 is singular', () => {
+    const i18n = new YapI18n('fr', null);
+    expect(i18n.t('home.stampCleared', { attempts: 1 })).toBe('Réussi · 1 essai');
+    expect(i18n.t('home.stampCleared', { attempts: 2 })).toBe('Réussi · 2 essais');
+    expect(i18n.t('home.streakKicker', { count: 0 })).toBe('Série · 0 jour');
+    expect(i18n.t('home.streakKicker', { count: 1 })).toBe('Série · 1 jour');
+    expect(i18n.t('home.streakKicker', { count: 7 })).toBe('Série · 7 jours');
+    expect(i18n.t('homeFlow.bestStreak', { count: 1 })).toBe('Meilleure série : 1 jour');
+    expect(i18n.t('challenge.anonymous', { day: 3, attempts: 1, ticks: 38 })).toBe(
+      'Un ami a réussi la casse n°3 en 1 essai · 38 ticks. À toi.',
+    );
+    expect(
+      i18n.t('challenge.withNickname', { nickname: 'Max', day: 3, attempts: 1, ticks: 38 }),
+    ).toBe('Max a réussi la casse n°3 en 1 essai · 38 ticks. À toi.');
+    expect(i18n.t('share.title', { day: 3, attempts: 1 })).toBe(
+      'Casse du jour n°3 🕵️ réussi en 1 essai',
+    );
+    expect(i18n.t('share.tutorialTitle', { game: 'Perfect Crime', attempts: 1 })).toBe(
+      'Perfect Crime 🕵️ tutoriel réussi en 1 essai',
+    );
+  });
+
+  it('English says 1 try and 1 day, and 0 is plural', () => {
+    const i18n = new YapI18n('en', null);
+    expect(i18n.t('home.stampCleared', { attempts: 1 })).toBe('Cleared · 1 try');
+    expect(i18n.t('home.stampCleared', { attempts: 2 })).toBe('Cleared · 2 tries');
+    expect(i18n.t('home.streakKicker', { count: 0 })).toBe('Streak · 0 days');
+    expect(i18n.t('home.streakKicker', { count: 1 })).toBe('Streak · 1 day');
+    expect(i18n.t('homeFlow.bestStreak', { count: 1 })).toBe('Best streak: 1 day');
+    expect(i18n.t('challenge.anonymous', { day: 3, attempts: 1, ticks: 38 })).toBe(
+      'A friend cleared heist #3 in 1 attempt · 38 ticks. Your turn.',
+    );
+    expect(i18n.t('share.title', { day: 3, attempts: 1 })).toBe(
+      'Daily Heist #3 🕵️ cracked in 1 try',
+    );
+    expect(i18n.t('share.tutorialTitle', { game: 'Perfect Crime', attempts: 1 })).toBe(
+      'Perfect Crime 🕵️ tutorial cleared in 1 try',
+    );
+  });
+
+  it('a noun token without its count stays as it is, like any placeholder', () => {
+    const i18n = new YapI18n('en', null);
+    expect(i18n.t('home.stampCleared', { day: 1 })).toBe(
+      'Cleared · {attempts} {attempts|try|tries}',
+    );
+  });
+
+  it('no sentence of either dictionary fixes the noun after a count', () => {
+    for (const dict of [fr, en] as YapDictionary[]) {
+      for (const path of leafPaths(dict)) {
+        const leaf = path
+          .split('.')
+          .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], dict);
+        expect(leaf as string, path).not.toMatch(/\{(attempts|count)\} \p{L}/u);
+      }
+    }
+  });
+});
