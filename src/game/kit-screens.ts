@@ -8,12 +8,15 @@ import type Phaser from 'phaser';
 import {
   YAP_INK_SOFT_ALPHA,
   YAP_PALETTE,
+  YAP_TOP_BAR_HEIGHT,
   yapHexToInt,
   type YapPaletteToken,
   type YapRect,
 } from './board';
 import { yapDayBoxes, yapLeaderDots, yapRulerMarks, yapStampFont } from './compose';
+import { yapActionRow } from './kit';
 import { yapPrefersReducedMotion } from './motion';
+import type { YapBandTick } from './observe';
 import { yapRoleText, yapSetRoleText } from './text';
 
 // ---------------------------------------------------------------------------
@@ -123,6 +126,76 @@ export function yapLeaderRow(
     dots.fillCircle(dx, baseline - 1, 0.9);
   }
   return scene.add.container(0, 0, [dots, name, stat]);
+}
+
+// ---------------------------------------------------------------------------
+// Tick band
+// ---------------------------------------------------------------------------
+
+/** Size of a tick of the band at most, and the gap between two, in px. */
+const YAP_BAND_TICK_SIZE = 22;
+const YAP_BAND_TICK_GAP = 3;
+/** Where the line and the ticks sit under the top of the header, in px. */
+const YAP_BAND_LINE_Y = 4;
+const YAP_BAND_TICKS_Y = 24;
+
+/**
+ * The ticks of a cell while drawing (X9): it covers the header from `top`, with
+ * the line of the arrival, then a box per tick, filled and crossed when the
+ * cell is exposed, and the arrival ringed. An exposed tick has both a colour and
+ * a cross, as the danger cues of docs/UI-DESIGN.md do.
+ */
+export function yapTickBand(
+  scene: Phaser.Scene,
+  viewWidth: number,
+  top: number,
+  band: readonly YapBandTick[],
+  line: string,
+  exposed: boolean,
+): Phaser.GameObjects.Container {
+  const room = yapActionRow(viewWidth, [{}])[0]?.width ?? viewWidth;
+  const g = scene.add.graphics();
+  g.fillStyle(yapHexToInt(YAP_PALETTE['paper-page']), 1);
+  g.fillRect(0, top, viewWidth, YAP_TOP_BAR_HEIGHT - 1);
+  const parts: Phaser.GameObjects.GameObject[] = [g];
+
+  const label = yapRoleText(
+    scene,
+    0,
+    top + YAP_BAND_LINE_Y,
+    line,
+    'caption',
+    YAP_PALETTE[exposed ? 'stamp' : 'ink'],
+  );
+  // two threats at once run wider than the line at 360 px
+  if (label.width > room) label.setScale(room / label.width);
+  label.setX(Math.round((viewWidth - label.displayWidth) / 2));
+  parts.push(label);
+
+  const gaps = YAP_BAND_TICK_GAP * (band.length - 1);
+  const size = Math.min(YAP_BAND_TICK_SIZE, Math.floor((room - gaps) / band.length));
+  const left = Math.round((viewWidth - band.length * size - gaps) / 2);
+  const y = top + YAP_BAND_TICKS_Y;
+  const red = yapHexToInt(YAP_PALETTE.stamp);
+  const paper = yapHexToInt(YAP_PALETTE.paper);
+  const ink = yapHexToInt(YAP_PALETTE.ink);
+  band.forEach((t, i) => {
+    const x = left + i * (size + YAP_BAND_TICK_GAP);
+    if (t.threats.length > 0) {
+      g.fillStyle(red, 1).fillRect(x, y, size, size);
+      g.lineStyle(2, paper, 1)
+        .lineBetween(x + 5, y + 5, x + size - 5, y + size - 5)
+        .lineBetween(x + 5, y + size - 5, x + size - 5, y + 5);
+    } else {
+      g.lineStyle(1, ink, 0.5).strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+    }
+    if (t.arrival) g.lineStyle(2, ink, 1).strokeRect(x - 2, y - 2, size + 4, size + 4);
+    const number = yapRoleText(scene, 0, y + size + 2, String(t.tick), 'caption', YAP_PALETTE.ink);
+    number.setFontSize(10);
+    number.setX(Math.round(x + (size - number.width) / 2));
+    parts.push(number);
+  });
+  return scene.add.container(0, 0, parts);
 }
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 // it: the button, the frozen frame, what Close gives back, and the flags.
 import { expect, test, type Page } from '@playwright/test';
 import { solveLevel } from '../../src/core/solver';
-import { yapCellRect, yapLevelLayout } from '../../src/game/board';
+import { yapCellCenter, yapCellRect, yapLevelLayout } from '../../src/game/board';
 import { yapActionRow, yapPlanningSlots, YAP_ROW_FROM_BOTTOM } from '../../src/game/kit';
 import {
   yapCanvasView,
@@ -267,4 +267,68 @@ test('?flag=observer:0 leaves the row without Observer', async ({ context, page 
   await yapObserveRound(page);
   await page.waitForTimeout(400);
   expect(await yapPhaseNow(page)).toBe('planning');
+});
+
+interface YapBandWindow {
+  __yapBand?: { readonly tick: number; readonly caption: string } | null;
+}
+
+const yapBandShown = (page: Page): Promise<YapBandWindow['__yapBand']> =>
+  page.evaluate(() => (window as unknown as YapBandWindow).__yapBand);
+
+/** Puts a finger on the thief and draws `count` cells of the T4 route. */
+async function yapHoldStroke(page: Page, count: number): Promise<void> {
+  const view = await yapCanvasView(page);
+  const layout = yapLevelLayout(view.width, view.height, T4);
+  const at = (i: number) => {
+    const p = yapCellCenter(layout, T4_ROUTE[i] ?? T4.start);
+    return { x: view.x + p.x, y: view.y + p.y };
+  };
+  await page.mouse.move(at(0).x, at(0).y);
+  await page.mouse.down();
+  for (let i = 1; i <= count; i += 1) await page.mouse.move(at(i).x, at(i).y, { steps: 3 });
+}
+
+test('the band shows while the finger is down and leaves on release', async ({ context, page }) => {
+  await yapSeedStorage(context, AT_T4);
+  await page.goto(`${server.baseUrl}/`);
+  await yapWaitPhase(page, 'planning');
+  await yapHoldStroke(page, 4);
+  await page.waitForTimeout(150);
+  // T4's fifth cell is the fatal one: the band names the guard's sight on it
+  const held = await yapBandShown(page);
+  expect(held?.tick).toBe(4);
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  expect(await yapBandShown(page)).toBeNull();
+});
+
+test('the band comes back after a rebuild during the stroke', async ({ context, page }) => {
+  await yapSeedStorage(context, AT_T4);
+  await page.goto(`${server.baseUrl}/`);
+  await yapWaitPhase(page, 'planning');
+  await yapHoldStroke(page, 2);
+  await page.waitForTimeout(150);
+  expect((await yapBandShown(page))?.tick).toBe(2);
+  const size = page.viewportSize();
+  if (size === null) throw new Error('no viewport');
+  await page.setViewportSize({ width: size.width, height: size.height - 40 });
+  await page.waitForTimeout(500);
+  expect((await yapBandShown(page))?.tick).toBe(2);
+  await page.mouse.up();
+});
+
+test('a level where nothing moves has no band', async ({ context, page }) => {
+  await yapSeedStorage(context, CONSENT_REFUSED);
+  await page.goto(`${server.baseUrl}/`);
+  await yapWaitPhase(page, 'planning');
+  const t1 = yapCatalogLevel('tutorial/t1');
+  const view = await yapCanvasView(page);
+  const p = yapCellCenter(yapLevelLayout(view.width, view.height, t1), t1.start);
+  await page.mouse.move(view.x + p.x, view.y + p.y);
+  await page.mouse.down();
+  await page.mouse.move(view.x + p.x + 60, view.y + p.y, { steps: 3 });
+  await page.waitForTimeout(150);
+  expect(await yapBandShown(page)).toBeFalsy();
+  await page.mouse.up();
 });

@@ -93,6 +93,8 @@ import {
 import { YapExecution, YAP_PREVIEW_TICKS_PER_SECOND, type YapDisplayedSnapshot } from './execution';
 import {
   YapObserverRun,
+  yapBandCaption,
+  yapCellBand,
   yapDetectorCells,
   yapObserverCaption,
   yapPlanStates,
@@ -127,7 +129,14 @@ import {
   yapDrawThief,
 } from './render';
 import { YAP_PENCIL_ALPHA, YAP_ROUTE_WIDTH, yapDashes, yapWalkedSteps } from './plan-geometry';
-import { YAP_STAMP_ANGLE, yapLeaderRow, yapRuler, yapStamp, type YapRuler } from './kit-screens';
+import {
+  YAP_STAMP_ANGLE,
+  yapLeaderRow,
+  yapRuler,
+  yapStamp,
+  yapTickBand,
+  type YapRuler,
+} from './kit-screens';
 import {
   YAP_WIN_ROW_HEIGHT,
   yapHandPose,
@@ -356,6 +365,8 @@ export class YapLevelScene extends Phaser.Scene {
   private yapClearButton: YapButton | null = null;
   /** Pause / Play in the row of an observation. */
   private yapObserverPlayButton: YapButton | null = null;
+  /** The tick band, over the header while the finger draws. */
+  private yapBandLayer: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super('yap-level');
@@ -491,6 +502,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapObserverButton = null;
     this.yapClearButton = null;
     this.yapObserverPlayButton = null;
+    this.yapBandLayer = null;
   }
 
   private readonly yapOnShutdown = (): void => {
@@ -588,6 +600,7 @@ export class YapLevelScene extends Phaser.Scene {
     }
     this.yapRedrawPath();
     this.yapRedrawGhost(); // C6: refresh the ghost preview on every cell change
+    this.yapRedrawBand(); // X9: the ticks of the cell under the finger
     this.yapUpdateChrome();
   }
 
@@ -744,6 +757,7 @@ export class YapLevelScene extends Phaser.Scene {
       this.yapDrawState(state);
       this.yapRedrawHint(); // C7: the revealed hint ghost, if any
       this.yapUpdateChrome();
+      this.yapRedrawBand(); // X9: a rebuild during a stroke keeps the band
     }
     this.yapRedrawMarks();
     this.yapRedrawGhost(); // C6: no ghost after a rebuild outside planning
@@ -1123,6 +1137,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapObserverButton = null;
     this.yapClearButton = null;
     this.yapObserverPlayButton = null;
+    this.yapBandLayer = null;
     this.yapSpeedButton = null;
     this.yapRuler = null;
     return chrome;
@@ -1297,6 +1312,11 @@ export class YapLevelScene extends Phaser.Scene {
     });
     chrome.add(play.container);
     this.yapPlayButton = play;
+
+    // X9: last, so the tick band covers the header while drawing
+    const band = this.add.container(0, 0);
+    chrome.add(band);
+    this.yapBandLayer = band;
   }
 
   /** X3: Preview shows once the route is complete, the flag on, no preview running. */
@@ -1893,6 +1913,45 @@ export class YapLevelScene extends Phaser.Scene {
         onPress: () => this.yapEndObserver(),
       }).container,
     );
+  }
+
+  /**
+   * The tick band: while the finger draws, the ticks around the arrival on the
+   * cell under it. It follows Observer: no band where nothing moves.
+   */
+  private yapRedrawBand(): void {
+    const layer = this.yapBandLayer;
+    const layout = this.yapLayout;
+    const level = this.yapLevel;
+    const input = this.yapPathInput;
+    if (layer === null || layout === null || level === null || input === null) return;
+    layer.removeAll(true);
+    const cell = input.yapGhostCell();
+    const arrival = input.yapGhostTick();
+    if (cell === null || arrival === null || !this.yapHasObserver()) {
+      this.yapPublishBand(null);
+      return;
+    }
+    const band = yapCellBand(this.yapWorldOf(level).ghost, cell, arrival);
+    const { key, tick, threats } = yapBandCaption(band);
+    const line = yapI18n.t(key, {
+      tick,
+      threats: threats.map((threat) => yapI18n.t(threat)).join(' · '),
+    });
+    const exposed = threats.length > 0;
+    layer.add(yapTickBand(this, layout.viewWidth, this.yapConsentNote, band, line, exposed));
+    this.yapPublishBand({ tick, caption: line });
+  }
+
+  /** End-to-end hook beside `__yapPhase`: the band on screen, null when none. */
+  private yapPublishBand(shown: { tick: number; caption: string } | null): void {
+    try {
+      if (typeof window !== 'undefined') {
+        (window as unknown as Record<string, unknown>)['__yapBand'] = shown;
+      }
+    } catch {
+      // no window: nothing to expose
+    }
   }
 
   /** `?flag=night:1`: every cell nobody sees at this tick goes dark. */
