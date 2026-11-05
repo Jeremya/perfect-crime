@@ -282,9 +282,9 @@ describe('YapHints — the pauses of the revealed plan', () => {
   });
 
   it('counts consecutive waits as one pause on their cell', () => {
-    // d5 starts S E N E S S S wait wait: two waits on (3,4)
-    const reveal = unlocked(shipped('daily/d5')).yapUseHint();
-    expect(reveal?.pauses).toEqual([{ cell: { x: 3, y: 4 }, count: 2 }]);
+    // h6 starts E E E E E S wait wait: two waits on (6,2)
+    const reveal = unlocked(shipped('hard/h6')).yapUseHint();
+    expect(reveal?.pauses).toEqual([{ cell: { x: 6, y: 2 }, count: 2 }]);
   });
 
   it('puts a wait of the first step on the start cell', () => {
