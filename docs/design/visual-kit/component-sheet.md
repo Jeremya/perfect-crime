@@ -66,7 +66,7 @@ la carte défi est vide aux deux tiers et "Later" chevauche la bordure.
 
 - **Intention** : la carte défi doit être un **mémo d'affaire** plein et
   équilibré : on y lit le défi, la comparaison, et le plan scellé.
-- **Solution** (voir `public/design/mockup-challenge.svg`) :
+- **Solution** (voir `mockups/mockup-challenge.svg`) :
   1. header : kicker "MESSAGE REÇU · CASSE Nº 3" + titre serif/sans "Un défi d'Alex" ;
   2. **fiche mémo** (carte `surface-panel`, ombre douce, rayon 18) : phrase du
      défi en mono 14 px + **grille de comparaison You / Alex** (2 colonnes,
@@ -88,7 +88,7 @@ la carte défi est vide aux deux tiers et "Later" chevauche la bordure.
 
 - **Intention** : la cérémonie de la victoire (Angry Birds) — les étoiles
   s'allument une par une, le score "monte".
-- **Solution** (voir `public/design/mockup-win.svg`) : plateau final atténué
+- **Solution** (voir `mockups/mockup-win.svg`) : plateau final atténué
   (~28 %) derrière une **fiche rapport** (`surface-panel`, ombre douce, rayon
   18) : kicker "RAPPORT · CASSE Nº 5", titre du niveau, leader rows
   Tentatives / Ticks / Par, puis **3 étoiles** `Yellow/Default/star.png` qui

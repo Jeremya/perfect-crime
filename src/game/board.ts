@@ -4,7 +4,7 @@
 // acceptance criteria ("tinted cells are exactly those of visibleCells") is
 // unit-testable in node. The Phaser drawing lives in ./render.ts, the scene in
 // ./level-scene.ts.
-import type { YapCell, YapDir, YapGuard, YapLevel } from '../core/level';
+import type { YapCell, YapDir, YapLevel } from '../core/level';
 import { visibleCells, type YapSimState } from '../core/sim';
 
 // ---------------------------------------------------------------------------
@@ -332,11 +332,6 @@ export function yapConeCells(level: YapLevel, state: YapSimState): YapConeSet {
 // Patrols — dotted line through the route cells, with direction arrows.
 // ---------------------------------------------------------------------------
 
-/** Pixel centres of the patrol route, in route order. */
-export function yapPatrolPoints(layout: YapBoardLayout, guard: YapGuard): YapPoint[] {
-  return guard.route.map((c) => yapCellCenter(layout, c));
-}
-
 /** Unit vector of a facing, in grid coordinates (y grows downwards). */
 export function yapDirVector(dir: YapDir): YapPoint {
   switch (dir) {
@@ -382,12 +377,7 @@ export interface YapRowMetrics {
  * `available` px, down to `min`. The archive can hold the whole week, so on a
  * 360 × 640 screen the rows shrink instead of running over the actions.
  */
-export function yapFitRows(
-  available: number,
-  count: number,
-  min = 44,
-  max = 64,
-): YapRowMetrics {
+export function yapFitRows(available: number, count: number, min = 44, max = 64): YapRowMetrics {
   if (count <= 0) return { height: 0, gap: 0, total: 0 };
   for (let height = max; height >= min; height -= 1) {
     const gap = height >= 56 ? 8 : 4;

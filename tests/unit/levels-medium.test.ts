@@ -157,7 +157,9 @@ describe('X6 — medium heists: band, gate, golden and mechanic moments', () => 
 
       if (spec.corridor) {
         it('m6: a full wall row with a single gap forces the corridor', () => {
-          const wallRows = level.map.filter((row) => row.split('').filter((c) => c === '#').length >= 7);
+          const wallRows = level.map.filter(
+            (row) => row.split('').filter((c) => c === '#').length >= 7,
+          );
           expect(wallRows.length).toBeGreaterThanOrEqual(1);
         });
       }

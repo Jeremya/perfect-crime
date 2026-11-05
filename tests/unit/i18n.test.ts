@@ -196,7 +196,7 @@ describe('YapI18n store', () => {
     i18n.setLocale('fr');
     expect(i18n.t('home.dailyHeist', { day: 3 })).toBe('Casse du jour n°3');
     expect(i18n.t('challenge.anonymous', { day: 3, attempts: 2, ticks: 38 })).toBe(
-      'Un ami a réussi la casse n°3 en 2 essais · 38 ticks. À toi.',
+      'Un ami a réussi le casse n°3 en 2 essais · 38 ticks. À toi.',
     );
     i18n.setLocale('en');
     expect(i18n.t('challenge.anonymous', { day: 3, attempts: 2, ticks: 38 })).toBe(
@@ -333,11 +333,11 @@ describe('a count agrees with its noun', () => {
     expect(i18n.t('home.streakKicker', { count: 7 })).toBe('Série · 7 jours');
     expect(i18n.t('homeFlow.bestStreak', { count: 1 })).toBe('Meilleure série : 1 jour');
     expect(i18n.t('challenge.anonymous', { day: 3, attempts: 1, ticks: 38 })).toBe(
-      'Un ami a réussi la casse n°3 en 1 essai · 38 ticks. À toi.',
+      'Un ami a réussi le casse n°3 en 1 essai · 38 ticks. À toi.',
     );
     expect(
       i18n.t('challenge.withNickname', { nickname: 'Max', day: 3, attempts: 1, ticks: 38 }),
-    ).toBe('Max a réussi la casse n°3 en 1 essai · 38 ticks. À toi.');
+    ).toBe('Max a réussi le casse n°3 en 1 essai · 38 ticks. À toi.');
     expect(i18n.t('share.title', { day: 3, attempts: 1 })).toBe(
       'Casse du jour n°3 🕵️ réussi en 1 essai',
     );

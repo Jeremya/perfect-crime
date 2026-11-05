@@ -11,7 +11,6 @@ import { fr } from '../../src/app/i18n/fr';
 import { YapI18n } from '../../src/app/i18n';
 import {
   yapDayBoxes,
-  yapFitStamp,
   yapHandPose,
   yapHeistFacts,
   yapHeistName,
@@ -184,14 +183,6 @@ describe('yapPlanningBand — the band the board shows in', () => {
   it('starts under the consent note', () => {
     expect(yapPlanningBand(844, 0)).toEqual({ y: 64, height: 844 - 64 - 96 });
     expect(yapPlanningBand(844, 76)).toEqual({ y: 140, height: 844 - 140 - 96 });
-  });
-});
-
-describe('yapFitStamp — a stamp keeps its text inside', () => {
-  it('scales down to 0.7 at most', () => {
-    expect(yapFitStamp(80, 120)).toBe(1);
-    expect(yapFitStamp(150, 120)).toBeCloseTo(0.8, 9);
-    expect(yapFitStamp(400, 120)).toBe(0.7);
   });
 });
 

@@ -95,12 +95,6 @@ export function yapTelegram(
   return fill('…');
 }
 
-/** The scale (1 down to 0.7) at which a stamp's text `textWidth` wide fits `max`. */
-export function yapFitStamp(textWidth: number, max: number): number {
-  if (textWidth <= max) return 1;
-  return Math.max(0.7, max / textWidth);
-}
-
 /**
  * The font size (px) at which a stamp's text, `textWidth` px wide at `base`
  * px, fits a stamp at most `maxWidth` wide (its padding is `pad` px): `base`

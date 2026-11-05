@@ -1,6 +1,6 @@
 # X8 — Style tile "fancy"
 
-- **Fichier visuel** : `public/design/style-tile.svg`
+- **Fichier visuel** : `mockups/style-tile.svg`
 - **Base** : `YAP_PALETTE` (`src/game/board.ts`) + tokens de `docs/UI-DESIGN.md`
 - **Status** : HYPOTHESIS (direction proposée, jamais encore vue in-game)
 

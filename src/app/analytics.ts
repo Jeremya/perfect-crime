@@ -292,7 +292,8 @@ export class YapPostHogTransport implements YapAnalyticsTransport {
     this.apiKey = options.apiKey ?? YAP_POSTHOG_API_KEY;
     this.host = (options.host ?? YAP_POSTHOG_EU_HOST).replace(/\/+$/, '');
     this.fetchFn =
-      options.fetchFn ?? (typeof fetch === 'undefined' ? undefined : globalThis.fetch.bind(globalThis));
+      options.fetchFn ??
+      (typeof fetch === 'undefined' ? undefined : globalThis.fetch.bind(globalThis));
   }
 
   send(events: readonly YapCapturedEvent[]): Promise<void> {

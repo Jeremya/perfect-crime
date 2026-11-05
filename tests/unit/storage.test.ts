@@ -5,11 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { YAP_CORP } from '../../src/app/brand';
 import {
   YAP_DEFAULT_FLAGS,
-  YAP_DOMAIN,
   YAP_PROFILE_KEY,
-  YAP_TEST_START_DATE,
   createAnonId,
-  loadYapConfig,
   loadYapProfile,
   parseFlagsFromSearch,
   parseInternalFromSearch,
@@ -234,28 +231,18 @@ describe('profile, anonymous ID and config', () => {
     expect(UUID_RE.test(profile.anonId)).toBe(true);
   });
 
-  it('loadYapConfig exposes start date, domain, flags, internal marker and anonId', () => {
-    const storage = new YapStorage(new FakeBackend());
-    const config = loadYapConfig(storage, '?flag=ghost:0&internal=1');
-    expect(config.startDate).toBe(YAP_TEST_START_DATE);
-    expect(config.domain).toBe(YAP_DOMAIN);
-    expect(config.flags).toEqual({ ghost: false });
-    expect(config.internal).toBe(true);
-    expect(UUID_RE.test(config.anonId)).toBe(true);
-  });
-
   it('never crashes in private browsing and still remembers flags for the session', () => {
     const storage = new YapStorage(new ThrowingBackend());
-    let config: ReturnType<typeof loadYapConfig> | undefined;
+    let profile: ReturnType<typeof loadYapProfile> | undefined;
     expect(() => {
-      config = loadYapConfig(storage, '?flag=ghost:0&internal=1');
+      profile = loadYapProfile(storage, '?flag=ghost:0&internal=1');
     }).not.toThrow();
-    expect(config?.flags.ghost).toBe(false);
-    expect(config?.internal).toBe(true);
-    const again = loadYapConfig(storage, '');
+    expect(profile?.flags.ghost).toBe(false);
+    expect(profile?.internal).toBe(true);
+    const again = loadYapProfile(storage, '');
     expect(again.flags.ghost).toBe(false);
     expect(again.internal).toBe(true);
-    expect(again.anonId).toBe(config?.anonId);
+    expect(again.anonId).toBe(profile?.anonId);
   });
 
   it('createAnonId returns a UUID', () => {

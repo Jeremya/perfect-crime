@@ -271,9 +271,7 @@ describe('YapPathInput ghost hook', () => {
     expect(state.guards[0]?.pos).toEqual(cell(2, 1));
     expect(state.guards[0]?.facing).toBe('W');
     expect(state.guards[0]?.seen).toEqual(visibleCells(level, cell(2, 1), 'W', 3));
-    expect(yapGhostCones(level, state).guards[0]).toEqual(
-      visibleCells(level, cell(2, 1), 'W', 3),
-    );
+    expect(yapGhostCones(level, state).guards[0]).toEqual(visibleCells(level, cell(2, 1), 'W', 3));
     input.yapPointerUp(p1.x, p1.y, 10);
     // released: the preview is gone
     expect(input.yapIsGhostVisible()).toBe(false);

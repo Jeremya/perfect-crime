@@ -5,3 +5,6 @@ coverage/
 .DS_Store
 *.local
 .env
+test-results/
+playwright-report/
+.superpowers/

@@ -22,7 +22,7 @@ import {
   type YapPlan,
   type YapSimOutcome,
 } from '../core/sim';
-import { parseFlagsFromSearch, YAP_DEFAULT_FLAGS, type YapFlags } from '../app/config';
+import { parseFlagsFromSearch, YAP_DEFAULT_FLAGS, yapUrlFlag, type YapFlags } from '../app/config';
 
 /** Ghost preview error (invalid tick). */
 export class YapGhostError extends Error {
@@ -191,21 +191,7 @@ export function yapPreviewStates(level: YapLevel, plan: YapPlan): YapPreviewStat
   return states;
 }
 
-/**
- * Resolve the `preview` flag (X3) read-only: default ON, then the URL
- * override `?flag=preview:0/1` (repeatable, comma-separated, last one wins) —
- * the same URL syntax as the ghost flag. src/app/config.ts is owned by A2 and
- * its YapFlags has no `preview` key, so the flag is parsed here rather than
- * through parseFlagsFromSearch.
- */
+/** The plan preview (X3): on by default, `?flag=preview:0` turns it off. */
 export function yapResolvePreviewFlag(search = ''): boolean {
-  let value = true; // default on, like the ghost flag
-  for (const raw of new URLSearchParams(search).getAll('flag')) {
-    for (const part of raw.split(',')) {
-      const match = /^preview:(?<value>[01])$/.exec(part.trim());
-      const v = match?.groups?.value;
-      if (v !== undefined) value = v === '1';
-    }
-  }
-  return value;
+  return yapUrlFlag(search, 'preview', true);
 }

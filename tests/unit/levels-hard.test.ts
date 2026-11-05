@@ -157,7 +157,10 @@ describe('X7 — hard heists: band, gate, golden and mechanic moments', () => {
               const b = level.guards[j];
               if (a === undefined || b === undefined) continue;
               const shared = cellsOf(a).filter((c) => cellsOf(b).includes(c));
-              expect(shared.length, `guards ${a.id} and ${b.id} share a cell`).toBeGreaterThanOrEqual(1);
+              expect(
+                shared.length,
+                `guards ${a.id} and ${b.id} share a cell`,
+              ).toBeGreaterThanOrEqual(1);
             }
           }
         });

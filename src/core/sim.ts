@@ -176,7 +176,7 @@ function cameraDirAt(camera: YapCamera, tick: number): YapDir {
 /** A laser is on for `on` ticks then off for `off` ticks, shifted by phase. */
 function laserOnAt(laser: YapLaser, tick: number): boolean {
   const cycle = laser.on + laser.off;
-  return ((tick + laser.phase) % cycle) < laser.on;
+  return (tick + laser.phase) % cycle < laser.on;
 }
 
 // ---------------------------------------------------------------------------
