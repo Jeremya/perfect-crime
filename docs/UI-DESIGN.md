@@ -139,7 +139,8 @@ everything is static: stamps simply appear, the hand stays still.
 - Planned path: a 5.5 px `marker` line with round caps and joins, thicker than
   a laser and without nubs. During the playback the part not yet walked is at
   about 30%. Pause badges are a paper pill with a marker outline, two bars and
-  the count.
+  the count; a cell the route crosses several times keeps one badge, with the
+  total.
 - Patrols: an ink dashed line (4/4) at 55% with small arrowheads; secondary to
   the cones and the route.
 - Caught state: the detector's cone turns `stamp` red, the fatal cell gets a

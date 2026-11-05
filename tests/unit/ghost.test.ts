@@ -239,6 +239,18 @@ describe('YapPathInput ghost hook', () => {
     expect(input.yapGhostState()).toBeNull();
   });
 
+  it('gives a revisited cell the tick of its most recent pass', () => {
+    const input = new YapPathInput(lvlSafe, layout);
+    const p0 = center(S);
+    input.yapPointerDown(p0.x, p0.y, 0);
+    for (const c of [cell(2, 1), cell(2, 2), cell(1, 2), S]) {
+      const p = center(c);
+      input.yapPointerMove(p.x, p.y);
+    }
+    expect(input.yapGhostCell()).toEqual(S);
+    expect(input.yapGhostTick()).toBe(4);
+  });
+
   it('shows guards and cones at the tick of the cell under the finger while drawing', () => {
     const level = lvlDetected;
     const input = new YapPathInput(level, layout);

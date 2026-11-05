@@ -3,9 +3,11 @@
 // input contract of the Gate 1 spec ("Path drawing" + "Pauses") is tested here
 // in node: central zone, erase by going back, cut, fast-swipe fill, pauses on
 // tap, the 64-step limit and the auto-finish at the exit.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseLevel, YAP_MAX_TICKS, type YapCell, type YapLevel } from '../../src/core/level';
 import { run } from '../../src/core/sim';
+import { solveLevel } from '../../src/core/solver';
 import {
   YAP_BOARD_FRAME,
   YAP_BOARD_INSET,
@@ -21,6 +23,7 @@ import {
   YAP_TAP_MAX_DISTANCE,
   YAP_TAP_MAX_DURATION,
   YAP_UNDO_MAX_DISTANCE,
+  yapPauseBadges,
 } from '../../src/game/path-input';
 
 // ---------------------------------------------------------------------------
@@ -260,17 +263,49 @@ describe('drawing the plan', () => {
     expect(pathOf(input)).toEqual(['1,1']);
   });
 
-  it('cuts the path when touching another of its cells, then continues from there', () => {
+  it('a stroke that crosses the route revisits the cell instead of cutting there', () => {
     const input = new YapPathInput(level, layout);
-    draw(input, [S, cell(2, 1), cell(3, 1), cell(4, 1)]);
-    const p0 = center(cell(4, 1));
+    draw(input, [S, cell(2, 1), cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)]);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '2,2', '1,2', '1,1', '2,1', '3,1']);
+    expect(input.yapPlan()).toEqual(['E', 'S', 'W', 'N', 'E', 'E']);
+  });
+
+  it('a fast swipe across the route fills over it instead of cutting there', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(1, 2), cell(2, 2), cell(3, 2), cell(3, 1), cell(2, 1)]);
+    const p0 = center(cell(2, 1));
     input.yapPointerDown(p0.x, p0.y, 0);
-    const cut = center(cell(2, 1));
-    input.yapPointerMove(cut.x, cut.y);
-    expect(pathOf(input)).toEqual(['1,1', '2,1']);
-    const next = center(cell(2, 2));
-    input.yapPointerMove(next.x, next.y);
+    const far = center(cell(2, 3)); // one jump, over (2,2) which is on the route
+    input.yapPointerMove(far.x, far.y);
+    expect(pathOf(input)).toEqual([
+      '1,1',
+      '1,2',
+      '2,2',
+      '3,2',
+      '3,1',
+      '2,1',
+      '2,2',
+      '2,3',
+    ]);
+  });
+
+  it('a fast swipe back through the previous cell erases, never a U-turn', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2), cell(2, 3)]);
+    const p0 = center(cell(2, 3));
+    input.yapPointerDown(p0.x, p0.y, 0);
+    // beside the route, so the slingshot does not take it: the fill starts on
+    // the previous cell (2,2)
+    const beyond = center(cell(1, 1));
+    input.yapPointerMove(beyond.x, beyond.y);
     expect(pathOf(input)).toEqual(['1,1', '2,1', '2,2']);
+  });
+
+  it('extends from the last cell even when the route already walked that cell', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2), cell(1, 2), S]);
+    draw(input, [S, cell(2, 1)]);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '2,2', '1,2', '1,1', '2,1']);
   });
 
   it('cuts when pressing a middle path cell and dragging away', () => {
@@ -282,6 +317,17 @@ describe('drawing the plan', () => {
     input.yapPointerMove(next.x, next.y);
     input.yapPointerUp(next.x, next.y, 10);
     expect(pathOf(input)).toEqual(['1,1', '2,1', '2,2']);
+  });
+
+  it('cuts a doubled cell at its most recent pass', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)]);
+    const p = center(cell(2, 1));
+    input.yapPointerDown(p.x, p.y, 0);
+    const next = center(cell(2, 2));
+    input.yapPointerMove(next.x, next.y);
+    input.yapPointerUp(next.x, next.y, 10);
+    expect(pathOf(input)).toEqual(['1,1', '2,1', '2,2', '1,2', '1,1', '2,1', '2,2']);
   });
 
   it('lets the path revisit a cell already drawn (after a cut), never via an immediate U-turn', () => {
@@ -463,6 +509,41 @@ describe('pauses on tap', () => {
     expect(input.yapPausesLeft()).toBe(2);
   });
 
+  it('a tap on a doubled cell pauses its most recent pass', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)]);
+    tap(input, cell(2, 1));
+    expect(input.yapPauseCounts()).toEqual([0, 0, 0, 0, 0, 1, 0]);
+    expect(input.yapPlan()).toEqual(['E', 'S', 'W', 'N', 'E', 'wait', 'E']);
+  });
+
+  it('a pause tapped before the route comes back stays on the earlier pass', () => {
+    const input = new YapPathInput(level, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2)]);
+    tap(input, cell(2, 1));
+    draw(input, [cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)]);
+    expect(input.yapPauseCounts()).toEqual([0, 1, 0, 0, 0, 0, 0]);
+    expect(input.yapPlan()).toEqual(['E', 'wait', 'S', 'W', 'N', 'E', 'E']);
+  });
+
+  it('at the maximum, a tap on a doubled cell takes it back to zero on every pass', () => {
+    const one = lvl(MAP, 1);
+    const input = new YapPathInput(one, layout);
+    draw(input, [S, cell(2, 1), cell(2, 2)]);
+    tap(input, cell(2, 1));
+    draw(input, [cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)]);
+    tap(input, cell(2, 1));
+    expect(input.yapTotalPauses()).toBe(0);
+  });
+
+  it('shows one badge per cell, with the pauses of all its passes', () => {
+    const route = [S, cell(2, 1), cell(2, 2), cell(1, 2), S, cell(2, 1), cell(3, 1)];
+    expect(yapPauseBadges(route, [0, 1, 0, 2, 0, 2, 0])).toEqual([
+      { cell: cell(2, 1), count: 3 },
+      { cell: cell(1, 2), count: 2 },
+    ]);
+  });
+
   it('derives the plan (moves + waits) from cells and pauses', () => {
     const input = new YapPathInput(level, layout);
     draw(input, [S, cell(2, 1), cell(3, 1)]);
@@ -554,6 +635,45 @@ describe('auto-finish at the exit', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Shipped levels whose best route crosses itself
+// ---------------------------------------------------------------------------
+
+describe('a route that crosses itself on a shipped level', () => {
+  const shipped = JSON.parse(
+    readFileSync(new URL('../../levels/levels.json', import.meta.url), 'utf8'),
+  ) as { levels: readonly { id: string; level: YapLevel }[] };
+
+  for (const id of ['daily/d4', 'daily/d7', 'medium/m3', 'medium/m10', 'hard/h1']) {
+    it(`${id}: the optimal plan can be drawn and wins at par`, () => {
+      const level = shipped.levels.find((entry) => entry.id === id)?.level;
+      if (level === undefined) throw new Error(`no level ${id}`);
+      const solved = solveLevel(level);
+      const steps = { N: [0, -1], E: [1, 0], S: [0, 1], W: [-1, 0] } as const;
+      const route: YapCell[] = [level.start];
+      const waits: YapCell[] = [];
+      for (const move of solved.plan) {
+        const at = route[route.length - 1];
+        if (at === undefined) throw new Error('empty route');
+        if (move === 'wait') {
+          waits.push(at);
+          continue;
+        }
+        const [dx, dy] = steps[move];
+        route.push(cell(at.x + dx, at.y + dy));
+      }
+      const input = new YapPathInput(level, layout);
+      draw(input, route);
+      for (const at of waits) tap(input, at);
+      expect(input.yapCanPlay()).toBe(true);
+      expect(input.yapPlan()).toEqual(solved.plan);
+      const result = run(level, input.yapPlan());
+      expect(result.outcome.kind).toBe('won');
+      expect(result.frames[result.frames.length - 1]?.tick).toBe(solved.par);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Clear and resize
 // ---------------------------------------------------------------------------
 
@@ -614,9 +734,8 @@ describe('20 fast drawings without an accidental erase', () => {
         const p = center(target);
         input.yapPointerMove(p.x, p.y);
         const after = input.yapPath();
-        // the path stays a contiguous, wall-free, duplicate-free, U-turn-free chain
+        // the path stays a contiguous, wall-free, U-turn-free chain
         expect(after.length).toBeGreaterThan(0);
-        expect(new Set(pathOf(input)).size).toBe(after.length);
         for (let i = 1; i < after.length; i += 1) {
           const a = after[i - 1];
           const b = after[i];
