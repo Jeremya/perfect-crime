@@ -12,8 +12,10 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tools/tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "test:e2e": "playwright test tests/e2e",
     "validate": "tsx tools/validate.ts"
   },
   "dependencies": {

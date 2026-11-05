@@ -272,17 +272,10 @@ describe('YapWinScreen — contract and i18n', () => {
     expect(() => new YapWinScreen(level, outcome, log)).toThrow(YapWinError);
   });
 
-  it('the new winScreen i18n key resolves in both locales', () => {
+  it('the win.* keys of the panel resolve in both locales', () => {
     for (const locale of ['fr', 'en'] as const) {
       const i18n = new YapI18n(locale, null);
-      const text = i18n.t('winScreen.sharePreview');
-      expect(text.trim().length, `${locale}:winScreen.sharePreview`).toBeGreaterThan(0);
-      expect(text).not.toContain('{');
-    }
-    // the pre-existing win.* keys used by the panel also resolve
-    for (const locale of ['fr', 'en'] as const) {
-      const i18n = new YapI18n(locale, null);
-      for (const key of ['win.title', 'win.attempts', 'win.ticks', 'win.par', 'win.stars', 'win.share', 'win.improve', 'win.home'] as const) {
+      for (const key of ['win.attempts', 'win.ticks', 'win.par', 'win.stars', 'win.share', 'win.improve', 'win.home'] as const) {
         expect(i18n.t(key).trim().length, `${locale}:${key}`).toBeGreaterThan(0);
       }
     }

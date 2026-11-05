@@ -1,7 +1,7 @@
 # X8 — Kit visuel "fancy" (Perfect Crime, Gate 1) — statut d'intégration
 
 > Le kit design (style tile, mockups, component sheet, plan Kenney archivé) est
-> sur `main` (`docs/design/visual-kit/*.md`, `public/design/*.svg`). Ce README
+> sur `main` (`docs/design/visual-kit/*.md`, `mockups/*.svg`). Ce README
 > trace l'implémentation côté code (tâche **X8b**, `tasks/X8b.md`).
 
 ## Décision produit (2026-11-04) — direction « plan d'architecte » partout
@@ -40,11 +40,11 @@ chrome, états pressés). Le plateau et les menaces restent dessinés en code
 
 | Fichier | Quoi |
 |---|---|
-| `style-tile.md` + `public/design/style-tile.svg` | Palette "fancy" (évolution de `YAP_PALETTE`), typo, formes, glow/ombres — et ce qui reste interdit (cones) |
-| `public/design/mockup-home.svg` / `mockup-home-360.svg` | Maquette Home à 390×844 et 360×640 |
-| `public/design/mockup-planning.svg` | Maquette Planning (level scene) à 390×844 |
-| `public/design/mockup-win.svg` | Maquette Win (étoiles animées X5) à 390×844 |
-| `public/design/mockup-challenge.svg` | Maquette carte défi E4 (vide central comblé) à 390×844 |
+| `style-tile.md` + `mockups/style-tile.svg` | Palette "fancy" (évolution de `YAP_PALETTE`), typo, formes, glow/ombres — et ce qui reste interdit (cones) |
+| `mockups/mockup-home.svg` / `mockup-home-360.svg` | Maquette Home à 390×844 et 360×640 |
+| `mockups/mockup-planning.svg` | Maquette Planning (level scene) à 390×844 |
+| `mockups/mockup-win.svg` | Maquette Win (étoiles animées X5) à 390×844 |
+| `mockups/mockup-challenge.svg` | Maquette carte défi E4 (vide central comblé) à 390×844 |
 | `component-sheet.md` | Boutons primary/secondary, pills top bar, badges 💡, carte défi E4, écran win — 100% dessinés en code |
 | `kenney-ui-integration.md` | Archivé : liste des sprites Kenney UI Pack (décision produit: non retenus) + plan X8b révisé "100% code" |
 | `first-launch-hand.md` | Storyboard de la main animée au premier lancement de T1 |

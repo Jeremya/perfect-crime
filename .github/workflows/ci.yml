@@ -17,6 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm run format:check
       - run: npm run test
       # B4 gate: fails on an unsolvable level, a malformed level, or a period
       # that does not divide 24; regenerates levels/levels.json.

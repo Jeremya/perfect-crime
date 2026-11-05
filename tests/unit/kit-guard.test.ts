@@ -50,10 +50,6 @@ describe('buttons come from src/game/kit.ts', () => {
   it('buttons come from the kit', () => {
     expect(yapOffenders(/\byapMake\w*Button\b/)).toEqual([]);
   });
-
-  it('no scene reaches the retired X8b ui-kit', () => {
-    expect(yapOffenders(/from '\.\/ui-kit'/)).toEqual([]);
-  });
 });
 
 describe('the board geometry stays free of Phaser', () => {

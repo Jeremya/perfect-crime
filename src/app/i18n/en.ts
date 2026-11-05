@@ -12,14 +12,9 @@ export const en = {
     title: 'Perfect Crime',
   },
   common: {
-    ok: 'OK',
-    noThanks: 'No thanks',
-    learnMore: 'Learn more',
     back: 'Back',
     close: 'Close',
-    clear: 'Clear',
     copied: 'Copied',
-    share: 'Share',
     play: 'Play',
   },
   consent: {
@@ -50,15 +45,12 @@ export const en = {
     settings: 'Settings',
   },
   planning: {
-    planTicks: 'Plan: {ticks} ticks',
     par: 'Par: {par}',
-    pausesLeft: 'Pauses left: {count}',
     clear: 'Clear',
     play: 'PLAY',
     // C1 visual pass: the par in the right block of the Win screen's header.
     statsPar: 'par {par}',
     drawRoute: 'Draw your route',
-    hint: 'Hint',
     grabDiamond: 'Grab the diamond, then get out',
     // X1: the star targets, in the footer caption once the plan can run.
     starTargets: '★★★ at {par} ticks · ★★ up to {twoStarMax}',
@@ -75,7 +67,6 @@ export const en = {
     tapToReturn: 'Tap to return to your plan',
   },
   win: {
-    title: 'Heist cleared!',
     attempts: 'Attempts',
     ticks: 'Ticks',
     par: 'Par',
@@ -148,19 +139,11 @@ export const en = {
     spottedByCamera: 'Spotted by the camera',
     spottedByLaser: 'Caught in the laser beam',
   },
-  // Story C6 — Ghost preview while drawing (behind the ?flag=ghost: switch):
-  // compact tick badge shown at the cell under the finger.
-  ghost: {
-    tickBadge: 't{tick}',
-  },
-  // Story C5 — Win screen panel (src/game/win.ts): label of the emoji-line
-  // preview that will go into the share.
   winScreen: {
     // C1 plan style 4/6: the win report's kicker, telegram and stamp
     report: 'Operation report · No. {day}',
     telegram: 'To share {line} · {ticks} ticks {stars}',
     stamp: 'Heist pulled off',
-    sharePreview: 'Share preview',
   },
   // Story G2 — consent banner (first launch, non-blocking top strip).
   consentBanner: {

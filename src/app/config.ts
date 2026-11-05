@@ -32,15 +32,6 @@ export interface YapProfile {
   flags: YapFlags;
 }
 
-/** Resolved runtime configuration. */
-export interface YapConfig {
-  startDate: string;
-  domain: string;
-  anonId: string;
-  internal: boolean;
-  flags: YapFlags;
-}
-
 const FLAG_PARAM = /^(?<name>[a-z][a-z0-9-]*):(?<value>[01])$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -116,21 +107,4 @@ export function loadYapProfile(storage: YapStorage, search = ''): YapProfile {
   const profile: YapProfile = { schema: YAP_PROFILE_SCHEMA, anonId, internal, flags };
   storage.setJson(YAP_PROFILE_KEY, profile);
   return profile;
-}
-
-/** Anonymous ID of this device, creating and persisting it on first run. */
-export function getAnonId(storage: YapStorage): string {
-  return loadYapProfile(storage).anonId;
-}
-
-/** Full runtime config: constants plus the profile (flags, internal, anonId). */
-export function loadYapConfig(storage: YapStorage, search = ''): YapConfig {
-  const profile = loadYapProfile(storage, search);
-  return {
-    startDate: YAP_TEST_START_DATE,
-    domain: YAP_DOMAIN,
-    anonId: profile.anonId,
-    internal: profile.internal,
-    flags: profile.flags,
-  };
 }

@@ -13,14 +13,9 @@ export const fr: YapDictionary = {
     title: 'Perfect Crime',
   },
   common: {
-    ok: 'OK',
-    noThanks: 'Non merci',
-    learnMore: 'En savoir plus',
     back: 'Retour',
     close: 'Fermer',
-    clear: 'Effacer',
     copied: 'Copié',
-    share: 'Partager',
     play: 'Jouer',
   },
   consent: {
@@ -51,15 +46,12 @@ export const fr: YapDictionary = {
     settings: 'Réglages',
   },
   planning: {
-    planTicks: 'Plan : {ticks} ticks',
     par: 'Par : {par}',
-    pausesLeft: 'Pauses restantes : {count}',
     clear: 'Effacer',
     play: 'PLAY',
     // Passe visuelle C1 : le par dans le bloc de droite de l'en-tête de victoire.
     statsPar: 'par {par}',
     drawRoute: 'Trace ta route',
-    hint: 'Indice',
     grabDiamond: 'Prends le diamant, puis sors',
     // X1 : les objectifs d'étoiles, dans la légende du bas dès que le plan peut partir.
     starTargets: "★★★ à {par} ticks · ★★ jusqu'à {twoStarMax}",
@@ -76,7 +68,6 @@ export const fr: YapDictionary = {
     tapToReturn: "Touche l'écran pour revenir à ton plan",
   },
   win: {
-    title: 'Casse réussie !',
     attempts: 'Essais',
     ticks: 'Ticks',
     par: 'Par',
@@ -149,19 +140,11 @@ export const fr: YapDictionary = {
     spottedByCamera: 'Repéré par la caméra',
     spottedByLaser: 'Pris dans le faisceau laser',
   },
-  // Story C6 — aperçu fantôme pendant le tracé (derrière ?flag=ghost:) :
-  // badge de tick compact affiché sur la cellule sous le doigt.
-  ghost: {
-    tickBadge: 't{tick}',
-  },
-  // Story C5 — panneau de l'écran de victoire (src/game/win.ts) : label de
-  // l'aperçu de la ligne d'emojis qui ira dans le partage.
   winScreen: {
     // Style plan 4/6 de C1 : le surtitre, le télégramme et le tampon du rapport
     report: "Rapport d'opération · nº {day}",
     telegram: 'À partager {line} · {ticks} ticks {stars}',
     stamp: 'Casse réussi',
-    sharePreview: 'Aperçu du partage',
   },
   // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
   consentBanner: {

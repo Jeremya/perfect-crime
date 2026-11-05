@@ -75,7 +75,7 @@ sinon la main est dessinée en code (recommandé, cohérent avec le plateau).
 > `src/game/level-scene.ts` librement.
 
 Aucun sprite UI n'est posé. X8b applique le **style tile** (`style-tile.md` +
-`public/design/style-tile.svg`) aux composants **dessinés en code** existants :
+`mockups/style-tile.svg`) aux composants **dessinés en code** existants :
 
 1. **Tokens** : faire évoluer `YAP_PALETTE` selon le style tile (dégradés sur
    les primaires, glow doux sur les cones actifs, ombres portées sur les cartes),
