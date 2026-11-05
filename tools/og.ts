@@ -4,20 +4,23 @@
 // previews"): the same app as /, each with its own og:title, og:description
 // and og:image tags so a pasted link looks right in WhatsApp / Messages.
 // The 1200 x 630 preview image is a sheet of the plan style (plan style
-// 6/6): the paper page, the tagline and the daily title in typewriter
-// capitals, and the heist as a plan drawn with the game's own geometry —
+// 6/6): the paper page, the tagline in typewriter capitals over the daily
+// title in the typewriter font, and the heist as a plan drawn with the game's
+// own geometry —
 // never a route, a cone or a solution (docs/UI-DESIGN.md, spoiler-free).
 //
 // The image is rasterized here (rects + a small bitmap font) and encoded as
 // PNG with node:zlib — no new dependency, fully deterministic: the same
-// levels always produce the same bytes, so the committed files under
-// public/icons/ never diff after a rebuild.
+// levels always produce the same pixels. A file is rewritten only when its
+// pixels change (yapSamePixels), not its bytes: two Node versions bundle two
+// zlibs that compress the same pixels differently, and the committed files
+// under public/icons/ must not churn with the Node that builds them.
 //
 // Displayed text comes from the i18n dictionaries (src/app/i18n) and the
 // brand constants (src/app/brand.ts); the public domain comes from
 // src/app/config.ts (YAP_DOMAIN).
-import { deflateSync } from 'node:zlib';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { deflateSync, inflateSync } from 'node:zlib';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -436,6 +439,25 @@ class YapOgCanvas {
     });
   }
 
+  /** A filled triangle (the guard's facing wedge). */
+  fillTriangle(a: YapPoint, b: YapPoint, c: YapPoint, color: YapRgb): void {
+    const minX = Math.min(a.x, b.x, c.x);
+    const minY = Math.min(a.y, b.y, c.y);
+    const w = Math.max(a.x, b.x, c.x) - minX;
+    const h = Math.max(a.y, b.y, c.y) - minY;
+    const side = (p: YapPoint, q: YapPoint, x: number, y: number): number =>
+      (q.x - p.x) * (y - p.y) - (q.y - p.y) * (x - p.x);
+    this.fillPixels(minX, minY, w + 1, h + 1, (px, py, current) => {
+      const x = px + 0.5;
+      const y = py + 0.5;
+      const d1 = side(a, b, x, y);
+      const d2 = side(b, c, x, y);
+      const d3 = side(c, a, x, y);
+      const inside = (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
+      return inside ? color : current;
+    });
+  }
+
   /** Diamond (rotated square) — the loot marker. */
   fillDiamond(cx: number, cy: number, radius: number, color: YapRgb): void {
     for (let py = Math.floor(cy - radius); py <= Math.ceil(cy + radius); py++) {
@@ -557,6 +579,59 @@ export function yapEncodePng(
   return out;
 }
 
+/**
+ * The RGBA pixels of a PNG written by yapEncodePng (8-bit RGBA, filter none on
+ * every row), or null for any other PNG. The build compares pixels, not
+ * bytes: two versions of zlib compress the same pixels differently.
+ */
+export function yapDecodePngPixels(png: Uint8Array): Uint8Array | null {
+  if (png.length < 33 || !YAP_PNG_SIGNATURE.every((b, i) => png[i] === b)) return null;
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  let width = 0;
+  let height = 0;
+  const idat: Uint8Array[] = [];
+  for (let off = 8; off + 12 <= png.length;) {
+    const length = view.getUint32(off);
+    const type = String.fromCharCode(...png.subarray(off + 4, off + 8));
+    const data = png.subarray(off + 8, off + 8 + length);
+    if (type === 'IHDR') {
+      if (data[8] !== 8 || data[9] !== 6 || data[12] !== 0) return null;
+      width = view.getUint32(off + 8);
+      height = view.getUint32(off + 12);
+    } else if (type === 'IDAT') {
+      idat.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    off += 12 + length;
+  }
+  if (width === 0 || height === 0 || idat.length === 0) return null;
+  let raw: Uint8Array;
+  try {
+    raw = new Uint8Array(inflateSync(Buffer.concat(idat)));
+  } catch {
+    return null;
+  }
+  const stride = 1 + width * 4;
+  if (raw.length !== stride * height) return null;
+  const pixels = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    if (raw[y * stride] !== 0) return null; // only our own "filter: none" rows
+    pixels.set(raw.subarray(y * stride + 1, (y + 1) * stride), y * width * 4);
+  }
+  return pixels;
+}
+
+/** Whether the PNG at `file` already holds exactly the pixels of `png`. */
+function yapSamePixels(file: string, png: Uint8Array): boolean {
+  if (!existsSync(file)) return false;
+  const before = yapDecodePngPixels(new Uint8Array(readFileSync(file)));
+  const after = yapDecodePngPixels(png);
+  if (before === null || after === null || before.length !== after.length) return false;
+  for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) return false;
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Preview image rendering (1200 x 630, spoiler-free: map + title, no route)
 // ---------------------------------------------------------------------------
@@ -621,7 +696,7 @@ function yapDrawOgBoard(canvas: YapOgCanvas, level: YapLevel, layout: YapBoardLa
         canvas.fillRect(r.x, r.y, r.w, r.h, paper);
         continue;
       }
-      canvas.fillPixels(r.x, r.y, r.w, r.h, (px, py) => ((px + py) % 9 < 1.6 ? ink : hatch));
+      canvas.fillPixels(r.x, r.y, r.w, r.h, (px, py) => ((px + py) % 9 < 2 ? ink : hatch));
     }
   }
   const soft = yapOgMix(YAP_PALETTE.ink, YAP_PALETTE.paper, YAP_INK_SOFT_ALPHA);
@@ -664,6 +739,17 @@ function yapDrawOgBoard(canvas: YapOgCanvas, level: YapLevel, layout: YapBoardLa
     const tokenInk = yapHexToRgb(YAP_PALETTE['guard-token-ink']);
     canvas.fillCircle(p.x, p.y, cell * 0.3, tokenInk);
     canvas.fillCircle(p.x, p.y, cell * 0.3 - 2, yapHexToRgb(YAP_PALETTE['guard-token']));
+    // the facing wedge just outside the disc, as on the board (tick 0)
+    const d = yapDirVector(guard.facing);
+    const base = cell * 0.36;
+    const tip = cell * 0.46;
+    const half = cell * 0.1;
+    canvas.fillTriangle(
+      { x: p.x + d.x * tip, y: p.y + d.y * tip },
+      { x: p.x + d.x * base - d.y * half, y: p.y + d.y * base + d.x * half },
+      { x: p.x + d.x * base + d.y * half, y: p.y + d.y * base - d.x * half },
+      tokenInk,
+    );
     const g = 'G';
     canvas.drawText(p.x - canvas.textWidth(g, 2) / 2, p.y - 7, g, 2, tokenInk);
   }
@@ -795,13 +881,21 @@ export function yapRenderAllOgPngs(entries: readonly YapLevelEntry[]): Map<strin
 
 /** Writes every preview image into `outDir`; returns the written paths. */
 export function generateYapOgImages(outDir: string, root = process.cwd()): string[] {
-  const entries = yapLoadLevelEntries(root);
-  const images = yapRenderAllOgPngs(entries);
+  return yapWriteOgImages(outDir, yapRenderAllOgPngs(yapLoadLevelEntries(root)));
+}
+
+/**
+ * Writes `images` into `outDir` — the CLI and the build's `buildStart` both
+ * go through here — and returns their paths. A preview whose pixels did not
+ * change is left as it is: another Node (another zlib) would otherwise
+ * rewrite the committed PNGs on every build and test run.
+ */
+function yapWriteOgImages(outDir: string, images: ReadonlyMap<string, Uint8Array>): string[] {
   mkdirSync(outDir, { recursive: true });
   const written: string[] = [];
   for (const [name, png] of images) {
     const file = join(outDir, name);
-    writeFileSync(file, png);
+    if (!yapSamePixels(file, png)) writeFileSync(file, png);
     written.push(file);
   }
   return written;
@@ -836,10 +930,8 @@ export function yapChallengePagesPlugin(): Plugin {
       root = config.root;
     },
     buildStart() {
-      const dir = join(root, YAP_OG_ICONS_DIR);
       const rendered = renderImages();
-      mkdirSync(dir, { recursive: true });
-      for (const [name, png] of rendered) writeFileSync(join(dir, name), png);
+      yapWriteOgImages(join(root, YAP_OG_ICONS_DIR), rendered);
       console.log(`yap-challenge-pages: ${rendered.size} preview image(s) in ${YAP_OG_ICONS_DIR}/`);
     },
     transformIndexHtml(html, ctx) {

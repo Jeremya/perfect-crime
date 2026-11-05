@@ -33,8 +33,8 @@ chrome, états pressés). Le plateau et les menaces restent dessinés en code
 - `docs/design/2026-10-30-plan-style-design.md` + `docs/design/plan-style/` —
   direction "Plan d'architecte" approuvée le 2026-10-30
 - `src/app/brand.ts` (`YAP_CORP`) et `YAP_PALETTE` (`src/game/board.ts`)
-- `public/assets/kenney/` — `thief-hitman-stand.png`, `guard-man-brown-stand.png`
-  déjà présents (Kenney Top-down Shooter, CC0)
+- ~~`public/assets/kenney/`~~ — les sprites Kenney (voleur, garde) ont été
+  supprimés au style plan 5/6 : le voleur et les gardes sont dessinés en code
 
 ## Contenu du kit
 

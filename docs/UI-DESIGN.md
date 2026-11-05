@@ -230,7 +230,8 @@ dictionaries. As built:
 
 The social preview image (`tools/og.ts`, built into `public/icons/`) is
 1200 × 630 and spoiler-free: a sheet of the file — the paper page, the tagline
-and the title "Daily heist #N" in typewriter capitals over a double ink rule,
+in typewriter capitals, the title "Daily heist #N" in the typewriter font over
+a double ink rule,
 and the heist as a plan (hatched walls, the double frame, the start, the
 diamond, the door, the threats as their tokens at tick 0). Never a player
 path, a cone or a solution.

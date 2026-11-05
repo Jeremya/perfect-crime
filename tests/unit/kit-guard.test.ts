@@ -55,3 +55,13 @@ describe('buttons come from src/game/kit.ts', () => {
     expect(yapOffenders(/from '\.\/ui-kit'/)).toEqual([]);
   });
 });
+
+describe('the board geometry stays free of Phaser', () => {
+  it('board.ts and plan-geometry.ts never import phaser at runtime', () => {
+    // tools/og.ts draws the share previews in node with this geometry
+    for (const name of ['board.ts', 'plan-geometry.ts']) {
+      const source = readFileSync(new URL(name, GAME_ROOT), 'utf8');
+      expect(source, name).not.toMatch(/^import(?! type)[^;]*from 'phaser'/m);
+    }
+  });
+});
