@@ -488,11 +488,28 @@ export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapBu
     scene.events.emit(YAP_UI_TAP_EVENT);
   };
 
+  // A release fires only the button that took the press: a chrome that changes
+  // under the finger must not turn the end of one tap into a press of another.
+  let armed = false;
   zone.on('pointerdown', () => {
     acknowledge();
-    if (fireOn === 'down') fire();
+    if (fireOn === 'down') {
+      fire();
+      return;
+    }
+    armed = true;
+    // Phaser runs this after the zone's own pointerup: it ends a press released
+    // elsewhere
+    scene.input.once('pointerup', () => {
+      armed = false;
+    });
   });
-  if (fireOn === 'up') zone.on('pointerup', fire);
+  if (fireOn === 'up') {
+    zone.on('pointerup', () => {
+      if (armed) fire();
+      armed = false;
+    });
+  }
 
   drawBackground();
   fitLabel();

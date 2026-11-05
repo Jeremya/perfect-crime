@@ -494,6 +494,16 @@ function yapFakeStage() {
   };
   const time = { delayedCall: vi.fn<(delay: number, callback: () => void) => void>() };
   const cameras = { main: { setBackgroundColor: vi.fn<(color: string) => void>() } };
+  // the scene-level release: Phaser runs it after the zone's own pointerup
+  const releases: (() => void)[] = [];
+  const input = {
+    once: (_event: string, listener: () => void) => {
+      releases.push(listener);
+    },
+  };
+  const releaseAnywhere = (): void => {
+    for (const listener of releases.splice(0)) listener();
+  };
   const add = {
     container: (x: number, y: number) => {
       const container = new YapFakeContainer(x, y);
@@ -527,7 +537,8 @@ function yapFakeStage() {
     },
   };
   return {
-    scene: { add, events, tweens, time, cameras } as unknown as Phaser.Scene,
+    scene: { add, events, tweens, time, cameras, input } as unknown as Phaser.Scene,
+    releaseAnywhere,
     events,
     tweens,
     handles,
@@ -703,6 +714,36 @@ describe('yapButton — the firing contract', () => {
     expect(events.emit).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith(YAP_UI_TAP_EVENT);
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a release it did not press: the finger came from another button', () => {
+    const { zone, events, onPress } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerup');
+
+    expect(events.emit).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('fires once per press: a second release is not a press', () => {
+    const { zone, onPress, releaseAnywhere } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerdown');
+    zone.emit('pointerup');
+    releaseAnywhere();
+    zone.emit('pointerup');
+
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets a press that ended elsewhere', () => {
+    const { zone, onPress, releaseAnywhere } = yapMakeTestButton({ fireOn: 'up' });
+
+    zone.emit('pointerdown');
+    releaseAnywhere();
+    zone.emit('pointerup');
+
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it('gates a release on enabled too', () => {
