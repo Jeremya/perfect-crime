@@ -1237,6 +1237,9 @@ export class YapLevelScene extends Phaser.Scene {
         width: hintBox.width,
         label: yapI18n.t('hints.button'),
         kind: 'secondary',
+        // on the release: using the last hint moves Observer into this slot,
+        // under the finger, and the release would start it
+        fireOn: 'up',
         onPress: () => this.yapOnHint(),
       });
       hint.container.setVisible(false);
@@ -1251,6 +1254,9 @@ export class YapLevelScene extends Phaser.Scene {
         width: hintBox.width,
         label: yapI18n.t('preview.observe'),
         kind: 'secondary',
+        // on the release: fired on the press, the chrome would change under the
+        // finger and the release would land on Close, in the shared slot
+        fireOn: 'up',
         onPress: () => this.yapStartObserver(),
       });
       observer.container.setVisible(false);
@@ -1397,9 +1403,9 @@ export class YapLevelScene extends Phaser.Scene {
     let showPlay = true;
     if (canPlay && hasObserver && hasPreview) {
       const [clear, observer, preview, fullPlay] = yapActionRow(layout.viewWidth, [
-        { width: 64 },
+        { width: 72 },
         { width: 80 },
-        { width: 80 },
+        { width: 72 },
         {},
       ]);
       if (clear !== undefined && observer !== undefined && preview !== undefined && fullPlay !== undefined) {
@@ -1419,8 +1425,11 @@ export class YapLevelScene extends Phaser.Scene {
       clearBox = row.clear;
       previewBox = row.preview;
       playBox = row.play;
-      if (hasObserver) observerBox = row.hint ?? row.play;
-      if (!canPlay && hasHint && hasObserver) showPlay = false;
+      // with a hint on an unfinished route, Observer takes the slot of the
+      // disabled PLAY, which says nothing the caption does not say
+      const sharesPlay = !canPlay && hasHint && hasObserver;
+      if (hasObserver) observerBox = sharesPlay ? row.play : (row.hint ?? row.play);
+      if (sharesPlay) showPlay = false;
     }
     this.yapClearButton?.setBox(clearBox.x, clearBox.width);
     if (observerBox !== null) this.yapObserverButton?.setBox(observerBox.x, observerBox.width);
@@ -1936,7 +1945,10 @@ export class YapLevelScene extends Phaser.Scene {
       'caption',
       YAP_PALETTE[seen ? 'stamp' : 'ink'],
     );
-    label.setX(Math.round((layout.viewWidth - label.width) / 2));
+    // two threats at once run wider than the line at 360 px
+    const lineRoom = yapLineRoom(layout.viewWidth);
+    if (label.width > lineRoom) label.setScale(lineRoom / label.width);
+    label.setX(Math.round((layout.viewWidth - label.displayWidth) / 2));
     layer.add(label);
 
     const gap = 3;

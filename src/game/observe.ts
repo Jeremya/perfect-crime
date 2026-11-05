@@ -101,18 +101,18 @@ function yapSameCell(a: YapCell, b: YapCell): boolean {
 export type YapBandThreat = 'guard' | 'camera' | 'contact' | 'laser';
 
 function yapCellThreats(world: YapGhostState, cell: YapCell): YapBandThreat[] {
-  const threats: YapBandThreat[] = [];
+  const threats = new Set<YapBandThreat>();
   for (const guard of world.guards) {
-    if (yapSameCell(guard.pos, cell)) threats.push('contact');
-    else if (guard.seen.some((c) => yapSameCell(c, cell))) threats.push('guard');
+    if (yapSameCell(guard.pos, cell)) threats.add('contact');
+    else if (guard.seen.some((c) => yapSameCell(c, cell))) threats.add('guard');
   }
   for (const camera of world.cameras) {
-    if (camera.seen.some((c) => yapSameCell(c, cell))) threats.push('camera');
+    if (camera.seen.some((c) => yapSameCell(c, cell))) threats.add('camera');
   }
   for (const laser of world.lasers) {
-    if (laser.active && laser.cells.some((c) => yapSameCell(c, cell))) threats.push('laser');
+    if (laser.active && laser.cells.some((c) => yapSameCell(c, cell))) threats.add('laser');
   }
-  return threats;
+  return [...threats];
 }
 
 export interface YapBandTick {
