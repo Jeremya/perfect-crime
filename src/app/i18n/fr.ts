@@ -78,9 +78,9 @@ export const fr: YapDictionary = {
   },
   challenge: {
     withNickname:
-      '{nickname} a réussi la casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
+      '{nickname} a réussi le casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
     anonymous:
-      'Un ami a réussi la casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
+      'Un ami a réussi le casse n°{day} en {attempts} {attempts|essai|essais} · {ticks} ticks. À toi.',
     takeChallenge: 'Relever le défi',
     later: 'Plus tard',
   },
@@ -158,10 +158,10 @@ export const fr: YapDictionary = {
   homeFlow: {
     nextLevel: 'Niveau suivant',
     countdownWithDays: '{days} j {clock}',
-    lastHeist: 'Dernière casse de la semaine',
+    lastHeist: 'Dernier casse de la semaine',
     beforeTitle: 'La semaine des casses commence bientôt',
     beforeHint: 'Entraîne-toi avec le tutoriel en attendant.',
-    firstHeistIn: 'Première casse dans {time}',
+    firstHeistIn: 'Premier casse dans {time}',
     afterTitle: 'La semaine de test est terminée',
     afterMessage: 'Merci d’avoir fait cette semaine de casses avec nous !',
     bestStreak: 'Meilleure série : {count} {count|jour|jours}',
