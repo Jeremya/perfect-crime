@@ -234,6 +234,19 @@ export const fr: YapDictionary = {
   preview: {
     button: '👁 Aperçu',
     running: 'Aperçu de ton plan…',
+    observe: '👁 Observer',
+    round: 'Ronde : tout recommence tous les {cycle} ticks',
+    back: '−1',
+    forward: '+1',
+    pause: 'Pause',
+    resume: 'Lecture',
+    close: 'Fermer',
+    caughtGuard: 'Au tick {tick}, le garde voit cette case.',
+    caughtCamera: 'Au tick {tick}, la caméra voit cette case.',
+    caughtLaser: 'Au tick {tick}, le laser coupe cette case.',
+    won: 'Ce plan passe : sortie au tick {tick}.',
+    bandSeen: 'Tick {tick} : case vue',
+    bandFree: 'Tick {tick} : case libre',
   },
   // Passe visuelle 3 de C1 — l'en-tête de l'écran de niveau (src/game/kit.ts) :
   // le surtitre au-dessus du titre, que son rôle affiche en capitales, et les

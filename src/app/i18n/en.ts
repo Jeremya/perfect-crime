@@ -233,6 +233,19 @@ export const en = {
   preview: {
     button: '👁 Preview',
     running: 'Previewing your plan…',
+    observe: '👁 Observe',
+    round: 'Round: it all repeats every {cycle} ticks',
+    back: '−1',
+    forward: '+1',
+    pause: 'Pause',
+    resume: 'Play',
+    close: 'Close',
+    caughtGuard: 'At tick {tick}, the guard sees this cell.',
+    caughtCamera: 'At tick {tick}, the camera sees this cell.',
+    caughtLaser: 'At tick {tick}, the laser cuts this cell.',
+    won: 'This plan works: out at tick {tick}.',
+    bandSeen: 'Tick {tick}: cell seen',
+    bandFree: 'Tick {tick}: cell free',
   },
   // C1 visual pass 3 — the header of the level scene (src/game/kit.ts): the
   // kicker above the title, which the kicker role shows in capitals, and the
