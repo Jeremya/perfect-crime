@@ -386,7 +386,7 @@ function yapButtonLook(kind: 'primary' | 'secondary', enabled: boolean): YapButt
  *
  * A press is acknowledged at once, on pointerdown: the button shrinks to 0.97
  * and back over 120 ms, unless the player asked for reduced motion. It fires on
- * pointerdown or, with `fireOn: 'up'`, on the release over the button. Firing
+ * pointerdown or, with `fireOn: 'up'`, on the release of a press it took. Firing
  * runs `onPress` when the button is enabled, then emits YAP_UI_TAP_EVENT on the
  * scene's events, enabled or not: a disabled button still answers a tap, as the
  * soft PLAY of the planning screen always did. The action goes first because

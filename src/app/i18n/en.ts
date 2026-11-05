@@ -235,6 +235,28 @@ export const en = {
     button: '👁 Preview',
     running: 'Previewing your plan…',
   },
+  // Story X9 — the Observer (tasks/X9.md): the round before the route, the plan
+  // tick by tick up to its first detection, and the tick band while drawing.
+  observer: {
+    button: '👁 Observe',
+    round: 'Round: it all repeats every {cycle} ticks',
+    running: 'Your plan, tick by tick',
+    back: '−1',
+    forward: '+1',
+    pause: 'Pause',
+    resume: 'Play',
+    close: 'Close',
+    caughtGuard: 'The guard stops you at tick {tick}.',
+    caughtCamera: 'At tick {tick}, the camera sees this cell.',
+    caughtLaser: 'At tick {tick}, the laser cuts this cell.',
+    won: 'This plan works: out at tick {tick}.',
+    bandExposed: 'Tick {tick}: {threats}',
+    bandClear: 'Tick {tick}: no sight or beam on this cell',
+    bandGuard: 'guard sight',
+    bandCamera: 'camera sight',
+    bandContact: 'guard contact',
+    bandLaser: 'laser beam',
+  },
   // C1 visual pass 3 — the header of the level scene (src/game/kit.ts): the
   // kicker above the title, which the kicker role shows in capitals, and the
   // stats of the right block. The playback's tick counter under `tick` is
