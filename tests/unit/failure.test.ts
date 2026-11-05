@@ -17,6 +17,7 @@ import {
   YAP_FAILURE_REPLAY_TICKS,
   YAP_FAILURE_SPEED_DIVISOR,
   yapCauseKey,
+  yapPlanMarkerCell,
 } from '../../src/game/failure';
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,18 @@ describe('YapFailureReplay — last 4 ticks at quarter speed', () => {
 // ---------------------------------------------------------------------------
 // The written cause, mapped to an i18n key, and the fatal cell
 // ---------------------------------------------------------------------------
+
+describe('yapPlanMarkerCell — what stays on the plan after a failure', () => {
+  const loot = { x: 3, y: 7 };
+
+  it('keeps the red marker on a floor cell (Gate 1 spec)', () => {
+    expect(yapPlanMarkerCell({ x: 2, y: 6 }, loot)).toEqual({ x: 2, y: 6 });
+  });
+
+  it('leaves the diamond clean: the heist is reset, so is the diamond', () => {
+    expect(yapPlanMarkerCell({ x: 3, y: 7 }, loot)).toBeNull();
+  });
+});
 
 describe('YapFailureReplay — cause, i18n key, fatal cell, detector', () => {
   it('maps each cause to a resolvable i18n key in both locales', () => {

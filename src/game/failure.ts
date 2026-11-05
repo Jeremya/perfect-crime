@@ -53,6 +53,15 @@ export function yapCauseKey(cause: YapCause): YapKey {
   }
 }
 
+/**
+ * The cell that keeps the red marker back on the plan, or null. The Gate 1
+ * spec keeps it on the fatal cell, but the heist is reset by then: a thief
+ * caught on the diamond leaves it as it was, without a cross over it.
+ */
+export function yapPlanMarkerCell(fatal: YapCell, loot: YapCell): YapCell | null {
+  return fatal.x === loot.x && fatal.y === loot.y ? null : fatal;
+}
+
 /** Zoom focus in grid coordinates (may be fractional: a midpoint). */
 export interface YapFailureFocus {
   readonly x: number;

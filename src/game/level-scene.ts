@@ -12,7 +12,7 @@
 // motion replay of the last 4 ticks at quarter speed with a zoom on the
 // thief and whatever saw it, the detector cone in red, the written cause
 // with a marker on the fatal cell, and one tap back to the intact plan
-// (path and pauses kept, red fatal-cell marker retained).
+// (path and pauses kept, red fatal-cell marker retained, except on the diamond).
 // On a win (C5), YapWinScreen (./win.ts) drives the Win screen: an index card
 // over the final frame with attempts, ticks vs par, stars, the emoji-line
 // preview and Share (dominant, stub event until E2) / Improve my score / Home.
@@ -90,7 +90,7 @@ import {
   type YapPreviewState,
 } from './ghost';
 import { YapExecution, YAP_PREVIEW_TICKS_PER_SECOND, type YapDisplayedSnapshot } from './execution';
-import { YapFailureReplay } from './failure';
+import { YapFailureReplay, yapPlanMarkerCell } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
 import { YapAttemptLog, YapWinScreen } from './win';
@@ -1663,7 +1663,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapFailureStamp?.destroy();
     this.yapFailureStamp = null;
     this.yapExecution = null; // the playback is over; the failure drives now
-    this.yapFatalMarker = replay.yapFatalCell();
+    this.yapFatalMarker = yapPlanMarkerCell(replay.yapFatalCell(), level.loot);
     this.yapChrome?.destroy();
     this.yapChrome = null;
     this.yapBuildFailureChrome(level, layout);
