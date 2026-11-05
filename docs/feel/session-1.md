@@ -19,13 +19,17 @@
    appears, do it and relaunch from the icon (PWA standalone).
 2. Play the tutorial chain **t1 → t5** back to back. Note anything that feels
    unclear on first try.
-3. Play **3 daily heists** (d1, d2, d3 — or the 3 signature heists if the day
-   offers them). Note pacing, readability of guards/cones, path drawing.
+3. Play **3 daily heists** from **Archives** (d1, d2, d3, or the 3 signature
+   heists): the real start date is not set yet, so Home has no Play button.
+   Note pacing, readability of guards/cones, path drawing.
 4. On a win: tap **Share**, send the link to a second device (or yourself via
    another app), open it there → the challenge card (E4) must appear.
 5. On one level, fail **3 times** then **6 times** on purpose → the Hint
    button (C7) must appear and reveal the ghost path.
-6. Toggle the ghost preview with `?flag=ghost:0` vs `?flag=ghost:1` while
+6. On d3 or d7, say nothing about **👁 Observer** (X9): note whether the tester
+   opens it alone, when, and what they say after the plan freezes on a
+   detection.
+7. Toggle the ghost preview with `?flag=ghost:0` vs `?flag=ghost:1` while
    drawing (C6) — note the difference in feel (session #2, H3, compares this
    formally).
 
@@ -39,6 +43,7 @@ Score 1–5 (1 = bad, 5 = great) + one verbatim quote per tester.
 | Planning / drawing (C2, C6) | 1 | | | | | |
 | Execution playback (C3) | 1 | | | | | |
 | Failure replay (C4) | 1 | | | | | |
+| Observer (X9) | 1 | | | | | |
 | Win + Share (C5, E2) | 1 | | | | | |
 | Challenge card from a link (E4) | 1 | | | | | |
 
@@ -56,6 +61,7 @@ Severity: **S1** blocks progress (cannot finish a heist / share broken) ·
 - What did you understand in the first 30 seconds?
 - When did you feel smart? When did you feel cheated?
 - Did the guards read clearly? The cones? The ghost preview?
+- Did the Observer tell you why you were caught? Did you use it before drawing?
 - Did you want to replay a failed heist? Why?
 - Was the share satisfying? Did you actually send the link?
 

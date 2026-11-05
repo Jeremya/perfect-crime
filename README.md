@@ -30,8 +30,8 @@ project is `yap-corp-perfect-crime`. The old folder name `unix` is retired.
 - `AGENTS.md` — rules loaded automatically by every agent in this repo.
 - `docs/UI-DESIGN.md` — required reading for UI, rendering, sharing-preview,
   and visual content tasks.
-- `tasks/` — the Gate 1 backlog cut into 36 atomic task files (34 stories +
-  2 optional), each with its own file ownership, dependencies and acceptance
+- `tasks/` — the Gate 1 backlog cut into atomic task files (34 stories, 2
+  optional, then the D3, E6 and X tasks), each with its own file ownership, dependencies and acceptance
   criteria. Index + dependency waves in `tasks/README.md`.
 - `docs/PARALLEL.md` — how to run several agents at once: one worktree +
   branch per task, role subagents in `.vibe/agents/` (`yap-core`, `yap-game`,
@@ -51,12 +51,14 @@ solver, the viewer and `tools/validate.ts` all call the same `resolveTick`.
 
 ```
 src/
-  core/     pure rules: level, sim, vision, solver, score, plan, daily, payload
-  game/     Phaser: scenes, rendering, path drawing, effects
-  app/      router, storage, analytics, consent, sharing, i18n, config
+  core/     pure rules: level, sim, solver
+  game/     Phaser: scenes, rendering, path drawing, Observer, effects
+  app/      router, storage, analytics, consent, sharing, daily, payload, i18n, config
 levels/
   tutorial/ t1.lvl … t5.lvl
   daily/    d1.lvl … d7.lvl
+  medium/   m1.lvl … m10.lvl (dev viewer only)
+  hard/     h1.lvl … h10.lvl (dev viewer only)
 tools/      validate.ts, og.ts, gen.ts (optional)
 tests/      unit, golden, payload, daily, e2e
 public/     icons, sounds
@@ -67,9 +69,11 @@ public/     icons, sounds
 ```
 npm run dev        # local dev server
 npm run build      # validate levels + production build to dist/
-npm run test       # vitest (unit, golden, payload, daily, e2e)
+npm run test       # vitest (unit, golden, payload, daily)
+npm run test:e2e   # playwright, on the built dist/ (run npm run build first)
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint (incl. core/ determinism rules)
+npm run format     # prettier on the code (format:check in CI)
 npm run validate   # level validation CLI (CI gate)
 ```
 
@@ -111,6 +115,7 @@ one preview URL per PR); displayed game name "Perfect Crime" (see
 `docs/NAMING.md`); visual direction "plan d'architecte", 100% code-drawn
 (2026-11-04, see `docs/design/2026-10-30-plan-style-design.md`).
 
-Still open: custom domain name, test-week start date (a Monday ~3 weeks in),
+Still open: custom domain name, test-week start date (a Monday; the
+`2025-11-03` in `src/app/config.ts` is a placeholder, see `tasks/README.md`),
 nickname in links (off by default), tester groups, PM role, Poki Playtesting
 access.

@@ -28,7 +28,8 @@ Full rules in `docs/NAMING.md`. Summary:
 The backlog is split into **36 atomic task files** in `tasks/` (one per story
 of the Gate 1 spec: A1–A3, B1–B4, C1–C8, D1–D2, E1–E5, F1–F3, G1–G3, H1–H6,
 O1–O2 — 34 required + 2 optional), plus the post-Gate-1 experience tasks
-X1–X8b cut from `docs/design/experience.md`. `tasks/README.md` has the index,
+X1–X9 cut from `docs/design/experience.md`, and D3 and E6, the spec's screens
+that no story owned. `tasks/README.md` has the index,
 the dependency graph and the parallel waves.
 
 **One task = one branch = one PR** titled `[<ID>] <title>` (e.g. `[B2] Simulation`).
@@ -72,7 +73,8 @@ See `docs/PARALLEL.md` for the full playbook. The short version:
 2. Work in an isolated **git worktree** on branch `<id>-<slug>` (one worktree
    per agent — never two agents in the same checkout).
 3. Tests first, then code. Verify locally before pushing:
-   `npm run typecheck && npm run lint && npm run test && npm run validate && npm run build`
+   `npm run typecheck && npm run lint && npm run format:check && npm run test && npm run validate && npm run build`,
+   then `npm run test:e2e` for anything a player can see (CI does not run it).
 4. Open one PR per task. CI (typecheck, lint, tests, validate, build) must be
    green; UI stories also need the preview URL checked on a real phone.
 5. Never merge your own PR into `main` from an agent session; a human reviews.
