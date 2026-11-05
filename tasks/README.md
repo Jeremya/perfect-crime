@@ -5,7 +5,7 @@ optional). Each file is **self-contained**: an agent can pick it up with only
 `AGENTS.md` + the task file. Every task declares its **ownership** (the only
 files it may touch) so parallel agents never collide.
 
-Status snapshot: **2026-11-04 (after #64)**. `Done` means merged with
+Status snapshot: **2026-11-05 (after #70)**. `Done` means merged with
 repository acceptance evidenced. `In progress` includes merged work with an
 outstanding acceptance check (real-phone preview, playtest, live dashboards)
 or an open PR; each task file says which. External setup (such as live PostHog
@@ -21,6 +21,17 @@ experience tasks (X1–X8b, from `docs/design/experience.md`) are also merged
 rendering, paper & ink chrome, board plan, screen compositions, UI-DESIGN
 rewrite + Kenney cleanup, plan-style share previews. Only the real-phone
 check of the visual passes is still pending.
+
+Since #64, a phone session found that **d4 and d5 could not be won by drawing**,
+along with 7 of the 20 medium and hard heists: the drawing cut the route on any
+path cell, and the solver could plan a U-turn after a pause, which the drawing
+cannot express. Fixed in #69 (a stroke that passes over the route revisits it;
+only a stroke that starts on it cuts) and #70 (the solver only finds drawable
+plans, `validate` replays every optimal plan through `YapPathInput`, d5 and six
+dev heists retuned). The rule in `resolveTick` did not change. d4 and d5 were won
+with real touch on the Seeker on the production build, from the archive, in
+French. #67 (no fatal marker on the diamond) and #68 (hints show their pauses)
+came from the same session.
 
 ## What remains
 
@@ -39,7 +50,8 @@ merged and tested.
 ### 2. Human playtests (they need people, not code)
 
 - **F2** — 3-person playtest of T1 (the first ten minutes).
-- **F3** — 2-person playtest per daily heist (7 heists).
+- **F3** — 2-person playtest per daily heist (7 heists). d5 is a new design
+  since #70: nobody has played it yet.
 - **H1** — feel session #1: protocol and fill-in template are ready in
   `docs/feel/session-1.md`; the session itself has to run with 3 warm
   testers on the production build.
@@ -57,6 +69,9 @@ Without recruited testers, H5 and H6 cannot start.
 
 Kept here so they are not lost (none blocking Gate 1):
 
+- **Readability of the rounds**: the board shows tick 0 only, and players do not
+  see why a guard caught them. X9 (`tasks/X9.md`) is the proposal, from the
+  throwaway branch `spike-observer`; the product decision is pending.
 - **Visual direction**: decided 2026-11-04 — the "plan d'architecte" direction
   (`docs/design/2026-10-30-plan-style-design.md`) is the only one, everywhere;
   100% code-drawn, no Kenney UI Pack sprites and no Kenney character sprites
@@ -93,15 +108,15 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | Done | `tasks/A3.md` |
 | B1 | Level format, parser, validator | B | Dev | 1.5 | A1 | Done | `tasks/B1.md` |
 | B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | Done | `tasks/B2.md` |
-| B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | Done | `tasks/B3.md` |
-| B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | Done | `tasks/B4.md` |
+| B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | Done (+ #70: only drawable plans) | `tasks/B3.md` |
+| B4 | validate CLI + levels.json in CI | B | Dev | 1 | B3 | Done (+ #70: replays every plan through the real drawing) | `tasks/B4.md` |
 | C1 | Rendering | C | Dev | 3 | B2 | Done | `tasks/C1.md` |
-| C2 | Path drawing | C | Dev | 3 | C1 | Done | `tasks/C2.md` |
+| C2 | Path drawing | C | Dev | 3 | C1 | Done (+ #69: a stroke can cross the route) | `tasks/C2.md` |
 | C3 | Execution playback | C | Dev | 1.5 | C2 | Done | `tasks/C3.md` |
-| C4 | Failure replay | C | Dev | 1.5 | C3 | Done (#20; phone check) | `tasks/C4.md` |
+| C4 | Failure replay | C | Dev | 1.5 | C3 | Done (#20 + #67; phone check) | `tasks/C4.md` |
 | C5 | Win screen | C | Dev | 1 | C3 | Done | `tasks/C5.md` |
 | C6 | Ghost preview (flag) | C | Dev | 1 | C2 | Done (#21 + #40 + #46; phone on/off check) | `tasks/C6.md` |
-| C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | Done (#33) | `tasks/C7.md` |
+| C7 | Hints after 3/6 failures | C | Dev | 0.5 | B3, C2 | Done (#33 + #68) | `tasks/C7.md` |
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | In progress (#28 merged; phone audio/vibration check pending) | `tasks/C8.md` |
 | D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
 | D2 | Home and flow | D | Dev | 1.25 | D1, C5 | Done (#30/#31; phone check) | `tasks/D2.md` |
@@ -112,7 +127,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | In progress (#34 merged, Android rows recorded; iOS + per-target rows pending) | `tasks/E5.md` |
 | F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | Done | `tasks/F1.md` |
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | In progress (#25 merged; 3-person playtest pending) | `tasks/F2.md` |
-| F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | In progress (#26 merged; per-heist playtest pending) | `tasks/F3.md` |
+| F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | In progress (#26 + #70 merged; per-heist playtest pending) | `tasks/F3.md` |
 | G1 | Analytics PostHog adapter | G | Dev | 1.25 | A2 | Done | `tasks/G1.md` |
 | G2 | Consent and privacy | G | Dev | 0.5 | G1 | Done (#22; phone check) | `tasks/G2.md` |
 | G3 | Gate 1 dashboard | G | PM | 1.25 | G1 | In progress (#9 merged; live dashboards pending) | `tasks/G3.md` |
@@ -133,6 +148,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | X7 | 10 hard-difficulty heists | X | Design+Content | 3 h | X6 | Done (#57) | `tasks/X7.md` |
 | X8 | Visual kit "fancy" (design only; archived, direction rejected) | X | Design | 2 h | C1 | Done (#55) | `tasks/X8.md` |
 | X8b | Style tile 100% code — X8b-1 merged (#59) then retired by the 2026-11-04 product call (#60); X8b-2/X8b-3 cancelled | X | Dev | M | X8 | Done / cancelled | `tasks/X8b.md` |
+| X9 | Observer: watch the round, stop on the cause | X | Dev | L | C2, C3, C6, X3 | Proposed (product decision pending) | `tasks/X9.md` |
 
 ## Parallel waves (dependency order)
 
