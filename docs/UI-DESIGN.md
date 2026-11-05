@@ -229,8 +229,9 @@ dictionaries. As built:
    tick counter, the ruler, ×2 and Stop.
 5. **Failure:** the last moments replayed slowly with a focused zoom, the red
    detector cone and fatal cell, the REPÉRÉ stamp, the cause and the attempt
-   number; back on the plan, the plan is kept and the fatal-cell marker stays,
-   except on the diamond's cell: the diamond comes back as it was.
+   number; back on the plan, the plan is kept and the fatal-cell marker stays
+   until the route is erased, except on the diamond's cell: the diamond comes
+   back as it was.
 6. **Win:** the board dimmed behind the report fiche (kicker, title, leader
    rows with gold stars, the share telegram) with the CASSE RÉUSSI stamp; Share
    dominant and full width, then Improve my score and Home or Next level.

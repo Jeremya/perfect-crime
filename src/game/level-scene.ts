@@ -12,7 +12,8 @@
 // motion replay of the last 4 ticks at quarter speed with a zoom on the
 // thief and whatever saw it, the detector cone in red, the written cause
 // with a marker on the fatal cell, and one tap back to the intact plan
-// (path and pauses kept, red fatal-cell marker retained, except on the diamond).
+// (path and pauses kept, red fatal-cell marker retained until the route is
+// erased, except on the diamond).
 // On a win (C5), YapWinScreen (./win.ts) drives the Win screen: an index card
 // over the final frame with attempts, ticks vs par, stars, the emoji-line
 // preview and Share (dominant, stub event until E2) / Improve my score / Home.
@@ -103,7 +104,7 @@ import {
   yapRoundStates,
   yapWorldCycle,
 } from './observe';
-import { YapFailureReplay, yapPlanMarkerCell } from './failure';
+import { YapFailureReplay, yapMarkerAfterEdit, yapPlanMarkerCell } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
 import { YapAttemptLog, YapWinScreen } from './win';
@@ -597,6 +598,11 @@ export class YapLevelScene extends Phaser.Scene {
     if (input.yapPath().length > previousLength) {
       // each new cell: short sound + 8 ms vibration, per settings (C8, ./sound.ts)
       this.events.emit(YAP_PATH_STEP_EVENT);
+    }
+    const marker = yapMarkerAfterEdit(this.yapFatalMarker, input.yapPath().length);
+    if (marker !== this.yapFatalMarker) {
+      this.yapFatalMarker = marker;
+      this.yapRedrawMarks();
     }
     this.yapRedrawPath();
     this.yapRedrawGhost(); // C6: refresh the ghost preview on every cell change
