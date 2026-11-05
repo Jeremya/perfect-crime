@@ -12,7 +12,7 @@
 // motion replay of the last 4 ticks at quarter speed with a zoom on the
 // thief and whatever saw it, the detector cone in red, the written cause
 // with a marker on the fatal cell, and one tap back to the intact plan
-// (path and pauses kept, red fatal-cell marker retained).
+// (path and pauses kept, red fatal-cell marker retained, except on the diamond).
 // On a win (C5), YapWinScreen (./win.ts) drives the Win screen: an index card
 // over the final frame with attempts, ticks vs par, stars, the emoji-line
 // preview and Share (dominant, stub event until E2) / Improve my score / Home.
@@ -90,7 +90,7 @@ import {
   type YapPreviewState,
 } from './ghost';
 import { YapExecution, YAP_PREVIEW_TICKS_PER_SECOND, type YapDisplayedSnapshot } from './execution';
-import { YapFailureReplay } from './failure';
+import { YapFailureReplay, yapPlanMarkerCell } from './failure';
 import { YapHints } from './hints';
 import { yapFadeIn } from './motion';
 import { YapAttemptLog, YapWinScreen } from './win';
@@ -161,6 +161,8 @@ const YAP_GHOST_ALPHA = 0.5;
  * return to planning.
  */
 const YAP_PREVIEW_END_HOLD_MS = 700;
+/** A hint's pause badge sits this far above its cell centre, in px, clear of the 💡 badge. */
+const YAP_HINT_PAUSE_LIFT = 22;
 /** What yapDrawState needs: the world at a tick plus the thief (real or ghost). */
 type YapDrawableState = YapGhostState & Pick<YapSimState, 'thief' | 'hasLoot'>;
 
@@ -934,18 +936,26 @@ export class YapLevelScene extends Phaser.Scene {
     // cells that hold pauses
     badges.removeAll(true);
     for (const { cell, count: n } of yapPauseBadges(cells, input.yapPauseCounts())) {
-      const p = yapCellCenter(layout, cell);
-      const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE.marker);
-      const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
-      const h = count.height + 4;
-      const pill = this.add.graphics();
-      yapDrawPauseBadge(pill, p, w, h);
-      count.setPosition(
-        Math.round(p.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
-        Math.round(p.y - count.height / 2),
-      );
-      badges.add([pill, count]);
+      badges.add(this.yapPausePill(yapCellCenter(layout, cell), n, 'marker'));
     }
+  }
+
+  /** A pause badge centred on `at`: a paper pill, two bars and the count. */
+  private yapPausePill(
+    at: { readonly x: number; readonly y: number },
+    n: number,
+    tone: 'marker' | 'graphite',
+  ): Phaser.GameObjects.GameObject[] {
+    const count = yapRoleText(this, 0, 0, String(n), 'stat', YAP_PALETTE[tone]);
+    const w = YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS + count.width + 6;
+    const h = count.height + 4;
+    const pill = this.add.graphics();
+    yapDrawPauseBadge(pill, at, w, h, tone);
+    count.setPosition(
+      Math.round(at.x - w / 2 + YAP_PAUSE_BADGE_PAD + YAP_PAUSE_BADGE_BARS),
+      Math.round(at.y - count.height / 2),
+    );
+    return [pill, count];
   }
 
   // -------------------------------------------------------------------------
@@ -985,6 +995,14 @@ export class YapLevelScene extends Phaser.Scene {
         const q = yapCellCenter(layout, prev);
         g.fillCircle((p.x + q.x) / 2, (p.y + q.y) / 2, r * 0.8);
       }
+    }
+    // the pauses of the ghost, in pencil: above the cell centre, where the
+    // player's own badge and the 💡 badge stay readable
+    for (const pause of hints.yapGhostPauses()) {
+      const p = yapCellCenter(layout, pause.cell);
+      badge?.add(
+        this.yapPausePill({ x: p.x, y: p.y - YAP_HINT_PAUSE_LIFT }, pause.count, 'graphite'),
+      );
     }
     // compact status badge at the end of the ghost: 💡 shown/total steps, a
     // paper pill with a graphite outline
@@ -1659,7 +1677,7 @@ export class YapLevelScene extends Phaser.Scene {
     this.yapFailureStamp?.destroy();
     this.yapFailureStamp = null;
     this.yapExecution = null; // the playback is over; the failure drives now
-    this.yapFatalMarker = replay.yapFatalCell();
+    this.yapFatalMarker = yapPlanMarkerCell(replay.yapFatalCell(), level.loot);
     this.yapChrome?.destroy();
     this.yapChrome = null;
     this.yapBuildFailureChrome(level, layout);

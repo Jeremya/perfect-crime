@@ -26,6 +26,12 @@ export const YAP_HINT_FAILURE_THRESHOLDS: readonly [number, number] = [3, 6];
 /** At most two hints per heist (Gate 1 spec). */
 export const YAP_MAX_HINTS = YAP_HINT_FAILURE_THRESHOLDS.length;
 
+/** A pause of the revealed plan: `count` ticks waited on `cell`. */
+export interface YapHintPause {
+  readonly cell: YapCell;
+  readonly count: number;
+}
+
 /** One revealed hint: how much of the optimal plan the ghost shows. */
 export interface YapHintReveal {
   /** 0-based index of the hint (0 = first third, 1 = two thirds). */
@@ -34,6 +40,8 @@ export interface YapHintReveal {
   readonly steps: number;
   /** Ghost cells: the start cell plus one cell per revealed step. */
   readonly cells: readonly YapCell[];
+  /** The pauses of the revealed steps: the route is only safe with them. */
+  readonly pauses: readonly YapHintPause[];
 }
 
 /**
@@ -49,6 +57,7 @@ export class YapHints {
   private yapFailureCount = 0;
   private yapUsed = 0;
   private yapGhost: readonly YapCell[] = [];
+  private yapPauses: readonly YapHintPause[] = [];
 
   constructor(level: YapLevel, solver: YapSolver = new YapSolver()) {
     this.yapLevel = level;
@@ -110,14 +119,29 @@ export class YapHints {
       const thief = frames[i]?.thief;
       if (thief !== undefined) cells.push(thief);
     }
+    // cells[i] is where step i starts, so a wait pauses there; consecutive
+    // waits are one pause
+    const pauses: YapHintPause[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      const cell = cells[i];
+      if (plan[i] !== 'wait' || cell === undefined) continue;
+      const before = plan[i - 1] === 'wait' ? pauses.pop() : undefined;
+      pauses.push({ cell, count: (before?.count ?? 0) + 1 });
+    }
     this.yapUsed += 1;
     this.yapGhost = cells;
-    return { index, steps, cells };
+    this.yapPauses = pauses;
+    return { index, steps, cells, pauses };
   }
 
   /** The ghost cells currently revealed (empty when no hint was used). */
   yapGhostCells(): readonly YapCell[] {
     return this.yapGhost;
+  }
+
+  /** The pauses of the ghost currently revealed (empty when no hint was used). */
+  yapGhostPauses(): readonly YapHintPause[] {
+    return this.yapPauses;
   }
 
   /** The canonical optimal plan, or null when the level is unsolvable. */

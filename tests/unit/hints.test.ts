@@ -11,6 +11,7 @@
 // - the number of hints used is what the Win screen puts in the share (💡),
 //   see tests/unit/win.test.ts;
 // - an unsolvable level degrades to "no hint" instead of throwing.
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseLevel, type YapLevel } from '../../src/core/level';
 import { run } from '../../src/core/sim';
@@ -252,5 +253,49 @@ describe('YapHints — edge cases', () => {
     // a failed use (not available anymore) does not clear the ghost
     expect(hints.yapUseHint()).toBeNull();
     expect(hints.yapGhostCells()).toEqual(first?.cells ?? []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The pauses of the revealed plan
+// ---------------------------------------------------------------------------
+
+/** A shipped level, from its .lvl source. */
+function shipped(path: string): YapLevel {
+  return parseLevel(readFileSync(new URL(`../../levels/${path}.lvl`, import.meta.url), 'utf8'));
+}
+
+/** Hints of `level` with the first hint unlocked. */
+function unlocked(level: YapLevel): YapHints {
+  const hints = new YapHints(level);
+  for (let i = 0; i < YAP_HINT_FAILURE_THRESHOLDS[0]; i += 1) hints.yapRegisterFailure();
+  return hints;
+}
+
+describe('YapHints — the pauses of the revealed plan', () => {
+  it('shows the pause T5 needs while the camera turns away', () => {
+    // E E S S wait: without the pause, the next cell is in the camera's cone
+    const hints = unlocked(shipped('tutorial/t5'));
+    const reveal = hints.yapUseHint();
+    expect(reveal?.pauses).toEqual([{ cell: { x: 3, y: 3 }, count: 1 }]);
+    expect(hints.yapGhostPauses()).toEqual(reveal?.pauses);
+  });
+
+  it('counts consecutive waits as one pause on their cell', () => {
+    // h6 starts E E E E E S wait wait: two waits on (6,2)
+    const reveal = unlocked(shipped('hard/h6')).yapUseHint();
+    expect(reveal?.pauses).toEqual([{ cell: { x: 6, y: 2 }, count: 2 }]);
+  });
+
+  it('puts a wait of the first step on the start cell', () => {
+    const level = shipped('hard/h1');
+    const reveal = unlocked(level).yapUseHint();
+    expect(reveal?.pauses[0]).toEqual({ cell: level.start, count: 1 });
+  });
+
+  it('shows no pause on a plan without any, and none before a hint', () => {
+    const hints = unlocked(lvl(OPEN_MAP, 14));
+    expect(hints.yapGhostPauses()).toEqual([]);
+    expect(hints.yapUseHint()?.pauses).toEqual([]);
   });
 });
