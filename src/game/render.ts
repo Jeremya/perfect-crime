@@ -535,15 +535,16 @@ export function yapDrawPauseBadge(
   at: YapPoint,
   width: number,
   height: number,
+  tone: 'marker' | 'graphite' = 'marker',
 ): void {
   const x = at.x - width / 2;
   const y = at.y - height / 2;
-  const red = color('marker');
+  const ink = color(tone);
   g.fillStyle(color('paper'), 1).fillRoundedRect(x, y, width, height, height / 2);
-  g.lineStyle(1.5, red, 1).strokeRoundedRect(x, y, width, height, height / 2);
+  g.lineStyle(1.5, ink, 1).strokeRoundedRect(x, y, width, height, height / 2);
   const barH = height * 0.48;
   const barY = at.y - barH / 2;
-  g.fillStyle(red, 1)
+  g.fillStyle(ink, 1)
     .fillRect(x + YAP_PAUSE_BADGE_PAD, barY, 2.5, barH)
     .fillRect(x + YAP_PAUSE_BADGE_PAD + 5, barY, 2.5, barH);
 }
