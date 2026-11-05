@@ -17,6 +17,7 @@ import {
   YAP_FAILURE_REPLAY_TICKS,
   YAP_FAILURE_SPEED_DIVISOR,
   yapCauseKey,
+  yapMarkerAfterEdit,
   yapPlanMarkerCell,
 } from '../../src/game/failure';
 
@@ -150,6 +151,23 @@ describe('YapFailureReplay — last 4 ticks at quarter speed', () => {
 // ---------------------------------------------------------------------------
 // The written cause, mapped to an i18n key, and the fatal cell
 // ---------------------------------------------------------------------------
+
+describe('yapMarkerAfterEdit — the marker goes with the route', () => {
+  const marker = { x: 2, y: 6 };
+
+  it('stays while a route is left, even a shorter one', () => {
+    expect(yapMarkerAfterEdit(marker, 9)).toEqual(marker);
+    expect(yapMarkerAfterEdit(marker, 2)).toEqual(marker);
+  });
+
+  it('leaves once the route is gone: only the thief cell remains', () => {
+    expect(yapMarkerAfterEdit(marker, 1)).toBeNull();
+  });
+
+  it('stays absent when there was none', () => {
+    expect(yapMarkerAfterEdit(null, 9)).toBeNull();
+  });
+});
 
 describe('yapPlanMarkerCell — what stays on the plan after a failure', () => {
   const loot = { x: 3, y: 7 };

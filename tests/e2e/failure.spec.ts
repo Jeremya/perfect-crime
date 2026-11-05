@@ -87,9 +87,8 @@ async function yapCellPixels(page: Page, level: YapLevel, cell: YapCell): Promis
   });
 }
 
-/** Plays the drawn route to the failure, then taps back to the plan and clears the route. */
-async function yapFailAndClear(page: Page, level: YapLevel, cells: readonly YapCell[]) {
-  await yapDraw(page, level, cells);
+/** Plays the drawn route to the failure, then taps back to the plan. */
+async function yapPlayToFailure(page: Page): Promise<void> {
   await yapPressPlay(page);
   await yapWaitPhase(page, 'failure', 20_000);
   await page.waitForFunction(
@@ -100,6 +99,12 @@ async function yapFailAndClear(page: Page, level: YapLevel, cells: readonly YapC
   const view = await yapCanvasView(page);
   await yapTap(page, { x: view.width / 2, y: view.height / 2 });
   await yapWaitPhase(page, 'planning');
+  await page.waitForTimeout(300);
+}
+
+/** Taps Clear on a plan whose route is complete. */
+async function yapClearRoute(page: Page): Promise<void> {
+  const view = await yapCanvasView(page);
   const clear = yapPlanningRow(view.width, false, true).clear;
   await yapTap(page, {
     x: clear.x + clear.width / 2,
@@ -133,12 +138,14 @@ test.describe('the fatal-cell marker back on the plan', () => {
     await page.waitForTimeout(600);
 
     const before = await yapCellPixels(page, D3, D3.loot);
-    await yapFailAndClear(page, D3, yapPlanCells(D3, D3_CAUGHT_ON_DIAMOND));
+    await yapDraw(page, D3, yapPlanCells(D3, D3_CAUGHT_ON_DIAMOND));
+    await yapPlayToFailure(page);
+    await yapClearRoute(page);
     expect((await yapCellPixels(page, D3, D3.loot)).equals(before)).toBe(true);
     expect(errors).toEqual([]);
   });
 
-  test('a floor cell keeps its marker (Gate 1 spec)', async ({ context, page }) => {
+  test('a floor cell keeps its marker until the route is erased', async ({ context, page }) => {
     const errors = yapPageErrors(page);
     await yapSeedStorage(context, {
       ...CONSENT_REFUSED,
@@ -149,9 +156,15 @@ test.describe('the fatal-cell marker back on the plan', () => {
     await page.waitForTimeout(600);
 
     const fatal = { x: 2, y: 6 };
-    const before = await yapCellPixels(page, T2, fatal);
-    await yapFailAndClear(page, T2, T2_CAUGHT_ON_FLOOR);
-    expect((await yapCellPixels(page, T2, fatal)).equals(before)).toBe(false);
+    const empty = await yapCellPixels(page, T2, fatal);
+    await yapDraw(page, T2, T2_CAUGHT_ON_FLOOR);
+    await page.waitForTimeout(300);
+    const routed = await yapCellPixels(page, T2, fatal);
+    await yapPlayToFailure(page);
+    // back on the plan, the route is kept and the marker sits on it
+    expect((await yapCellPixels(page, T2, fatal)).equals(routed)).toBe(false);
+    await yapClearRoute(page);
+    expect((await yapCellPixels(page, T2, fatal)).equals(empty)).toBe(true);
     expect(errors).toEqual([]);
   });
 });
