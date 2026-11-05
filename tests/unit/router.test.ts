@@ -19,6 +19,7 @@ import {
   loadYapDays,
   loadYapTutorialProgress,
   recordYapDailyWin,
+  yapDaysWonOnTime,
   recordYapTutorialCleared,
   yapBootRoute,
   yapCountdownParts,
@@ -164,6 +165,47 @@ describe('tutorial chaining', () => {
   });
 });
 
+describe('yapDaysWonOnTime — the ticks of the seven day boxes', () => {
+  const ticks = (storage: YapStorage): boolean[] => yapDaysWonOnTime(loadYapDays(storage));
+
+  it('ticks a heist won on its own day', () => {
+    const storage = memory();
+    recordYapDailyWin(storage, 2, WIN, weekDay(2), START);
+    expect(ticks(storage)).toEqual([false, true, false, false, false, false, false]);
+  });
+
+  it('keeps a day won on time when the streak breaks later', () => {
+    const storage = memory();
+    recordYapDailyWin(storage, 1, WIN, weekDay(1), START);
+    recordYapDailyWin(storage, 4, WIN, weekDay(4), START);
+    expect(ticks(storage)).toEqual([true, false, false, true, false, false, false]);
+  });
+
+  it('leaves a heist finished after midnight unticked, like the streak', () => {
+    const storage = memory();
+    const result = recordYapDailyWin(storage, 2, WIN, weekDay(3, 0), START);
+    expect(result.streak).toBeNull();
+    expect(loadYapDays(storage).has(2)).toBe(true);
+    expect(ticks(storage)).toEqual(Array.from({ length: 7 }, () => false));
+  });
+
+  it('a replay after midnight does not untick a day won on time', () => {
+    const storage = memory();
+    recordYapDailyWin(storage, 2, WIN, weekDay(2), START);
+    recordYapDailyWin(storage, 2, WIN, weekDay(3, 0), START);
+    expect(ticks(storage)[1]).toBe(true);
+  });
+
+  it('a record from before this field counts as on time', () => {
+    const storage = memory();
+    recordYapDailyWin(storage, 2, WIN, weekDay(2), START);
+    const older: Record<string, unknown> = { ...loadYapDays(storage).get(2) };
+    delete older.onTime;
+    storage.setJson(YAP_DAYS_KEY, { '2': older });
+    expect(ticks(storage)[1]).toBe(true);
+  });
+});
+
 describe('daily progress', () => {
   it('records the first win of the day (winning attempt, ticks, stars)', () => {
     const storage = memory();
@@ -177,6 +219,7 @@ describe('daily progress', () => {
       causes: ['guard', 'laser'],
       par: 20,
       plan: ['E', 'E', 'S'],
+      onTime: true,
     });
     expect(loadYapDays(storage).get(3)).toEqual(result.record);
   });

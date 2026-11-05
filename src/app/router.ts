@@ -189,6 +189,8 @@ export interface YapDayRecord {
   readonly par: number;
   /** Plan of the best win, replayed by a challenge link (empty when unknown). */
   readonly plan: readonly YapMove[];
+  /** Won on its own day: a heist finished after midnight stays unticked. */
+  readonly onTime: boolean;
 }
 
 /** One win on a daily heist, as the level scene reports it. */
@@ -239,7 +241,9 @@ function sanitizeDayRecord(raw: unknown): YapDayRecord | null {
   const plan = Array.isArray(record.plan)
     ? (record.plan as unknown[]).filter((m): m is YapMove => YAP_MOVES.includes(m as YapMove))
     : [];
-  return { winningAttempt, bestTicks, stars: Math.min(3, stars), hints, causes, par, plan };
+  // a record written before this field counts as won on time
+  const onTime = record.onTime !== false;
+  return { winningAttempt, bestTicks, stars: Math.min(3, stars), hints, causes, par, plan, onTime };
 }
 
 /** Read the per-day results (days 1..7), dropping corrupted entries. */
@@ -254,6 +258,11 @@ export function loadYapDays(storage: YapStorage): ReadonlyMap<number, YapDayReco
     if (record !== null) days.set(day, record);
   }
   return days;
+}
+
+/** The ticks of the seven day boxes on Home: the days won on their own day. */
+export function yapDaysWonOnTime(days: ReadonlyMap<number, YapDayRecord>): boolean[] {
+  return Array.from({ length: YAP_WEEK_DAYS }, (_, i) => days.get(i + 1)?.onTime === true);
 }
 
 /**
@@ -273,6 +282,7 @@ export function recordYapDailyWin(
   const days = loadYapDays(storage);
   const previous = days.get(day) ?? null;
   const better = previous === null || win.ticks < previous.bestTicks;
+  const sameDay = yapRawDay(now, startDate) === day;
   const record: YapDayRecord =
     previous === null
       ? {
@@ -283,19 +293,22 @@ export function recordYapDailyWin(
           causes: [...win.causes],
           par: win.par ?? 0,
           plan: [...(win.plan ?? [])],
+          onTime: sameDay,
         }
       : {
           ...previous,
           bestTicks: Math.min(previous.bestTicks, win.ticks),
           stars: Math.max(previous.stars, win.stars),
+          onTime: previous.onTime || sameDay,
           // the share replays the best plan, so keep the one that improved it
-          ...(better ? { par: win.par ?? previous.par, plan: [...(win.plan ?? previous.plan)] } : {}),
+          ...(better
+            ? { par: win.par ?? previous.par, plan: [...(win.plan ?? previous.plan)] }
+            : {}),
         };
   const out: Record<string, YapDayRecord> = {};
   for (const [d, r] of days) out[String(d)] = r;
   out[String(day)] = record;
   storage.setJson(YAP_DAYS_KEY, out);
-  const sameDay = yapRawDay(now, startDate) === day;
   const streak = sameDay ? recordYapWin(storage, now, startDate).current : null;
   return { record, firstWin: previous === null, streak };
 }
