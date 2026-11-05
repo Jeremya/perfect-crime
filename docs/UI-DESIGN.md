@@ -152,6 +152,10 @@ everything is static: stamps simply appear, the hand stays still.
   cannot be confused with the tick-0 state. The hint route is graphite dots,
   never red, and its pauses are graphite pause badges; the friend's plan is a
   solid ink line.
+- Observer (X9): an observation shows the world at full opacity, with the tick
+  counter in the header. A detection freezes on the caught state, without the
+  stamp, and the caption names the cause. An exposed tick of the band is red
+  with a cross, so colour is never the only cue.
 
 ## Layout and interaction
 
@@ -169,8 +173,14 @@ everything is static: stamps simply appear, the hand stays still.
 - Header (every screen): a mono kicker over the serif title on the left, the
   stats on the right, a hairline under it.
 - Planning footer: the caption, then Clear, Hint (only when available) or
-  Preview (once the route is complete), and the widest primary PLAY. Primary
-  actions sit in the bottom third for one-thumb use.
+  Preview (once the route is complete), and the widest primary PLAY. Observer
+  stands in that row wherever something in the level moves: next to Clear on
+  an unfinished route, in the place of the disabled PLAY when a hint is there,
+  between Clear and Preview on a finished route. Primary actions sit in the
+  bottom third for one-thumb use.
+- During an observation the footer holds −1, Pause or Play, +1 and Close.
+- Tick band: while the finger draws, it replaces the header with the line of
+  the arrival and 12 ticks of the cell under the finger. It leaves on release.
 - First launch: the consent note sits at the very top; the header and the
   board move down under it, so it covers no board cell and the stats stay
   visible. It never blocks play.
@@ -212,7 +222,9 @@ dictionaries. As built:
    after the week, the first or the last heist with its stamp. Archive rows:
    number, weekday, status stamp, stars.
 3. **Planning:** grid, patrols, tick-0 cones, route drawing, pause badges, the
-   optional ghost preview, the plan preview (X3) and the hint (C7).
+   optional ghost preview, the plan preview (X3), the hint (C7) and the
+   Observer (X9): the round before the route, the plan tick by tick after it,
+   and the tick band while drawing.
 4. **Execution:** the plan played with the route fading behind the thief, the
    tick counter, the ruler, ×2 and Stop.
 5. **Failure:** the last moments replayed slowly with a focused zoom, the red
