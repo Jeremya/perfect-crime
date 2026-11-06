@@ -24,6 +24,7 @@ import { yapStorage } from '../app/storage';
 import { YAP_CONSENT_HEIGHT_KEY, YAP_PALETTE, YAP_TOP_BAR_HEIGHT } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapButton, yapCard } from './kit';
+import { YAP_PRIVACY_SCENE_KEY } from './settings-layout';
 import { yapRoleText } from './text';
 
 /** Minimum height of the banner strip: exactly the top bar zone. */
@@ -38,7 +39,6 @@ const YAP_BANNER_FONT_SIZE = 14;
 
 export class YapConsentScene extends Phaser.Scene {
   private yapBanner: Phaser.GameObjects.Container | null = null;
-  private yapShowDetail = false;
 
   constructor() {
     super('yap-consent');
@@ -76,13 +76,11 @@ export class YapConsentScene extends Phaser.Scene {
     this.yapBanner = banner;
 
     // Copy on the left, at the minimum text size; the strip height follows it.
-    // Tapping the copy toggles between the message (followed by the "Learn
-    // more" cue) and the short privacy detail.
+    // Tapping the copy (the message, then the "Learn more" cue) opens the
+    // privacy page over the level.
     const textLeft = YAP_BANNER_GAP;
     const textWidth = width - 4 * YAP_BANNER_GAP - YAP_DECLINE_WIDTH - YAP_ACCEPT_WIDTH;
-    const copy = this.yapShowDetail
-      ? yapI18n.t('consentBanner.detail')
-      : `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
+    const copy = `${yapI18n.t('consent.message')} ${yapI18n.t('consentBanner.learnMore')}`;
     // the body role, at the 14 px minimum of the banner rather than 16
     const text = yapRoleText(this, textLeft, 0, copy, 'body', YAP_PALETTE.ink, {
       wordWrap: { width: textWidth },
@@ -101,10 +99,7 @@ export class YapConsentScene extends Phaser.Scene {
       .zone(textLeft, 0, textWidth, height)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
-    textZone.on('pointerdown', () => {
-      this.yapShowDetail = !this.yapShowDetail;
-      this.yapBuild();
-    });
+    textZone.on('pointerdown', () => this.scene.launch(YAP_PRIVACY_SCENE_KEY));
 
     // Buttons on the right, vertically centred in the strip: OK primary,
     // No thanks secondary, 44 px tall.
@@ -132,6 +127,8 @@ export class YapConsentScene extends Phaser.Scene {
     banner.add([panel, blocker, text, textZone, decline.container, accept.container]);
     // the level scene moves its header and board down under the note (spec §8)
     this.registry.set(YAP_CONSENT_HEIGHT_KEY, height);
+    // End-to-end hook beside `__yapPhase`: the board's layout depends on it
+    (window as unknown as Record<string, unknown>)['__yapBannerHeight'] = height;
   }
 
   /** Persists the answer (which gates analytics) and dismisses the banner. */

@@ -41,6 +41,8 @@ describe('buttons come from src/game/kit.ts', () => {
       'src/game/home-scene.ts',
       'src/game/challenge-scene.ts',
       'src/game/consent-scene.ts',
+      'src/game/settings-scene.ts',
+      'src/game/privacy-scene.ts',
       KIT_FILE,
     ]) {
       expect(files).toContain(expected);

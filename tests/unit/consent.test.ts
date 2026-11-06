@@ -156,3 +156,33 @@ describe('consent gate', () => {
     expect(transport.sent).toHaveLength(1);
   });
 });
+
+describe('changing the answer in Settings (story D3)', () => {
+  afterEach(() => {
+    configureYapAnalytics({ transport: new MockTransport() });
+  });
+
+  it('a refusal after OK stops every event from then on', () => {
+    const { storage, transport } = setup();
+    yapAnswerConsent('granted', storage);
+    playALittle();
+    const before = transport.sent.length;
+    expect(before).toBeGreaterThan(0);
+
+    yapAnswerConsent('refused', storage);
+    playALittle();
+    expect(transport.sent).toHaveLength(before);
+  });
+
+  it('OK after a refusal lets events through, consent_set first', () => {
+    const { storage, transport } = setup();
+    yapAnswerConsent('refused', storage);
+    playALittle();
+    expect(transport.sent).toHaveLength(0);
+
+    yapAnswerConsent('granted', storage);
+    playALittle();
+    expect(transport.sent[0]?.event).toBe('consent_set');
+    expect(transport.sent.length).toBeGreaterThan(1);
+  });
+});

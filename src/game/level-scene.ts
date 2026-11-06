@@ -45,6 +45,7 @@ import { loadYapProfile } from '../app/config';
 import { yapStorage } from '../app/storage';
 import {
   yapBuildShareContent,
+  yapLoadNickname,
   yapLoadShareId,
   yapPrepareShareImage,
   yapPreparedShareImage,
@@ -2562,7 +2563,8 @@ export class YapLevelScene extends Phaser.Scene {
     if (win === null || level === null) return;
     const day = yapResolveShareDay(level.type, this.sys.settings.data);
     const plan = this.yapPathInput?.yapPlan() ?? [];
-    const payload = day === null ? null : win.yapPayloadData(day, plan, yapLoadShareId());
+    const payload =
+      day === null ? null : win.yapPayloadData(day, plan, yapLoadShareId(), yapLoadNickname());
     const content = yapBuildShareContent(win.yapSharePayload(), payload);
     void yapShare({
       context: 'win',

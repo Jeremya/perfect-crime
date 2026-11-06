@@ -183,7 +183,8 @@ everything is static: stamps simply appear, the hand stays still.
   the arrival and 12 ticks of the cell under the finger. It leaves on release.
 - First launch: the consent note sits at the very top; the header and the
   board move down under it, so it covers no board cell and the stats stay
-  visible. It never blocks play.
+  visible. It never blocks play. Its copy opens the privacy page over the
+  level; Back returns to the same route.
 - First-encounter guidance is one sentence, dismissed with a tap, and must
   not cover the grid's key area.
 
@@ -192,8 +193,8 @@ everything is static: stamps simply appear, the hand stays still.
 - Base components in `src/game/kit.ts`: `yapPaperPage`, `yapHeader`,
   `yapButton` (primary or secondary, 52 px, 120 ms press, `fireOn: 'up'` for
   Share, which needs the release's user activation), `yapCard`, `yapRule`,
-  `yapShowToast` (a paper note), and the row helpers `yapActionRow` and
-  `yapPlanningRow`. Home's actions come from `yapHomeActions`
+  `yapShowToast` (a paper note), `yapGearButton` (the 44 px way to Settings),
+  and the row helpers `yapActionRow` and `yapPlanningRow`. Home's actions come from `yapHomeActions`
   (`src/game/home-layout.ts`). `kit-guard.test.ts` keeps private button
   helpers out of the scenes.
 - Screen pieces in `src/game/kit-screens.ts`, their geometry in
@@ -203,6 +204,9 @@ everything is static: stamps simply appear, the hand stays still.
   today ringed), `yapRuler` (the playback's progress), `yapSeal` (wax seal,
   broken once a friend's plan opens) and `yapFolder` (Home's kraft folder with
   its tilted paper sheet).
+- `yapOpenTextField` (`src/game/text-field.ts`) is the one DOM control of the
+  game: a phone only opens its keyboard for a real input. It sits on the box
+  of the nickname, in the plan style, only while the player types.
 - The board's drawing lives in `src/game/render.ts`, its pure geometry in
   `src/game/plan-geometry.ts`.
 
@@ -214,7 +218,8 @@ dictionaries. As built:
 1. **First launch / T1:** the tutorial at once, the consent note at the top
    (OK and No thanks, ≥ 44 px), and the hand that draws the start of the route
    over a dashed red ghost until the first touch.
-2. **Home:** the tagline over "Perfect Crime" and the week's ★ total; the
+2. **Home:** the tagline over "Perfect Crime", the week's ★ total on the
+   title's line and the settings gear at the end of the header; the
    kraft folder of the day (DOSSIER Nº n · weekday) with the mini plan, the
    par, the star thresholds and the threats, and the status stamp (À FAIRE,
    RÉUSSI · n ESSAIS with the stars); the streak kicker, the seven day boxes
@@ -240,7 +245,11 @@ dictionaries. As built:
    the friend's plan; Take the challenge and Later.
 8. **Comparison:** both columns filled and a verdict stamp; the seal broken
    and See their plan. "Share my result" is a follow-up story.
-9. **Settings:** not at Gate 1 (no screen yet).
+9. **Settings:** one card, in the spec's order: language, sound, vibration
+   (only where the browser has it), nickname, anonymous stats, each choice a
+   pair of 44 px buttons with the current one filled, so refusing takes one
+   tap, as accepting does. The version under it; Privacy and Back in the bottom
+   third. The privacy page fits 360 × 640 without scrolling, at 14 px.
 10. **First-encounter bubble:** one short sentence, tap to dismiss, never over
     the board's key area.
 

@@ -253,6 +253,22 @@ describe('super properties (A2 config / storage, A3 i18n)', () => {
   });
 });
 
+describe('no location', () => {
+  it('turns off the GeoIP of PostHog: the privacy page lists no location', () => {
+    const transport = new MockTransport();
+    const analytics = new YapAnalytics(baseOptions(testStorage(), transport));
+
+    analytics.track('link_opened', {
+      day: 3,
+      sender_share_id: 'a1b2c3d4',
+      is_new_player: false,
+      is_self: false,
+    });
+
+    expect(transport.sent[0]?.properties.$geoip_disable).toBe(true);
+  });
+});
+
 describe('no URL with its fragment', () => {
   it('strips the fragment from the current URL and derives host / pathname from it', () => {
     const transport = new MockTransport();

@@ -605,6 +605,48 @@ export function yapButton(scene: Phaser.Scene, options: YapButtonOptions): YapBu
   };
 }
 
+/** A gear's teeth, the radii of its ring and of its teeth's tips, a tooth's width, in px. */
+const YAP_GEAR_TEETH = 8;
+const YAP_GEAR_RING = 7;
+const YAP_GEAR_TIP = 11;
+const YAP_GEAR_TOOTH = 3.5;
+
+/**
+ * The way to the settings: a square secondary button with a gear drawn in ink,
+ * `box` being its left edge, its width and its centre line.
+ */
+export function yapGearButton(
+  scene: Phaser.Scene,
+  box: YapBox & { readonly y: number },
+  onPress: () => void,
+): YapButton {
+  const button = yapButton(scene, {
+    x: box.x,
+    y: box.y,
+    width: box.width,
+    height: box.width,
+    label: '',
+    kind: 'secondary',
+    onPress,
+  });
+  const gear = scene.add.graphics();
+  gear.lineStyle(2 * YAP_BUTTON_OUTLINE, yapHexToInt(YAP_PALETTE.ink), 1);
+  gear.strokeCircle(0, 0, YAP_GEAR_RING - YAP_BUTTON_OUTLINE);
+  gear.lineStyle(YAP_GEAR_TOOTH, yapHexToInt(YAP_PALETTE.ink), 1);
+  for (let tooth = 0; tooth < YAP_GEAR_TEETH; tooth += 1) {
+    const angle = (tooth * 2 * Math.PI) / YAP_GEAR_TEETH;
+    gear.lineBetween(
+      YAP_GEAR_RING * Math.cos(angle),
+      YAP_GEAR_RING * Math.sin(angle),
+      YAP_GEAR_TIP * Math.cos(angle),
+      YAP_GEAR_TIP * Math.sin(angle),
+    );
+  }
+  // under the hit zone, which stays last
+  button.container.addAt(gear, 1);
+  return button;
+}
+
 // ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
@@ -628,6 +670,8 @@ export interface YapHeaderOptions {
   right?: readonly string[];
   /** Sets the last right line in the large stat role (the tick counter). */
   rightLarge?: boolean;
+  /** Room kept free at the right end of the band, in px: the right block stands before it. */
+  rightInset?: number;
 }
 
 /** The kicker and the title a header shows, as they are drawn. */
@@ -702,7 +746,8 @@ export function yapHeader(
   // Both texts, whole, to fit again from: the kicker as the role shows it, in capitals
   const kickerWhole = kicker.text;
   const titleWhole = options.title;
-  const rightEdge = width - YAP_HEADER_MARGIN;
+  const inset = options.rightInset ?? 0;
+  const rightEdge = width - YAP_HEADER_MARGIN - inset;
   const right: YapHeaderLine[] = [];
 
   // Fitting renders the texts again, and most changes of the right lines (a
@@ -711,7 +756,7 @@ export function yapHeader(
   const fitLeft = (): void => {
     let rightWidth = 0;
     for (const line of right) rightWidth = Math.max(rightWidth, line.text.width);
-    const available = yapHeaderLeftWidth(width, rightWidth);
+    const available = yapHeaderLeftWidth(width - inset, rightWidth);
     if (available === fittedTo) return;
     fittedTo = available;
     kicker.setText(yapEllipsize(yapMeasureText(kicker), kickerWhole, available));

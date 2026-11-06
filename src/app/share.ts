@@ -46,7 +46,7 @@ import {
 import { YAP_DOMAIN } from './config';
 import { yapDailyInfo } from './daily';
 import { yapI18n, type YapKey } from './i18n';
-import { YAP_MAX_DAY, YapPayload, type YapPayloadData } from './payload';
+import { YAP_MAX_DAY, YAP_MAX_NICKNAME_BYTES, YapPayload, type YapPayloadData } from './payload';
 import { YapStorage, yapStorage } from './storage';
 import type { YapLevelType } from '../core/level';
 
@@ -65,6 +65,8 @@ export const YAP_SHARE_VARIANT_PARAM = 'share';
 export const YAP_SHARE_VARIANT_KEY = 'share-variant';
 /** Anonymous share ID (8 hex digits), relative to the `yapcorp:` prefix. */
 export const YAP_SHARE_ID_KEY = 'share-id';
+/** The player's nickname, relative to the `yapcorp:` prefix. */
+export const YAP_NICKNAME_KEY = 'nickname';
 
 function isShareVariant(value: string | null): value is YapShareVariant {
   return value !== null && (YAP_SHARE_VARIANTS as readonly string[]).includes(value);
@@ -123,6 +125,43 @@ export function yapLoadShareId(
   const id = create() >>> 0;
   storage.set(YAP_SHARE_ID_KEY, yapShareIdHex(id));
   return id;
+}
+
+/**
+ * A nickname while it is typed: no control character, and cut between two
+ * characters at the 12 bytes a link carries. Spaces stay: the next word comes.
+ */
+export function yapCutNickname(raw: string): string {
+  const encoder = new TextEncoder();
+  let kept = '';
+  let bytes = 0;
+  for (const character of raw.replace(/\p{Cc}/gu, '')) {
+    bytes += encoder.encode(character).length;
+    if (bytes > YAP_MAX_NICKNAME_BYTES) break;
+    kept += character;
+  }
+  return kept;
+}
+
+/** A nickname as it is kept and sent: what yapCutNickname keeps, trimmed. */
+export function yapCleanNickname(raw: string): string {
+  return yapCutNickname(raw.trim()).trim();
+}
+
+/**
+ * The nickname of this device, empty when the player set none. It only leaves
+ * the device inside the links the player shares (Gate 1 spec). Cleaned on the
+ * way out: a value that does not fit would make the payload refuse the share.
+ */
+export function yapLoadNickname(storage: YapStorage = yapStorage): string {
+  return yapCleanNickname(storage.get(YAP_NICKNAME_KEY) ?? '');
+}
+
+/** Keeps the nickname and returns it as it was kept. */
+export function yapSaveNickname(raw: string, storage: YapStorage = yapStorage): string {
+  const nickname = yapCleanNickname(raw);
+  storage.set(YAP_NICKNAME_KEY, nickname);
+  return nickname;
 }
 
 /**

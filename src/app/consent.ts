@@ -54,7 +54,7 @@ export function yapSetConsent(choice: YapConsentChoice, storage: YapStorage = ya
 }
 
 /**
- * Records the answer of the banner. OK persists 'granted' and emits
+ * Records the answer of the banner, or of Settings (story D3). OK persists 'granted' and emits
  * consent_set { granted: true } through track() (the spec sends consent_set
  * only if yes); a refusal persists 'refused' and emits nothing at all — the
  * gate drops every event, so a refusal means zero events, ever.
