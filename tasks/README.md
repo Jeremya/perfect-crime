@@ -44,7 +44,7 @@ French) and #76 (X9 Observer, on by default).
 
 | Task | What is missing | Why it matters |
 |---|---|---|
-| D3 | The Settings screen of the spec: language, sound, vibration, nickname, editable consent, privacy page, version | A tester cannot change their consent, read a privacy page or mute the game. Needed before H5 |
+| D3 | In review: the Settings screen of the spec. Left: a contact on the privacy page, the IP setting in PostHog, the real-phone check | Needed before H5 |
 | E6 | The comparison after the linked heist, with Share my result | The rematch step of the sharing loop, which Gate 1 measures |
 
 ### 1. Acceptance checks (no code left, evidence missing)
@@ -133,7 +133,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 |---|---|---|---|---|---|---|---|
 | A1 | Repository and tooling | A | Dev | 1.5 | — (scaffolded) | Done | `tasks/A1.md` |
 | A2 | Config, safe storage, anon IDs, flags | A | Dev | 0.75 | A1 | Done | `tasks/A2.md` |
-| A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | Done (+ #71; the language choice waits for D3) | `tasks/A3.md` |
+| A3 | FR/EN typed dictionaries | A | Dev | 0.75 | A1 | Done (+ #71; language choice: D3) | `tasks/A3.md` |
 | B1 | Level format, parser, validator | B | Dev | 1.5 | A1 | Done | `tasks/B1.md` |
 | B2 | Simulation (resolveTick, visibleCells) | B | Dev | 3.5 | B1 | Done | `tasks/B2.md` |
 | B3 | Solver (par, optimal plan, tension) | B | Dev | 2.5 | B2 | Done (+ #70: only drawable plans) | `tasks/B3.md` |
@@ -148,7 +148,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | C8 | Sounds + vibration | C | Dev | 0.5 | C3 | In progress (#28 merged; phone audio/vibration check pending) | `tasks/C8.md` |
 | D1 | Daily logic, streak | D | Dev | 1.5 | A2 | Done | `tasks/D1.md` |
 | D2 | Home and flow | D | Dev | 1.25 | D1, C5 | Done (#30/#31 + #74; phone check) | `tasks/D2.md` |
-| D3 | Settings (no story owned it) | D | Dev | M | A3, C8, D2, G2 | To do | `tasks/D3.md` |
+| D3 | Settings (no story owned it) | D | Dev | M | A3, C8, D2, G2 | In review | `tasks/D3.md` |
 | E1 | Payload v1 | E | Dev | 1 | B2 | Done | `tasks/E1.md` |
 | E2 | Share button | E | Dev | 1.25 | E1, C5 | Done (#29 + #44; Home Share wired) | `tasks/E2.md` |
 | E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | Done | `tasks/E3.md` |
