@@ -1,6 +1,7 @@
 // Story D3 — the Settings screen: its layout, the nickname and the sections of
 // the privacy page. What the scene draws is checked in tests/e2e/settings.spec.ts.
 import { describe, expect, it } from 'vitest';
+import { YAP_CORP } from '../../src/app/brand';
 import { YapPayload } from '../../src/app/payload';
 import {
   YAP_NICKNAME_KEY,
@@ -206,6 +207,10 @@ describe('yapPrivacySections — what the privacy page says', () => {
 
   it('adds the contact once there is one', () => {
     expect(heads('hello@example.org').at(-1)).toBe('privacy.contactHead');
+  });
+
+  it('ships with a contact: the page says who to write to', () => {
+    expect(heads(YAP_CORP.contact).at(-1)).toBe('privacy.contactHead');
   });
 });
 

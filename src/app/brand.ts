@@ -11,9 +11,9 @@ export const YAP_CORP = {
   packageName: '@yapcorp/perfect-crime',
   /**
    * Who to write to about the data, shown on the privacy page. Empty: the page
-   * has no contact section. It must be set before any outside tester (H5).
+   * has no contact section. For now, until a dedicated address exists.
    */
-  contact: '',
+  contact: 'pacopacoskr@gmail.com',
   /** Game version, mirrored in package.json. */
   version: '0.1.0',
 } as const;
