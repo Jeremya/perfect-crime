@@ -373,7 +373,8 @@ export class YapAnalytics {
       this.navigatorLike,
       this.searchProvider(),
     );
-    const properties: Record<string, unknown> = { ...superProperties };
+    // PostHog reads the IP for its GeoIP before discarding it; the privacy page lists no location
+    const properties: Record<string, unknown> = { ...superProperties, $geoip_disable: true };
     for (const [key, value] of Object.entries(props as unknown as Record<string, unknown>)) {
       properties[key] = yapSanitizeAnalyticsValue(value);
     }
