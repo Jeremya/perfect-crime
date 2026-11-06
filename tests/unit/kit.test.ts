@@ -1078,7 +1078,13 @@ describe('yapButton — a label that must fit its width', () => {
 describe('yapHeader — kicker, title and right block in a 64 px band', () => {
   function yapMakeTestHeader(
     width: number,
-    options: { kicker: string; title: string; right?: readonly string[]; rightLarge?: boolean },
+    options: {
+      kicker: string;
+      title: string;
+      right?: readonly string[];
+      rightLarge?: boolean;
+      rightInset?: number;
+    },
   ) {
     const stage = yapFakeStage();
     const header = yapHeader(stage.scene, width, options);
@@ -1110,6 +1116,17 @@ describe('yapHeader — kicker, title and right block in a 64 px band', () => {
     const rule = graphics[0];
     expect(rule?.argsOf('lineBetween')).toEqual([[0, 63.5, 390, 63.5]]);
     expect(rule?.argsOf('lineStyle')).toEqual([[1, yapHexToInt(YAP_PALETTE.ink), 0.16]]);
+  });
+
+  it('keeps the room asked for at the right end of the band', () => {
+    const { rightLines } = yapMakeTestHeader(390, {
+      kicker: 'K',
+      title: 'T',
+      right: ['★ 3/21'],
+      rightInset: 52,
+    });
+
+    expect(rightLines().map((line) => line.x)).toEqual([322]);
   });
 
   it('stacks the right lines from y = 12, right-aligned at width - 16', () => {

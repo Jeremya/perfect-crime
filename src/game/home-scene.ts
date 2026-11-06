@@ -61,8 +61,17 @@ import {
   yapStamp,
 } from './kit-screens';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
-import { yapHomeActions } from './home-layout';
-import { yapButton, yapCard, yapHeader, yapPaperPage, yapRule, yapShowToast } from './kit';
+import { YAP_HOME_SETTINGS_INSET, yapHomeActions, yapHomeSettingsBox } from './home-layout';
+import {
+  yapButton,
+  yapCard,
+  yapGearButton,
+  yapHeader,
+  yapPaperPage,
+  yapRule,
+  yapShowToast,
+} from './kit';
+import { YAP_SETTINGS_SCENE_KEY } from './settings-layout';
 import { yapFadeIn } from './motion';
 import type { YapLevelSceneData } from './level-scene';
 import { yapDrawMiniMap } from './render';
@@ -70,6 +79,7 @@ import { yapRoleCase, yapRoleText, type YapTextRole } from './text';
 import { YapAttemptLog, YapWinScreen, yapEmojiLineFor } from './win';
 import {
   yapBuildShareContent,
+  yapLoadNickname,
   yapLoadShareId,
   yapPrepareShareImage,
   yapPreparedShareImage,
@@ -222,6 +232,10 @@ export class YapFlowController {
 /** The app's single flow controller. */
 export const yapFlow = new YapFlowController(yapStorage);
 
+/** Where the star total stands: before the gear, on the title's line, in px. */
+const YAP_HOME_STARS_GAP = 10;
+const YAP_HOME_STARS_Y = 33;
+
 export class YapHomeScene extends Phaser.Scene {
   private yapRoot: Phaser.GameObjects.Container | null = null;
   private yapModel: YapHomeModel | null = null;
@@ -301,16 +315,31 @@ export class YapHomeScene extends Phaser.Scene {
     // C1 plan style: the paper page with its grid, at the back
     root.add(yapPaperPage(this, width, height));
 
-    // The header (spec §8): the tagline over the game name, and the week's
-    // star total on the right (story X2: "★ x/21", the best stars of the 7
-    // daily records; tutorials never count)
+    // The header (spec §8): the tagline over the game name, then on the right
+    // the week's star total (story X2: "★ x/21", the best stars of the 7 daily
+    // records; tutorials never count) and the settings button (story D3)
     const totalStars = yapTotalStars(loadYapDays(yapStorage));
     const header = yapHeader(this, width, {
       kicker: yapI18n.t('home.tagline'),
       title: yapI18n.t('app.title'),
-      right: [`★ ${totalStars}/${YAP_MAX_WEEK_STARS}`],
+      rightInset: YAP_HOME_SETTINGS_INSET,
     });
     root.add(header.container);
+    const gear = yapHomeSettingsBox(width);
+    root.add([
+      yapGearButton(this, gear, () => this.scene.start(YAP_SETTINGS_SCENE_KEY)).container,
+      // on the title's line, beside the gear: the kicker keeps its whole line
+      yapRoleText(
+        this,
+        gear.x - YAP_HOME_STARS_GAP,
+        YAP_HOME_STARS_Y,
+        `★ ${totalStars}/${YAP_MAX_WEEK_STARS}`,
+        'stat',
+        YAP_PALETTE.ink,
+      ).setOrigin(1, 0),
+    ]);
+    // End-to-end hook beside `__yapPhase`
+    (window as unknown as Record<string, unknown>)['__yapScreen'] = 'home';
 
     // The actions live in the bottom third (one-thumb use), from
     // yapHomeActions; their top edge bounds the archive list (O1).
@@ -656,7 +685,7 @@ export class YapHomeScene extends Phaser.Scene {
       causes: record.causes.slice(0, YAP_MAX_CAUSES),
       shareId: yapLoadShareId(),
       plan: [...record.plan],
-      nickname: '',
+      nickname: yapLoadNickname(yapStorage),
     };
     const content = yapBuildShareContent(
       {

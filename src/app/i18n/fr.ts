@@ -43,7 +43,6 @@ export const fr: YapDictionary = {
     share: 'Partager',
     archive: 'Archives',
     tutorial: 'Tutoriel',
-    settings: 'Réglages',
   },
   planning: {
     par: 'Par : {par}',
@@ -116,9 +115,12 @@ export const fr: YapDictionary = {
     sound: 'Son',
     vibration: 'Vibration',
     nickname: 'Surnom',
-    consent: 'Consentement',
+    consent: 'Mesure anonyme',
     privacy: 'Confidentialité',
     version: 'Version {version}',
+    on: 'Activé',
+    off: 'Coupé',
+    nicknameEmpty: 'Un ami',
   },
   viewer: {
     title: 'Visionneur dev',
@@ -149,8 +151,24 @@ export const fr: YapDictionary = {
   // Story G2 — bannière de consentement (premier lancement, bandeau haut non bloquant).
   consentBanner: {
     learnMore: 'En savoir plus',
-    detail:
-      'Événements anonymes uniquement (identifiant aléatoire), hébergés dans l’UE et supprimés à la fin de la Gate 2. Aucune pub, aucune revente.',
+  },
+  // Story D3 — la page de confidentialité.
+  privacy: {
+    kicker: 'Perfect Crime · {studio}',
+    measuredHead: 'Ce qui est mesuré',
+    measured:
+      'Si tu réponds OK : tes parties (niveaux, essais, durée, étoiles, indices, partages), la langue, le type d’appareil, la version du jeu, les erreurs éventuelles et un identifiant aléatoire créé sur cet appareil.',
+    notMeasuredHead: 'Ce qui ne l’est pas',
+    notMeasured:
+      'Ni nom, ni e-mail, ni contacts. Ton surnom ne voyage que dans les liens que tu partages toi-même.',
+    whereHead: 'Où ça va',
+    where:
+      'Chez PostHog, hébergé dans l’Union européenne. Aucune pub, aucune revente. Tout est supprimé à la fin de la Gate 2, la phase de test suivante.',
+    choiceHead: 'Ton choix',
+    choice:
+      'Avec Non merci, rien ne part. Tu peux changer d’avis à tout moment dans les Réglages. Ta progression reste sur cet appareil.',
+    contactHead: 'Contact',
+    contact: '{studio} : {contact}',
   },
   // Story D2 — écran d'accueil et enchaînement (src/game/home-scene.ts) :
   // tutoriel enchaîné, compte à rebours avec jours, accueil avant / après la

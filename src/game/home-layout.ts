@@ -4,6 +4,7 @@
 //
 // The actions sit in the bottom third for one-thumb use (Gate 1 spec, Home):
 // the primary action lowest, the secondary row above it, split equally.
+import { YAP_TOP_BAR_HEIGHT } from './board';
 import { YAP_BUTTON_HEIGHT, yapActionRow, type YapBox } from './kit';
 
 /** A row of actions is never wider than this, in px, centred on a wide view. */
@@ -14,6 +15,20 @@ const YAP_HOME_BOTTOM_MARGIN = 16;
 const YAP_HOME_ROW_GAP = 12;
 /** Side margins of the rows, in px, as the kit's rows. */
 const YAP_HOME_SIDE_MARGIN = 16;
+
+/** The settings button of Home's header (story D3): a 44 px target. */
+const YAP_HOME_SETTINGS_SIZE = 44;
+/** What the header keeps free at its right end for it, in px. */
+export const YAP_HOME_SETTINGS_INSET = YAP_HOME_SETTINGS_SIZE + 8;
+
+/** Its box, at the right end of the header band; `y` is its centre line. */
+export function yapHomeSettingsBox(viewWidth: number): YapBox & { readonly y: number } {
+  return {
+    x: viewWidth - YAP_HOME_SIDE_MARGIN - YAP_HOME_SETTINGS_SIZE,
+    width: YAP_HOME_SETTINGS_SIZE,
+    y: YAP_TOP_BAR_HEIGHT / 2,
+  };
+}
 
 export interface YapHomeActions {
   /** Box of the primary action (Play, or Tutorial outside the week). */

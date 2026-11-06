@@ -9,6 +9,11 @@ export const YAP_CORP = {
   storagePrefix: 'yapcorp:',
   /** npm package scope: @yapcorp/perfect-crime. */
   packageName: '@yapcorp/perfect-crime',
+  /**
+   * Who to write to about the data, shown on the privacy page. Empty: the page
+   * has no contact section. It must be set before any outside tester (H5).
+   */
+  contact: '',
   /** Game version, mirrored in package.json. */
   version: '0.1.0',
 } as const;

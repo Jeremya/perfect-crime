@@ -16,6 +16,8 @@ import { YapConsentScene } from './game/consent-scene';
 import { YAP_DPR, yapDeviceSize, yapInstallResize } from './game/hidpi';
 import { YapHomeScene, yapFlow } from './game/home-scene';
 import { YapLevelScene } from './game/level-scene';
+import { YapPrivacyScene } from './game/privacy-scene';
+import { YapSettingsScene } from './game/settings-scene';
 import { YapViewerScene } from './game/viewer-scene';
 
 /** Public dev route of the F1 viewer (docs/NAMING.md: public URL paths stay). */
@@ -131,15 +133,18 @@ const config: Phaser.Types.Core.GameConfig = {
     ...yapDeviceSize(yapGameFrame?.clientWidth ?? 480, yapGameFrame?.clientHeight ?? 853, YAP_DPR),
     zoom: 1 / YAP_DPR,
   },
-  // YapConsentScene last: launched as an overlay, it must render on top of
-  // the level and Home scenes (scene render order follows the config array order).
+  // YapConsentScene then YapPrivacyScene last: launched as overlays, they must
+  // render on top of the level and Home scenes (scene render order follows the
+  // config array order), and the privacy page on top of the banner that opens it.
   scene: [
     YapBootScene,
     YapHomeScene,
     YapLevelScene,
     YapChallengeScene,
     YapViewerScene,
+    YapSettingsScene,
     YapConsentScene,
+    YapPrivacyScene,
   ],
 };
 

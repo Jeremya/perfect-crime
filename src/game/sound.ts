@@ -122,6 +122,11 @@ export interface YapVibrateTarget {
   vibrate?(pattern: number | number[]): boolean;
 }
 
+/** True where the browser can vibrate: iOS and desktop Safari have no navigator.vibrate. */
+export function yapVibrationSupported(target: YapVibrateTarget = navigator): boolean {
+  return typeof target.vibrate === 'function';
+}
+
 /** Calls navigator.vibrate when it exists; never throws. True if it was called. */
 export function yapVibrate(
   nav: YapVibrateTarget | null | undefined,

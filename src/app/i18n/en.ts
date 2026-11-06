@@ -42,7 +42,6 @@ export const en = {
     share: 'Share',
     archive: 'Archive',
     tutorial: 'Tutorial',
-    settings: 'Settings',
   },
   planning: {
     par: 'Par: {par}',
@@ -115,9 +114,12 @@ export const en = {
     sound: 'Sound',
     vibration: 'Vibration',
     nickname: 'Nickname',
-    consent: 'Consent',
+    consent: 'Anonymous stats',
     privacy: 'Privacy',
     version: 'Version {version}',
+    on: 'On',
+    off: 'Off',
+    nicknameEmpty: 'A friend',
   },
   viewer: {
     title: 'Dev viewer',
@@ -148,8 +150,24 @@ export const en = {
   // Story G2 — consent banner (first launch, non-blocking top strip).
   consentBanner: {
     learnMore: 'Learn more',
-    detail:
-      'Anonymous events only (random ID), hosted in the EU and deleted at the end of Gate 2. No ads, no resale.',
+  },
+  // Story D3 — the privacy page.
+  privacy: {
+    kicker: 'Perfect Crime · {studio}',
+    measuredHead: 'What is measured',
+    measured:
+      'If you answer OK: your games (levels, attempts, time, stars, hints, shares), the language, the kind of device, the game version, any errors and a random ID created on this device.',
+    notMeasuredHead: 'What is not',
+    notMeasured:
+      'No name, no email, no contacts. Your nickname only travels in the links you share yourself.',
+    whereHead: 'Where it goes',
+    where:
+      'To PostHog, hosted in the European Union. No ads, no resale. Everything is deleted at the end of Gate 2, the next test phase.',
+    choiceHead: 'Your choice',
+    choice:
+      'With No thanks, nothing leaves. You can change your mind at any time in Settings. Your progress stays on this device.',
+    contactHead: 'Contact',
+    contact: '{studio}: {contact}',
   },
   // Story D2 — Home screen and app flow (src/game/home-scene.ts): tutorial
   // chaining, countdown with days, and Home before / after the test week.

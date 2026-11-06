@@ -38,6 +38,11 @@ export const YAP_FONT_STACKS: Readonly<Record<YapFontFamily, string>> = {
   mono: 'ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace',
 };
 
+/** Gives the one DOM control of the game its font: 16 px, or iOS zooms on focus. */
+export function yapSetFieldFont(element: HTMLElement): void {
+  element.style.font = `16px ${YAP_FONT_STACKS.mono}`;
+}
+
 /**
  * What a caller may add to a style: everything Phaser accepts except the keys
  * the factory sets. Size and color are arguments of yapTextStyle, `family`
