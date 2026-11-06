@@ -127,6 +127,8 @@ export class YapConsentScene extends Phaser.Scene {
     banner.add([panel, blocker, text, textZone, decline.container, accept.container]);
     // the level scene moves its header and board down under the note (spec §8)
     this.registry.set(YAP_CONSENT_HEIGHT_KEY, height);
+    // End-to-end hook beside `__yapPhase`: the board's layout depends on it
+    (window as unknown as Record<string, unknown>)['__yapBannerHeight'] = height;
   }
 
   /** Persists the answer (which gates analytics) and dismisses the banner. */

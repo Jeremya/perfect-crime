@@ -4,12 +4,19 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { YAP_TEST_START_DATE } from '../../src/app/config';
 import { YapPayload } from '../../src/app/payload';
+import { solveLevel } from '../../src/core/solver';
+import { yapCellCenter, yapConsentTopBar, yapLevelLayout } from '../../src/game/board';
+import { yapWinActions } from '../../src/game/compose';
 import { yapHomeActions, yapHomeSettingsBox } from '../../src/game/home-layout';
 import { yapSettingsLayout, type YapSettingsRowId } from '../../src/game/settings-layout';
 import {
   YAP_MOBILE_UA,
   yapCanvasView,
+  yapCatalogLevel,
+  yapDraw,
   yapPageErrors,
+  yapPlanCells,
+  yapPressPlay,
   yapSeedStorage,
   yapStartDistServer,
   yapTap,
@@ -31,6 +38,44 @@ test.afterAll(async () => {
   await server.close();
 });
 
+/** A phone at 360 × 640, with nothing in its storage yet. */
+function yapPhone(browser: Browser, locale = 'fr-FR'): Promise<BrowserContext> {
+  return browser.newContext({
+    viewport: { width: 360, height: 640 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: false,
+    userAgent: YAP_MOBILE_UA,
+    locale,
+  });
+}
+
+/** Records the text of every share; `yapSharedLink` reads the payload back. */
+async function yapStubShare(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    const w = window as unknown as { __yapShared: string[] };
+    w.__yapShared = [];
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: (data: ShareData): Promise<void> => {
+        w.__yapShared.push(data.text ?? '');
+        return Promise.resolve();
+      },
+    });
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
+  });
+}
+
+const yapShared = (page: Page): Promise<string[]> =>
+  page.evaluate(() => (window as unknown as { __yapShared: string[] }).__yapShared);
+
+/** The nickname a friend's game reads from the first shared link. */
+async function yapSharedNickname(page: Page): Promise<string | undefined> {
+  const link = /#([\w-]+)/.exec((await yapShared(page))[0] ?? '')?.[1];
+  if (link === undefined) throw new Error('no payload in the shared text');
+  return YapPayload.decode(link)?.nickname;
+}
+
 interface YapSession {
   context: BrowserContext;
   page: Page;
@@ -45,14 +90,7 @@ async function yapOpen(
   seed: Record<string, string>,
   locale = 'fr-FR',
 ): Promise<YapSession> {
-  const context = await browser.newContext({
-    viewport: { width: 360, height: 640 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: false,
-    userAgent: YAP_MOBILE_UA,
-    locale,
-  });
+  const context = await yapPhone(browser, locale);
   await yapSeedStorage(context, { 'yapcorp:levels': TUTORIAL_DONE, ...seed });
   const sent: string[] = [];
   await context.route('https://eu.i.posthog.com/**', async (route) => {
@@ -173,15 +211,8 @@ test('OK in Settings after a refusal starts with consent_set', async ({ browser 
   await context.close();
 });
 
-test('the nickname typed in Settings travels in the shared link', async ({ browser }) => {
-  const context = await browser.newContext({
-    viewport: { width: 360, height: 640 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: false,
-    userAgent: YAP_MOBILE_UA,
-    locale: 'fr-FR',
-  });
+test('the nickname typed in Settings travels in the link shared from Home', async ({ browser }) => {
+  const context = await yapPhone(browser);
   await yapSeedStorage(context, {
     'yapcorp:levels': TUTORIAL_DONE,
     'yapcorp:consent': 'refused',
@@ -189,18 +220,7 @@ test('the nickname typed in Settings travels in the shared link', async ({ brows
       '3': { winningAttempt: 2, bestTicks: 20, stars: 2, hints: 0, causes: [], par: 20, plan: [] },
     }),
   });
-  await context.addInitScript(() => {
-    const w = window as unknown as { __yapShared: string[] };
-    w.__yapShared = [];
-    Object.defineProperty(navigator, 'share', {
-      configurable: true,
-      value: (data: ShareData): Promise<void> => {
-        w.__yapShared.push(data.text ?? '');
-        return Promise.resolve();
-      },
-    });
-    Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true });
-  });
+  await yapStubShare(context);
   const page = await context.newPage();
   const [year, month, date] = YAP_TEST_START_DATE.split('-').map(Number);
   await page.clock.setSystemTime(new Date(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 2, 12));
@@ -212,7 +232,7 @@ test('the nickname typed in Settings travels in the shared link', async ({ brows
     (r) => r.id === 'nickname',
   );
   if (row === undefined) throw new Error('no nickname row');
-  await yapTap(page, { x: view.x + view.width / 2 + 40, y: row.y });
+  await yapTap(page, { x: view.width / 2 + 40, y: row.y });
   const field = page.getByRole('textbox');
   await expect(field).toBeFocused();
   await field.pressSequentially('Alexandrine-Marie');
@@ -225,23 +245,52 @@ test('the nickname typed in Settings travels in the shared link', async ({ brows
   const { actions } = yapSettingsLayout(view.width, view.height, true);
   await yapTap(page, { x: view.width / 2, y: actions.primaryY });
   await yapWaitScreen(page, 'home');
-  const share = yapHomeActions(view.width, view.height, 3).secondary[0];
+  const home = yapHomeActions(view.width, view.height, 3);
+  const share = home.secondary[0];
   if (share === undefined) throw new Error('no secondary row');
-  const point = {
-    x: share.x + share.width / 2,
-    y: yapHomeActions(view.width, view.height, 3).secondaryY,
-  };
-  const texts = (): Promise<string[]> =>
-    page.evaluate(() => (window as unknown as { __yapShared: string[] }).__yapShared);
   await expect
     .poll(async () => {
-      await yapTap(page, point);
-      return (await texts()).length;
+      await yapTap(page, { x: share.x + share.width / 2, y: home.secondaryY });
+      return (await yapShared(page)).length;
     })
     .toBeGreaterThan(0);
-  const link = (await texts())[0]?.split('#')[1]?.split(/\s/)[0];
-  if (link === undefined) throw new Error('no payload in the shared text');
-  expect(YapPayload.decode(link)?.nickname).toBe('Alexandrine-');
+  expect(await yapSharedNickname(page)).toBe('Alexandrine-');
+  await context.close();
+});
+
+test('the nickname travels in the link shared from the Win screen', async ({ browser }) => {
+  const context = await yapPhone(browser);
+  await yapSeedStorage(context, {
+    'yapcorp:levels': TUTORIAL_DONE,
+    'yapcorp:consent': 'refused',
+    'yapcorp:nickname': 'Sam',
+  });
+  await yapStubShare(context);
+  const page = await context.newPage();
+  const [year, month, date] = YAP_TEST_START_DATE.split('-').map(Number);
+  await page.clock.setSystemTime(new Date(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 3, 12));
+  await page.goto(`${server.baseUrl}/`);
+  await yapWaitScreen(page, 'home');
+  const view = await yapCanvasView(page);
+  const home = yapHomeActions(view.width, view.height, 0);
+  await yapTap(page, { x: view.width / 2, y: home.primaryY });
+  await yapWaitPhase(page, 'planning');
+  await page.waitForTimeout(600);
+
+  const heist = yapCatalogLevel('daily/d4');
+  await yapDraw(page, heist, yapPlanCells(heist, solveLevel(heist).plan));
+  await page.waitForTimeout(200);
+  await yapPressPlay(page);
+  await yapWaitPhase(page, 'win', 30_000);
+  await page.waitForTimeout(600);
+  const shareY = yapWinActions(view.height).shareY;
+  await expect
+    .poll(async () => {
+      await yapTap(page, { x: view.width / 2, y: shareY });
+      return (await yapShared(page)).length;
+    })
+    .toBeGreaterThan(0);
+  expect(await yapSharedNickname(page)).toBe('Sam');
   await context.close();
 });
 
@@ -287,23 +336,33 @@ for (const locale of ['fr-FR', 'en-US']) {
   });
 }
 
-test('Learn more opens the privacy page over the level, and the banner stays', async ({
+test('Learn more opens the privacy page over the level, and the route survives', async ({
   browser,
 }) => {
-  const context = await browser.newContext({
-    viewport: { width: 360, height: 640 },
-    deviceScaleFactor: 2,
-    isMobile: true,
-    hasTouch: false,
-    userAgent: YAP_MOBILE_UA,
-    locale: 'fr-FR',
-  });
+  const context = await yapPhone(browser);
   const page = await context.newPage();
   const errors = yapPageErrors(page);
   await page.goto(`${server.baseUrl}/`);
   await yapWaitPhase(page, 'planning');
   await page.waitForTimeout(400);
   const view = await yapCanvasView(page);
+
+  // the start of the route, on the board the banner moved down
+  const t1 = yapCatalogLevel('tutorial/t1');
+  const banner = await page.evaluate(
+    () => (window as unknown as { __yapBannerHeight: number }).__yapBannerHeight,
+  );
+  const layout = yapLevelLayout(view.width, view.height, t1, yapConsentTopBar(banner));
+  const route = yapPlanCells(t1, solveLevel(t1).plan).slice(0, 4);
+  const points = route.map((cell) => yapCellCenter(layout, cell));
+  const untouched = await page.screenshot();
+  await page.mouse.move(view.x + (points[0]?.x ?? 0), view.y + (points[0]?.y ?? 0));
+  await page.mouse.down();
+  for (const point of points.slice(1)) await page.mouse.move(view.x + point.x, view.y + point.y);
+  await page.mouse.up();
+  await page.waitForTimeout(500);
+  const drawn = await page.screenshot();
+  expect(drawn.equals(untouched)).toBe(false);
 
   await yapTap(page, { x: 60, y: 30 }); // the copy of the banner
   await yapWaitScreen(page, 'privacy');
@@ -312,11 +371,11 @@ test('Learn more opens the privacy page over the level, and the banner stays', a
   await page.waitForFunction(
     () => (window as unknown as { __yapScreen?: string | null }).__yapScreen !== 'privacy',
   );
-  // still the first launch: no answer yet, and the level did not move
+  await page.waitForTimeout(300);
+
+  // still the first launch: no answer yet, and the board is as it was
   expect(await stored(page, 'yapcorp:consent')).toBeNull();
-  expect(await page.evaluate(() => (window as unknown as { __yapPhase?: string }).__yapPhase)).toBe(
-    'planning',
-  );
+  expect((await page.screenshot()).equals(drawn)).toBe(true);
   expect(errors).toEqual([]);
   await context.close();
 });
