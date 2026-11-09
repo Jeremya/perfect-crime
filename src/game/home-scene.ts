@@ -40,6 +40,7 @@ import {
   recordYapDailyWin,
   recordYapTutorialCleared,
   yapCountdownParts,
+  yapDaySharePayload,
   yapDaysWonOnTime,
   yapFormatClock,
   yapHomeModel,
@@ -87,12 +88,18 @@ import {
   yapShare,
   type YapShareReport,
 } from '../app/share';
-import { YAP_MAX_CAUSES, type YapPayloadData } from '../app/payload';
+import { loadYapInbox, yapCompareWithSender } from '../app/inbox';
+import type { YapShareContext } from '../app/analytics';
 
 /** Scene key of the Home screen. */
 export const YAP_HOME_SCENE_KEY = 'yap-home';
 /** Scene key of the level scene (src/game/level-scene.ts). */
 const YAP_LEVEL_SCENE_KEY = 'yap-level';
+/**
+ * Scene key of the challenge card (src/game/challenge-scene.ts, which imports
+ * the flow from here: the key is repeated, not imported).
+ */
+const YAP_CHALLENGE_SCENE_KEY = 'yap-challenge';
 /** Home scene event emitted with { day } when Share is pressed (E2 wires it). */
 export const YAP_HOME_SHARE_EVENT = 'yap-home-share';
 /** Level scene events the flow listens to (see src/game/level-scene.ts). */
@@ -147,6 +154,17 @@ export class YapFlowController {
       from.scene.start(YAP_HOME_SCENE_KEY);
       return;
     }
+    // E6: the comparison after a linked heist. `comparison` tells the card it
+    // was reached from inside the game, not from a link (no link_opened).
+    if (route.challengeShareId !== undefined) {
+      this.yapRoute = null;
+      from.scene.start(YAP_CHALLENGE_SCENE_KEY, {
+        day: route.day,
+        shareId: route.challengeShareId,
+        comparison: true,
+      });
+      return;
+    }
     this.yapRoute = route;
     this.yapLog = new YapAttemptLog();
     this.yapLastPlan = null;
@@ -156,9 +174,14 @@ export class YapFlowController {
       levelId: route.levelId,
       mode: route.mode,
       day: route.day,
-      // in the tutorial chain the Win screen's Home button leads to the next level
+      // in the tutorial chain the Win screen's Home button leads to the next
+      // level; after a linked heist, to the comparison (E6)
       winHomeLabel:
-        after.kind === 'level' ? yapI18n.t('homeFlow.nextLevel') : yapI18n.t('win.home'),
+        after.kind !== 'level'
+          ? yapI18n.t('win.home')
+          : after.challengeShareId !== undefined
+            ? yapI18n.t('comparison.title')
+            : yapI18n.t('homeFlow.nextLevel'),
     };
     track('level_start', { level_id: route.levelId, mode: route.mode, day: route.day });
     from.scene.start(YAP_LEVEL_SCENE_KEY, data);
@@ -218,11 +241,64 @@ export class YapFlowController {
     if (result.firstWin && result.streak !== null) {
       track('streak_day', { streak: result.streak });
     }
+    // E6: the linked heist of a taken challenge is cleared (Gate 1 spec,
+    // "What we measure"), once, on the first win
+    if (result.firstWin && route.challengeFrom !== undefined) {
+      const sender = loadYapInbox(this.storage).find((e) => e.shareId === route.challengeFrom);
+      const comparison = sender === undefined ? null : yapCompareWithSender(sender, result.record);
+      if (comparison !== null) {
+        track('challenge_result', {
+          day: route.day,
+          beat_sender: comparison.beatSender,
+          delta_attempts: comparison.deltaAttempts,
+          delta_ticks: comparison.deltaTicks,
+        });
+      }
+    }
   };
 }
 
 /** The app's single flow controller. */
 export const yapFlow = new YapFlowController(yapStorage);
+
+/**
+ * Shares the player's own result on `day` from its stored record (E2 Home
+ * share, E6 "Share my result"): same payload and three variants as the Win
+ * screen, the winning plan included, so the link replays the real run. Call
+ * it from the tap's own handler (the share sheet needs its activation). Null
+ * when the day has no result.
+ */
+export function yapShareDayResult(
+  day: number,
+  context: YapShareContext,
+): Promise<YapShareReport> | null {
+  const record = loadYapDays(yapStorage).get(day) ?? null;
+  if (record === null) return null;
+  const payload = yapDaySharePayload(day, record, yapLoadShareId(), yapLoadNickname(yapStorage));
+  const content = yapBuildShareContent(
+    {
+      attempts: record.winningAttempt,
+      ticks: record.bestTicks,
+      stars: record.stars,
+      emojiLine: yapEmojiLineFor(record.causes, record.winningAttempt, record.hints),
+    },
+    payload,
+  );
+  return yapShare({
+    context,
+    day,
+    content,
+    variant: yapResolveShareVariant(),
+    image: yapPreparedShareImage(day),
+  });
+}
+
+/** The transient note of a share that ended: "Copied", a failure, or nothing. */
+export function yapShareToastMessage(report: YapShareReport): string | null {
+  if (report.outcome === 'error') return yapI18n.t('share.failed');
+  if (report.method === 'clipboard') return yapI18n.t('common.copied');
+  return null;
+}
 
 /** Where the star total stands: before the gear, on the title's line, in px. */
 const YAP_HOME_STARS_GAP = 10;
@@ -666,42 +742,12 @@ export class YapHomeScene extends Phaser.Scene {
    * plan is persisted with it, so the link replays the real run).
    */
   private yapShareDay(day: number): void {
-    const record = loadYapDays(yapStorage).get(day) ?? null;
-    if (record === null) return;
-    const payload: YapPayloadData = {
-      day,
-      attempts: Math.min(255, record.winningAttempt),
-      ticks: record.bestTicks,
-      stars: record.stars,
-      hints: Math.min(3, record.hints),
-      causes: record.causes.slice(0, YAP_MAX_CAUSES),
-      shareId: yapLoadShareId(),
-      plan: [...record.plan],
-      nickname: yapLoadNickname(yapStorage),
-    };
-    const content = yapBuildShareContent(
-      {
-        attempts: record.winningAttempt,
-        ticks: record.bestTicks,
-        stars: record.stars,
-        emojiLine: yapEmojiLineFor(record.causes, record.winningAttempt, record.hints),
-      },
-      payload,
-    );
-    void yapShare({
-      context: 'home',
-      day,
-      content,
-      variant: yapResolveShareVariant(),
-      image: yapPreparedShareImage(day),
-    }).then((report) => this.yapShowShareToast(report));
+    void yapShareDayResult(day, 'home')?.then((report) => this.yapShowShareToast(report));
   }
 
   /** Transient "Copied" (or failure) note above the actions. */
   private yapShowShareToast(report: YapShareReport): void {
-    let message: string | null = null;
-    if (report.outcome === 'error') message = yapI18n.t('share.failed');
-    else if (report.method === 'clipboard') message = yapI18n.t('common.copied');
+    const message = yapShareToastMessage(report);
     const root = this.yapRoot;
     if (message === null || root === null) return;
     yapShowToast(this, root, yapViewSize(this).width / 2, this.yapActionsTop - 8, message);

@@ -29,6 +29,7 @@ import {
   yapBootRoute,
   yapChallengeCardRoute,
   yapChallengeHeistRoute,
+  yapDaySharePayload,
   yapExpressTutorialRoute,
   yapLinkArrivalRoute,
   yapReadLinkFromLocation,
@@ -437,5 +438,124 @@ describe('express tutorial (T1, T2, T4) for new players arriving from a link', (
     const route = yapBootRoute(storage, null);
     expect(yapRouteAfterWin(route as never)).toMatchObject({ levelId: 'tutorial/t2' });
     expect(yapRouteAfterWin(yapChallengeHeistRoute(3) as never)).toEqual({ kind: 'home' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Story E6 — the comparison after the linked heist, and the rematch
+// ---------------------------------------------------------------------------
+
+describe('E6: a taken challenge leads to the comparison', () => {
+  const SENDER = PAYLOAD.shareId;
+
+  it('the linked heist remembers whose challenge it is', () => {
+    expect(yapChallengeHeistRoute(3, SENDER)).toEqual({
+      kind: 'level',
+      levelId: 'daily/d3',
+      mode: 'daily',
+      day: 3,
+      challengeFrom: SENDER,
+    });
+    // without a sender the route is the plain heist, as before
+    expect(yapChallengeHeistRoute(3)).not.toHaveProperty('challengeFrom');
+  });
+
+  it('leaving the Win screen of a linked heist opens the comparison', () => {
+    const heist = yapChallengeHeistRoute(3, SENDER);
+    if (heist === null) throw new Error('no heist for day 3');
+    expect(yapRouteAfterWin(heist)).toEqual({
+      kind: 'level',
+      levelId: 'daily/d3',
+      mode: 'daily',
+      day: 3,
+      challengeShareId: SENDER,
+    });
+  });
+
+  it('the express tutorial carries the challenge down to the heist', () => {
+    let route = yapExpressTutorialRoute({ cleared: [], done: false }, 3, SENDER);
+    const seen: string[] = [];
+    while (route.kind === 'level' && route.challengeShareId === undefined) {
+      seen.push(route.levelId);
+      expect(route.challengeFrom).toBe(SENDER);
+      route = yapRouteAfterWin(route);
+    }
+    expect(seen).toEqual([...YAP_EXPRESS_TUTORIAL_SEQUENCE, 'daily/d3']);
+    expect(route).toMatchObject({ kind: 'level', day: 3, challengeShareId: SENDER });
+  });
+
+  it('a player past the express tutorial goes to the heist with the challenge', () => {
+    const progress = { cleared: [...YAP_EXPRESS_TUTORIAL_SEQUENCE], done: false };
+    expect(yapExpressTutorialRoute(progress, 3, SENDER)).toMatchObject({
+      levelId: 'daily/d3',
+      challengeFrom: SENDER,
+    });
+  });
+
+  it('the daily heist played from Home still leads Home', () => {
+    expect(yapRouteAfterWin(yapChallengeHeistRoute(3) as never)).toEqual({ kind: 'home' });
+  });
+});
+
+describe("E6: Share my result sends the recipient's own result", () => {
+  it('builds the link payload from the day record, not from the sender', () => {
+    const storage = memory();
+    yapStoreIncomingChallenge(storage, PAYLOAD);
+    recordYapDailyWin(
+      storage,
+      3,
+      {
+        attempts: 4,
+        ticks: 41,
+        stars: 1,
+        hints: 1,
+        causes: ['camera', 'camera', 'guard'],
+        par: 30,
+        plan: ['S', 'S', 'wait', 'E'],
+      },
+      new Date(2026, 0, 1),
+    );
+    const record = loadYapDays(storage).get(3);
+    if (record === undefined) throw new Error('no record');
+    const mine = yapDaySharePayload(3, record, 0x11223344, 'Sam');
+    expect(mine).toEqual({
+      day: 3,
+      attempts: 4,
+      ticks: 41,
+      stars: 1,
+      hints: 1,
+      causes: ['camera', 'camera', 'guard'],
+      shareId: 0x11223344,
+      plan: ['S', 'S', 'wait', 'E'],
+      nickname: 'Sam',
+    });
+    // and it survives the link: what the friend decodes is that result
+    expect(YapPayload.decode(YapPayload.encode(mine))).toMatchObject({
+      attempts: 4,
+      ticks: 41,
+      shareId: 0x11223344,
+      nickname: 'Sam',
+    });
+  });
+
+  it('clamps what does not fit the payload', () => {
+    const mine = yapDaySharePayload(
+      3,
+      {
+        winningAttempt: 300,
+        bestTicks: 41,
+        stars: 1,
+        hints: 5,
+        causes: Array.from({ length: 12 }, () => 'guard' as const),
+        par: 30,
+        plan: [],
+        onTime: true,
+      },
+      1,
+      '',
+    );
+    expect(mine.attempts).toBe(255);
+    expect(mine.hints).toBe(3);
+    expect(mine.causes).toHaveLength(8);
   });
 });
