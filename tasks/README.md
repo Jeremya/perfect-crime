@@ -154,7 +154,7 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | E3 | Pages /c/1–7 + OG images | E | Dev | 0.75 | B4 | Done | `tasks/E3.md` |
 | E4 | Link arrival / challenge card | E | Dev | 1.5 | E1, D2 | Done (#36/#37; two-device check) | `tasks/E4.md` |
 | E5 | Share matrix on real phones | E | Dev+PM | 0.75 | E2, E3 | In progress (#34 merged, Android rows recorded; iOS + per-target rows pending) | `tasks/E5.md` |
-| E6 | Comparison after the linked heist, rematch (no story owned it) | E | Dev | S | E2, E4 | To do | `tasks/E6.md` |
+| E6 | Comparison after the linked heist, rematch (no story owned it) | E | Dev | S | E2, E4 | In review | `tasks/E6.md` |
 | F1 | Dev viewer /dev/viewer | F | Dev | 1.5 | B3, C1 | Done | `tasks/F1.md` |
 | F2 | 5 tutorial levels | F | Design | 1.5 | F1 | In progress (#25 merged; 3-person playtest pending) | `tasks/F2.md` |
 | F3 | 7 daily heists (3 signature) | F | Design | 6 | F1 | In progress (#26 + #70 + #75 merged; per-heist playtest pending) | `tasks/F3.md` |
