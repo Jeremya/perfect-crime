@@ -47,6 +47,13 @@ French) and #76 (X9 Observer, on by default).
 | D3 | In review (#79): the Settings screen of the spec. Left: a contact on the privacy page, the IP setting in PostHog, a check on iOS | Needed before H5 |
 | E6 | The comparison after the linked heist, with Share my result | The rematch step of the sharing loop, which Gate 1 measures |
 
+### 0b. Proposals from the review of 2026-11-09 (sharing loop)
+
+Not Gate 1 scope until approved. They aim at "do people share it?": X10 (a
+share line that tells the heist), X11 (a failure can be shared), X12 (the
+nickname asked where it matters), X13 (how many link arrivals the express
+tutorial loses). E6 comes first; none of them should start before H1 has run.
+
 ### 1. Acceptance checks (no code left, evidence missing)
 
 | Task | What is left | Who |
@@ -179,6 +186,10 @@ Gate 1 PDF's behavior and scope with visual direction and review criteria.
 | X8 | Visual kit "fancy" (design only; archived, direction rejected) | X | Design | 2 h | C1 | Done (#55) | `tasks/X8.md` |
 | X8b | Style tile 100% code — X8b-1 merged (#59) then retired by the 2026-11-04 product call (#60); X8b-2/X8b-3 cancelled | X | Dev | M | X8 | Done / cancelled | `tasks/X8b.md` |
 | X9 | Observer: watch the round, stop on the cause | X | Dev | L | C2, C3, C6, X3 | Done (#76; H1 says whether it helps) | `tasks/X9.md` |
+| X10 | The nerve line: a share result that tells the heist | X | Dev | M | C5, E2 | Proposal (needs the product owner's go) | `tasks/X10.md` |
+| X11 | Share a failure, from the third one | X | Dev | M | C4, E2, E4 | Proposal (needs the product owner's go) | `tasks/X11.md` |
+| X12 | Ask the nickname at the first share | X | Dev | S | D3, E2 | Proposal | `tasks/X12.md` |
+| X13 | Express tutorial: measure the loss, then shorten it | X | PM+Dev | S+S | E4, G1 | Proposal (step 2 needs the product owner's go) | `tasks/X13.md` |
 
 ## Parallel waves (dependency order)
 
