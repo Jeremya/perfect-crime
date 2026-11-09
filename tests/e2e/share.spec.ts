@@ -22,6 +22,7 @@ import { expect, test, type Page } from '@playwright/test';
 import type { YapLevel } from '../../src/core/level';
 import { solveLevel, type YapSolveResult } from '../../src/core/solver';
 import { YAP_TEST_START_DATE } from '../../src/app/config';
+import { YapPayload, type YapPayloadData } from '../../src/app/payload';
 import { yapHomeActions } from '../../src/game/home-layout';
 import { yapWinActions } from '../../src/game/compose';
 import {
@@ -316,6 +317,111 @@ test.describe('share flow on a phone (mobile UA + touch)', () => {
     const calls = await yapShareCalls(page);
     expect(calls).toHaveLength(1);
     expect(calls[0]?.text).toContain('Daily Heist #3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E6: the comparison after the linked heist, and the rematch
+// ---------------------------------------------------------------------------
+
+test.describe('E6: a taken challenge ends on the comparison', () => {
+  test.use({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    isMobile: true,
+    userAgent: MOBILE_UA,
+    locale: 'en-US',
+  });
+
+  // Day 1: its optimal plan has no pause, so one stroke wins it.
+  const D1: YapLevel = yapCatalogLevel('daily/d1');
+  const D1_SOLUTION: YapSolveResult = solveLevel(D1);
+  const ALEX: YapPayloadData = {
+    day: 1,
+    attempts: 3,
+    ticks: D1_SOLUTION.par + 4,
+    stars: 1,
+    hints: 0,
+    causes: ['guard', 'guard'],
+    shareId: 0xa1b2c3d4,
+    plan: [...D1_SOLUTION.plan],
+    nickname: 'Alex',
+  };
+
+  async function yapScreen(page: Page): Promise<unknown> {
+    return page.evaluate(() => (window as unknown as { __yapScreen?: unknown }).__yapScreen);
+  }
+
+  test('link, heist won, Win screen left: the comparison, then Share my result', async ({
+    context,
+    page,
+  }) => {
+    expect(D1_SOLUTION.plan).not.toContain('wait');
+    await context.addInitScript(() => {
+      localStorage.setItem('yapcorp:consent', 'refused');
+      // a known player: straight to the heist, no express tutorial
+      localStorage.setItem(
+        'yapcorp:levels',
+        JSON.stringify({
+          cleared: ['tutorial/t1', 'tutorial/t2', 'tutorial/t3', 'tutorial/t4', 'tutorial/t5'],
+          done: true,
+        }),
+      );
+      const w = window as unknown as { __yapShareCalls: ShareData[] };
+      w.__yapShareCalls = [];
+      Object.defineProperty(navigator, 'share', {
+        configurable: true,
+        value: (data: ShareData): Promise<void> => {
+          w.__yapShareCalls.push(data);
+          return Promise.resolve();
+        },
+      });
+    });
+    await page.goto(`${baseUrl}/c/1#${YapPayload.encode(ALEX)}`);
+    const view = await yapCanvasView(page);
+    const actions = yapHomeActions(view.width, view.height, 1);
+    const primary = { x: actions.primary.x + actions.primary.width / 2, y: actions.primaryY };
+
+    // the challenge card: no result yet, so the primary action takes the challenge
+    await expect.poll(() => yapScreen(page)).toBe('challenge');
+    await yapTap(page, primary);
+    await yapWaitPhase(page, 'planning');
+
+    // win the linked heist on the first attempt
+    await yapDraw(page, D1, yapPlanCells(D1, D1_SOLUTION.plan));
+    await yapPressPlay(page);
+    await yapWaitPhase(page, 'win', 30_000);
+
+    // leave the Win screen by its right-hand action: it leads to the comparison
+    const leave = { x: view.width * 0.75, y: yapWinActions(view.height).rowY };
+    await expect
+      .poll(
+        async () => {
+          if ((await yapScreen(page)) === 'comparison') return true;
+          await yapTap(page, leave);
+          await page.waitForTimeout(400);
+          return (await yapScreen(page)) === 'comparison';
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+    expect(await yapShareCalls(page)).toHaveLength(0);
+
+    // Share my result: the player's own link back, not the sender's
+    await page.waitForTimeout(400);
+    await yapTap(page, primary);
+    await expect.poll(async () => (await yapShareCalls(page)).length).toBe(1);
+    const text = (await yapShareCalls(page))[0]?.text ?? '';
+    expect(text).toContain('Daily Heist #1');
+    expect(text).toContain('cracked in 1 try');
+    const fragment = /\/c\/1#(\S+)/.exec(text)?.[1] ?? '';
+    const mine = YapPayload.decode(fragment);
+    expect(mine).not.toBeNull();
+    expect(mine?.attempts).toBe(1);
+    expect(mine?.ticks).toBe(D1_SOLUTION.par);
+    expect(mine?.shareId).not.toBe(ALEX.shareId);
+    expect(mine?.plan).toEqual(D1_SOLUTION.plan);
   });
 });
 

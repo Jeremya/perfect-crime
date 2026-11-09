@@ -23,7 +23,7 @@
 import type { YapLevel } from '../core/level';
 import type { YapCause, YapMove } from '../core/sim';
 import { yapStoreIncomingChallenge } from './inbox';
-import { YapPayload } from './payload';
+import { YAP_MAX_CAUSES, YapPayload, type YapPayloadData } from './payload';
 import type { YapLevelMode } from './analytics';
 import {
   YAP_WEEK_DAYS,
@@ -96,6 +96,12 @@ export interface YapLevelRoute {
    * app shell starts the challenge scene (yap-challenge) for such a route.
    */
   readonly challengeShareId?: number;
+  /**
+   * E6: set once the player has taken a challenge, on the linked heist and on
+   * the express-tutorial levels before it — the sender's share ID. Leaving the
+   * Win screen of that heist opens the comparison (yapRouteAfterWin).
+   */
+  readonly challengeFrom?: number;
 }
 /** Open the Home screen. */
 export interface YapHomeRoute {
@@ -346,14 +352,20 @@ export function yapBootRoute(storage: YapStorage, link?: YapLinkContext | null):
  * level while the tutorial chain runs, Home after its last level and after
  * any daily heist. E4: while an express-tutorial chain runs (a link arrival
  * by a player who has never played), the chain goes T1 → T2 → T4 and then
- * opens the linked heist.
+ * opens the linked heist. E6: the linked heist of a taken challenge leads to
+ * the comparison with the sender (Gate 1 spec, "Arrival" step 4).
  */
 export function yapRouteAfterWin(route: YapLevelRoute): YapRoute {
   if (route.expressDay !== undefined) {
     const index = YAP_EXPRESS_TUTORIAL_SEQUENCE.indexOf(route.levelId);
     const next = index >= 0 ? YAP_EXPRESS_TUTORIAL_SEQUENCE[index + 1] : undefined;
-    if (next !== undefined) return yapExpressTutorialLevelRoute(next, route.expressDay);
-    return yapChallengeHeistRoute(route.expressDay) ?? YAP_HOME;
+    if (next !== undefined) {
+      return yapExpressTutorialLevelRoute(next, route.expressDay, route.challengeFrom);
+    }
+    return yapChallengeHeistRoute(route.expressDay, route.challengeFrom) ?? YAP_HOME;
+  }
+  if (route.mode === 'daily' && route.challengeFrom !== undefined) {
+    return yapChallengeCardRoute(route.day, route.challengeFrom);
   }
   if (route.mode !== 'tutorial') return YAP_HOME;
   const index = YAP_TUTORIAL_SEQUENCE.indexOf(route.levelId);
@@ -448,10 +460,43 @@ export function yapChallengeCardRoute(day: number, shareId: number): YapRoute {
  * day (Gate 1 spec, "The link"): a level route in mode 'daily' so that a win
  * is recorded under `yapcorp:days` — which is what unlocks the friend's plan
  * (yapFriendPlanVisible). Null when no heist exists for that day (outside 1..7).
+ * E6: `challengeFrom` is the sender's share ID when the player took their
+ * challenge, so the win leads to the comparison.
  */
-export function yapChallengeHeistRoute(day: number): YapLevelRoute | null {
+export function yapChallengeHeistRoute(day: number, challengeFrom?: number): YapLevelRoute | null {
   const levelId = `daily/d${day}`;
-  return yapLevelById(levelId) !== null ? { kind: 'level', levelId, mode: 'daily', day } : null;
+  if (yapLevelById(levelId) === null) return null;
+  return {
+    kind: 'level',
+    levelId,
+    mode: 'daily',
+    day,
+    ...(challengeFrom === undefined ? {} : { challengeFrom }),
+  };
+}
+
+/**
+ * E6: the link payload of the player's own result on `day`, from the stored
+ * day record — what Share sends from Home and from the comparison ("Share my
+ * result": the rematch). Counters are clamped to their payload fields.
+ */
+export function yapDaySharePayload(
+  day: number,
+  record: YapDayRecord,
+  shareId: number,
+  nickname: string,
+): YapPayloadData {
+  return {
+    day,
+    attempts: Math.min(255, record.winningAttempt),
+    ticks: record.bestTicks,
+    stars: record.stars,
+    hints: Math.min(3, record.hints),
+    causes: record.causes.slice(0, YAP_MAX_CAUSES),
+    shareId,
+    plan: [...record.plan],
+    nickname,
+  };
 }
 
 /**
@@ -482,8 +527,19 @@ export const YAP_EXPRESS_TUTORIAL_SEQUENCE: readonly string[] = [
 ];
 
 /** One express-tutorial level, chained to the linked heist of `day`. */
-export function yapExpressTutorialLevelRoute(levelId: string, day: number): YapLevelRoute {
-  return { kind: 'level', levelId, mode: 'tutorial', day: 0, expressDay: day };
+export function yapExpressTutorialLevelRoute(
+  levelId: string,
+  day: number,
+  challengeFrom?: number,
+): YapLevelRoute {
+  return {
+    kind: 'level',
+    levelId,
+    mode: 'tutorial',
+    day: 0,
+    expressDay: day,
+    ...(challengeFrom === undefined ? {} : { challengeFrom }),
+  };
 }
 
 /**
@@ -491,10 +547,14 @@ export function yapExpressTutorialLevelRoute(levelId: string, day: number): YapL
  * level not cleared yet (T1 → T2 → T4), then the linked heist. Once the
  * express tutorial is done, straight to the linked heist.
  */
-export function yapExpressTutorialRoute(progress: YapTutorialProgress, day: number): YapRoute {
+export function yapExpressTutorialRoute(
+  progress: YapTutorialProgress,
+  day: number,
+  challengeFrom?: number,
+): YapRoute {
   const next = YAP_EXPRESS_TUTORIAL_SEQUENCE.find((id) => !progress.cleared.includes(id));
-  if (next === undefined) return yapChallengeHeistRoute(day) ?? YAP_HOME;
-  return yapExpressTutorialLevelRoute(next, day);
+  if (next === undefined) return yapChallengeHeistRoute(day, challengeFrom) ?? YAP_HOME;
+  return yapExpressTutorialLevelRoute(next, day, challengeFrom);
 }
 
 // ---------------------------------------------------------------------------

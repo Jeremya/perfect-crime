@@ -8,7 +8,10 @@
 // recipient (attempts first, then ticks, then a verdict), and — for a player
 // who has never played — the note that the three-level express tutorial
 // (T1, T2, T4) comes first. Actions: Take the challenge (express tutorial for
-// a new player, the linked heist otherwise) and Later.
+// a new player, the linked heist otherwise) and Later. Once the recipient has
+// a result on that heist the card is the comparison (story E6): the player
+// lands here when leaving the Win screen of the linked heist, and the actions
+// become Share my result (their own link back: the rematch) and Home.
 //
 // The friend's plan stays hidden until the recipient has won the linked heist
 // or has taken the second hint (Gate 1 spec, "Arrival" step 4 — the acceptance
@@ -42,7 +45,12 @@ import {
   yapLevelById,
   type YapRoute,
 } from '../app/router';
-import { yapLoadShareId, yapShareIdHex } from '../app/share';
+import {
+  yapLoadShareId,
+  yapPrepareShareImage,
+  yapResolveShareVariant,
+  yapShareIdHex,
+} from '../app/share';
 import { yapStorage } from '../app/storage';
 import type { YapCell, YapLevel } from '../core/level';
 import type { YapPlan } from '../core/sim';
@@ -55,8 +63,8 @@ import {
 } from './board';
 import { yapFitCamera, yapOnViewResize, yapViewSize } from './hidpi';
 import { yapHomeActions } from './home-layout';
-import { yapFlow } from './home-scene';
-import { yapButton, yapCard, yapHeader, yapPaperPage } from './kit';
+import { yapFlow, yapShareDayResult, yapShareToastMessage } from './home-scene';
+import { yapButton, yapCard, yapHeader, yapPaperPage, yapShowToast } from './kit';
 import { yapSeal, yapStamp } from './kit-screens';
 import { yapHeistFacts, yapHeistName } from './compose';
 import {
@@ -78,6 +86,11 @@ export const YAP_CHALLENGE_SCENE_KEY = 'yap-challenge';
 export interface YapChallengeSceneData {
   readonly day: number;
   readonly shareId?: number;
+  /**
+   * E6: the card is reached from inside the game, when the player leaves the
+   * Win screen of the linked heist — not from a link, so no link_opened.
+   */
+  readonly comparison?: boolean;
 }
 
 /** The cells the sender's plan visits, from the level start. */
@@ -103,6 +116,8 @@ export class YapChallengeScene extends Phaser.Scene {
   private yapPlanViewedTracked = false;
   /** The verdict stamp has landed: a rebuild (resize, plan view) shows it without the thump. */
   private yapVerdictLanded = false;
+  /** Top of the actions, where the share note sits. */
+  private yapActionsTop = 0;
 
   constructor() {
     super(YAP_CHALLENGE_SCENE_KEY);
@@ -122,13 +137,20 @@ export class YapChallengeScene extends Phaser.Scene {
       yapFlow.yapGo(this, { kind: 'home' });
       return;
     }
-    // link_opened (Gate 1 spec, "Events"): arrival from a link carrying a payload.
-    track('link_opened', {
-      day: this.yapEntry.day,
-      sender_share_id: yapShareIdHex(this.yapEntry.shareId),
-      is_new_player: !yapIsKnownPlayer(yapStorage),
-      is_self: this.yapEntry.shareId === yapLoadShareId(),
-    });
+    // link_opened (Gate 1 spec, "Events"): arrival from a link carrying a
+    // payload. The comparison after the heist (E6) is not an arrival.
+    if (data.comparison !== true) {
+      track('link_opened', {
+        day: this.yapEntry.day,
+        sender_share_id: yapShareIdHex(this.yapEntry.shareId),
+        is_new_player: !yapIsKnownPlayer(yapStorage),
+        is_self: this.yapEntry.shareId === yapLoadShareId(),
+      });
+    }
+    // the 'image' variant needs its file ready at the tap on Share my result
+    if (this.yapHasResult() && yapResolveShareVariant() === 'image') {
+      void yapPrepareShareImage(this.yapDay);
+    }
     this.yapBuild();
     this.yapOnResize = yapOnViewResize(this, () => this.yapBuild());
     this.scale.on(Phaser.Scale.Events.RESIZE, this.yapOnResize, this);
@@ -155,13 +177,32 @@ export class YapChallengeScene extends Phaser.Scene {
     return yapFriendPlanVisible(entry, this.yapRecipientProgress());
   }
 
-  /** Take the challenge: express tutorial for a new player, linked heist otherwise. */
+  /** The recipient has a result on the linked heist: the card is the comparison (E6). */
+  private yapHasResult(): boolean {
+    return loadYapDays(yapStorage).has(this.yapDay);
+  }
+
+  /**
+   * Take the challenge: express tutorial for a new player, linked heist
+   * otherwise. The route keeps the sender, so the win leads back here (E6).
+   */
   private yapTakeChallenge(): void {
     track('challenge_cta', { action: 'play' });
+    const from = this.yapEntry?.shareId;
     const route: YapRoute = yapIsKnownPlayer(yapStorage)
-      ? (yapChallengeHeistRoute(this.yapDay) ?? { kind: 'home' })
-      : yapExpressTutorialRoute(loadYapTutorialProgress(yapStorage), this.yapDay);
+      ? (yapChallengeHeistRoute(this.yapDay, from) ?? { kind: 'home' })
+      : yapExpressTutorialRoute(loadYapTutorialProgress(yapStorage), this.yapDay, from);
     yapFlow.yapGo(this, route);
+  }
+
+  /** Share my result (E6): the player's own link back — the rematch. */
+  private yapShareMyResult(): void {
+    void yapShareDayResult(this.yapDay, 'comparison')?.then((report) => {
+      const message = yapShareToastMessage(report);
+      const root = this.yapRoot;
+      if (message === null || root === null) return;
+      yapShowToast(this, root, yapViewSize(this).width / 2, this.yapActionsTop - 8, message);
+    });
   }
 
   /** Later: keep the challenge in the inbox, go Home. */
@@ -204,8 +245,9 @@ export class YapChallengeScene extends Phaser.Scene {
 
     // the header: the message kicker over who sent the challenge, or the
     // comparison title over the friend's plan
+    // (once the recipient has a result, the card is the comparison too: E6)
     const title =
-      this.yapView === 'plan'
+      this.yapView === 'plan' || this.yapHasResult()
         ? yapI18n.t('comparison.title')
         : entry.nickname !== ''
           ? yapI18n.t('challengeFlow.title', { nickname: entry.nickname })
@@ -220,6 +262,7 @@ export class YapChallengeScene extends Phaser.Scene {
     // the actions in the bottom third: Later above the primary Take the
     // challenge, the layout of Home's (yapHomeActions)
     const actions = yapHomeActions(width, height, 1);
+    this.yapActionsTop = actions.top;
 
     // the index card between the header and the actions
     const cardX = 16;
@@ -241,26 +284,36 @@ export class YapChallengeScene extends Phaser.Scene {
       );
     }
 
+    // E6: with a result on that day the card is the comparison — Share my
+    // result (the rematch) and Home; See their plan sits in the card. Without
+    // one: Take the challenge and Later.
+    const compared = this.yapHasResult();
+    // End-to-end hook beside `__yapPhase`
+    (window as unknown as Record<string, unknown>)['__yapScreen'] = compared
+      ? 'comparison'
+      : 'challenge';
     root.add(
       yapButton(this, {
         x: actions.primary.x,
         y: actions.primaryY,
         width: actions.primary.width,
-        label: yapI18n.t('challenge.takeChallenge'),
+        label: yapI18n.t(compared ? 'comparison.shareMyResult' : 'challenge.takeChallenge'),
         kind: 'primary',
-        onPress: () => this.yapTakeChallenge(),
+        // the share sheet needs the activation of the release (E2)
+        ...(compared ? { fireOn: 'up' as const } : {}),
+        onPress: () => (compared ? this.yapShareMyResult() : this.yapTakeChallenge()),
       }).container,
     );
-    const later = actions.secondary[0];
-    if (later !== undefined) {
+    const second = actions.secondary[0];
+    if (second !== undefined) {
       root.add(
         yapButton(this, {
-          x: later.x,
+          x: second.x,
           y: actions.secondaryY,
-          width: later.width,
-          label: yapI18n.t('challenge.later'),
+          width: second.width,
+          label: yapI18n.t(compared ? 'comparison.home' : 'challenge.later'),
           kind: 'secondary',
-          onPress: () => this.yapLater(),
+          onPress: () => (compared ? yapFlow.yapGo(this, { kind: 'home' }) : this.yapLater()),
         }).container,
       );
     }
