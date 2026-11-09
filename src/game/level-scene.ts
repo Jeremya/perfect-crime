@@ -1580,7 +1580,8 @@ export class YapLevelScene extends Phaser.Scene {
     const exec = this.yapExecution;
     if (exec === null) return;
     const outcome = exec.yapOutcome();
-    this.events.emit(YAP_EXECUTION_END_EVENT, outcome);
+    // the hints used go with the outcome: the flow keeps them in the day record
+    this.events.emit(YAP_EXECUTION_END_EVENT, outcome, this.yapHints?.yapHintsUsed() ?? 0);
     if (outcome.kind === 'detected') {
       // C4: slow-motion replay of the last ticks, zoom, written cause.
       this.yapAttemptLog.yapRegisterFailure(outcome.cause);

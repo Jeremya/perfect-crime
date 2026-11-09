@@ -301,3 +301,39 @@ describe('yapEmojiLineFor — the share line from a stored record (E2 Home share
     expect(yapEmojiLineFor(['guard', 'camera'], 3, 0)).toBe(screen.yapEmojiLine());
   });
 });
+
+// ---------------------------------------------------------------------------
+// The result the day record keeps (Home's share, the comparison)
+// ---------------------------------------------------------------------------
+
+describe('YapWinScreen.yapDailyWin: what the day record keeps', () => {
+  it('keeps the hints used, with the attempts, the causes and the plan', () => {
+    const level = lvl(14);
+    const log = new YapAttemptLog();
+    for (const cause of ['guard', 'guard', 'camera'] as const) {
+      log.yapPressPlay();
+      log.yapRegisterFailure(cause);
+    }
+    log.yapPressPlay();
+    log.yapRegisterWin();
+    const win = new YapWinScreen(level, run(level, WIN_PLAN_15).outcome, log, 1);
+    expect(win.yapDailyWin(WIN_PLAN_15)).toEqual({
+      attempts: 4,
+      ticks: 15,
+      stars: 2,
+      hints: 1,
+      causes: ['guard', 'guard', 'camera'],
+      par: 14,
+      plan: WIN_PLAN_15,
+    });
+  });
+
+  it('no hint, no plan known: zero and an empty plan', () => {
+    const level = lvl(14);
+    const log = new YapAttemptLog();
+    log.yapPressPlay();
+    log.yapRegisterWin();
+    const win = new YapWinScreen(level, run(level, WIN_PLAN).outcome, log);
+    expect(win.yapDailyWin(null)).toMatchObject({ attempts: 1, hints: 0, plan: [] });
+  });
+});
