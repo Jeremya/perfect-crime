@@ -51,7 +51,7 @@ import {
   type YapRoute,
 } from '../app/router';
 import { yapStorage, type YapStorage } from '../app/storage';
-import type { YapCause, YapPlan, YapSimOutcome } from '../core/sim';
+import type { YapPlan, YapSimOutcome } from '../core/sim';
 import { YAP_PALETTE, YAP_TOP_BAR_HEIGHT, yapFitRows, yapLevelLayout } from './board';
 import { yapHeistFacts, yapHeistName, yapWeekday } from './compose';
 import {
@@ -211,8 +211,11 @@ export class YapFlowController {
     if (plan !== undefined) this.yapLastPlan = plan;
   };
 
-  /** Failure: remember the cause. Win: record the tutorial or daily result. */
-  private readonly yapOnExecutionEnd = (outcome: YapSimOutcome): void => {
+  /**
+   * Failure: remember the cause. Win: record the tutorial or daily result,
+   * with the hints used on this run (C7), which the level scene sends along.
+   */
+  private readonly yapOnExecutionEnd = (outcome: YapSimOutcome, hintsUsed = 0): void => {
     const route = this.yapRoute;
     if (route === null) return;
     if (outcome.kind === 'detected') {
@@ -228,22 +231,11 @@ export class YapFlowController {
       return;
     }
     if (route.mode !== 'daily') return;
-    const win = new YapWinScreen(level, outcome, this.yapLog);
-    const causes = this.yapLog
-      .yapAttemptEntries()
-      .filter((entry): entry is YapCause => entry !== 'won');
+    const win = new YapWinScreen(level, outcome, this.yapLog, hintsUsed);
     const result = recordYapDailyWin(
       this.storage,
       route.day,
-      {
-        attempts: win.yapAttempts(),
-        ticks: win.yapTicks(),
-        stars: win.yapStars(),
-        hints: 0,
-        causes,
-        par: level.par,
-        plan: this.yapLastPlan ?? [],
-      },
+      win.yapDailyWin(this.yapLastPlan),
       this.now(),
     );
     if (result.firstWin && result.streak !== null) {

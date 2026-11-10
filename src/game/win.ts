@@ -199,6 +199,31 @@ export class YapWinScreen {
   }
 
   /**
+   * What the day record keeps of this win (`recordYapDailyWin`,
+   * src/app/router.ts): the hints used included, so that a share from Home or
+   * from the comparison carries its 💡 like the Win screen's does.
+   */
+  yapDailyWin(plan: YapPlan | null): {
+    readonly attempts: number;
+    readonly ticks: number;
+    readonly stars: number;
+    readonly hints: number;
+    readonly causes: readonly YapCause[];
+    readonly par: number;
+    readonly plan: YapPlan;
+  } {
+    return {
+      attempts: this.yapAttempts(),
+      ticks: this.yapTicks(),
+      stars: this.yapStars(),
+      hints: this.yapHintsUsed,
+      causes: this.yapLog.yapAttemptEntries().filter((entry): entry is YapCause => entry !== 'won'),
+      par: this.yapPar(),
+      plan: [...(plan ?? [])],
+    };
+  }
+
+  /**
    * The E1 link payload of this win (story E2): the day of the heist, the
    * winning attempt, ticks, stars, hints, the first 8 failure causes, the
    * anonymous share ID and the winning plan. Counters are clamped to their
